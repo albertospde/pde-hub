@@ -257,12 +257,13 @@ main {
 }
 
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 18px; margin-bottom: 56px;
 }
 
 .card-app {
+  flex: 0 0 230px;
   background: #001432;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -311,11 +312,12 @@ main {
 }
 
 .grid-ext {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 18px; margin-bottom: 56px;
 }
 .card-ext {
+  flex: 0 0 200px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -367,6 +369,58 @@ main {
   border-radius: 6px;
   padding: 3px 8px;
   vertical-align: middle;
+}
+
+/* ── Card Download Template ── */
+.card-download {
+  height: 100%;
+  min-height: 160px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(0,180,232,.25);
+  border-radius: 16px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px;
+  padding: 18px 14px;
+  text-decoration: none;
+  transition: transform .2s, border-color .2s, box-shadow .2s;
+  cursor: pointer;
+  min-width: 140px; max-width: 160px;
+  text-align: center;
+}
+.card-download:hover {
+  transform: translateY(-3px);
+  border-color: rgba(0,180,232,.6);
+  box-shadow: 0 8px 24px rgba(0,180,232,.15);
+}
+.card-download-icon {
+  width: 48px; height: 48px;
+  background: linear-gradient(135deg, #1a2d6b, #0e2050);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.card-download-icon svg {
+  width: 26px; height: 26px; fill: #00b4e8;
+}
+.card-download-label {
+  font-size: 11px; font-weight: 700;
+  color: #e0e8f0;
+  line-height: 1.3;
+  letter-spacing: .02em;
+}
+.card-download-sub {
+  font-size: 10px; color: #7a9ab8;
+  line-height: 1.2;
+}
+.badge-download {
+  font-size: 10px; font-weight: 600;
+  color: #00b4e8;
+  background: rgba(0,180,232,.1);
+  border: 1px solid rgba(0,180,232,.3);
+  border-radius: 20px;
+  padding: 2px 8px;
+  letter-spacing: .02em;
 }
 </style>
 </head>
@@ -499,6 +553,12 @@ main {
           <span class="badge-ext">↗ esterno</span>
         </div>
       </a>
+      <a class="card-download" href="https://tdflwenlylhctxssatax.supabase.co/storage/v1/object/public/Template/Template%20Upload%20App%20RPN.xlsx" download>
+        <div class="card-download-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg></div>
+        <span class="card-download-label">Download Template Upload</span>
+        <span class="card-download-sub">RPN</span>
+        <span class="badge-download">↓ template</span>
+      </a>
     </div>
 
     <!-- SEZIONE 2: PIATTAFORME ESTERNE -->
@@ -516,6 +576,12 @@ main {
         <img class="card-ext-logo" src="data:image/jpeg;base64,R0lGODlh5gCgAMQAAAEsX////2qDodfe5iFGc6u5yj5ehd/l64+iuQgyY1Btkb/K14CVr+/y9c/X4RI6avf4+p+ww1l1ljBTfHGJpUFhh5WnvGF7myhMd6+9zZSltQAAAAAAAAAAAAAAAAAAACH5BAAHAP8ALAAAAADmAKAAAAX/YCCOZGmeaKqubOu+cCzPdG3feK7vfO//wKBwSCwaj8ikcslsOp/QqHRKrVqv2Kx2y+16v+CweEwum8/otHrNbrvf8Lh8Tq/b7/i8fs/v+/+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tOxEAMyDQPXIgMNItbbLtnSEAAADzEY5iIC5gsBDObhKwvmAtEN5gDp6wEG5hbgyXNhwZwBKQ4UnKPgbUQDCg8AKHBQIgIBABMyGFrAoOELdftEMAgoEMC8FRYY/0g5EFGfAhIV9J3zGEEmAI0sGngMMADCiXEntJkQWoKoCaA/TxZVSmJnCaQnQJ6IZzIA1BIQfFKZYBMAxZIyVQZw0HUCCpANEphDRxWABBIL1Jp7K6IByIF2ZV6D0HJu074SzGGoC1jwiLYAxAYQXHCfYRFx9dE1IbXkNaoL7oodYI7BPwycE0Oh0BVAhAD1ulawerHr2dJy9RUQUcBcApCDA8jFoO7a7t48z2FoObk0gNzGcwc+11KsbX2Lj9O2jTtqP6qXjb8LvTu0YiYZjCNo0FfmaoWlXwMIGBrAu8Z014porNOvQ/sjso5oOd+giH/SNXaQP4blA8A9BIakj/8BA8z2mHwB0EfZdQNRhU4A7QBwUHsMDLCAd06wVNoEDcTU1QMOIGBcSBOyaBs3hoWGAQMMLPeOPhjMJgKOOn7DgAAYyCUCSFrJGACRMEpHlQQ0VgbdCDEKRqONLYpUoTtQrhPagMGJ1gRXJx6AmEwRkLWielnmZmR7NqlUmz4JePOmbd609YCQR/bT5WCV7QmWTdc8tqN0bIZVpWWIDroPiEl+lwRppWWQWlcXNNCacWgOqmaUbmnjqVYRtsSlBaKWo6EIyw2pp5F9GkmVBZ4SJWh0g4UmQaw9HYpdoqaiw2iXjh4RXmkMlacPieidaZ2L0vkZXQIk+KSfCGphMK3/bseFpiOey9FVXbeqSpcalyTM+iAA0Oa3rJVVUTXgcvf8+isSIqoWgIk2PXCAiivqWUKfjxmJIY7qqMTZA8N1dnDCiZl6nEx1JWeVxAH0xVtVtJbbbIbHFbwuomPq45O8nS0BZr4NhGxOBmb2y+K/egYs6JizGajPPTbbM91cfc6ZQGMI+gz0CMvRqanGuf0JQI8kVLbrq3A2RLKXSEDa1QKT2sTQpf3ykI1TXz/VzVCgDiUnQCSM/SZJI2hT9gth3zD2FcN2NZ6x5pzn8pNc9GizVn6L/MgBFNDI9UsZMIDABTI90MACFCAAkcteCBabYpbrE+wjjGOkEwk1mfPV/wj1YtpFbOi+MwLqCahOCXlUk9D5CaGb3gU4KOCeSUybh45C19TIwPsJqf2ubPAwDG9C8ScAj/wLypfAvAnOP99C9HD5q7Ht1rOA/QjTl7DiS91fHzv42md5olPlo/A9ZOkrahMC7Zu/efjbm1e//cTHH51No9tfCt6HGv91ZXMCLAEB8ac+cxCAfQlU4Png97L8uSeCK1igAV2CwQxOsIAVVJ/jOqgCDYZQUfQj4QA/yMBBrUaFKzzN8iRivADCUIEvnOEBfofAG97LddLrYUd8KAMHQJCISEyiEpfIxCY68YlQjKIUp0jFKlrxiljMoha3yMUuevGLYAyjGMdIxiAymvGMaEyjGtfIxja68Y1wjKMc50jHOtrxjnjMIxVDAAA7" alt="Messaggerie Libri">
         <span class="card-ext-desc">Portale distributore — ordini e disponibilità</span>
         <span class="badge-ext">↗ esterno</span>
+      </a>
+      <a class="card-download" href="https://tdflwenlylhctxssatax.supabase.co/storage/v1/object/public/Template/template-caricamento-ordine-da-file%20(52).xlsx" download>
+        <div class="card-download-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg></div>
+        <span class="card-download-label">Download Template Upload</span>
+        <span class="card-download-sub">Messaggerie</span>
+        <span class="badge-download">↓ template</span>
       </a>
     </div>
 
