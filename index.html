@@ -299,7 +299,12 @@ main {
   width: 60%; height: 60%; object-fit: contain; display: block;
   transition: transform .35s;
 }
-.card-app:hover .card-app-icon img { transform: scale(1.04); }
+.card-app-icon svg {
+  width: 34px; height: 34px; fill: none; stroke: #1a2d6b; stroke-width: 1.5;
+  transition: transform .35s;
+}
+.card-app:hover .card-app-icon img,
+.card-app:hover .card-app-icon svg { transform: scale(1.04); }
 
 .card-app-footer {
   padding: 12px 14px 14px;
@@ -601,7 +606,7 @@ main {
         </div>
       </a>
       <a class="card-app" href="https://albertospde.github.io/pde-condizioni-commerciali/" target="_blank" rel="noopener">
-        <div class="card-app-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+        <div class="card-app-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6M9 9h1"/></svg></div>
         <div class="card-app-footer">
           <span class="card-app-desc">Variazioni condizioni commerciali</span>
           <span class="badge-live">● live</span>
