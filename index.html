@@ -644,6 +644,7 @@ main {
       </a>
     </div>
 
+    <div class="role-hide-agente">
     <!-- SEZIONE 3: APPSELLING -->
     <div class="section-header">
       <span class="section-label">AppSelling &amp; Utility</span>
@@ -688,6 +689,7 @@ main {
       </a>
 
     </div>
+    </div><!-- /role-hide-agente AppSelling -->
 
 
     <!-- SEZIONE 2: PIATTAFORME ESTERNE -->
@@ -944,10 +946,6 @@ async function showAppForUser() {
     if (role === 'agente') {
       document.querySelectorAll('.role-hide-agente').forEach(el => {
         el.style.display = 'none';
-      });
-      // Rinomino la sezione AppSelling in "Strumenti" per l'agente
-      document.querySelectorAll('.section-label').forEach(el => {
-        if (el.textContent.trim() === 'AppSelling & Utility') el.textContent = 'Strumenti';
       });
     }
   }
