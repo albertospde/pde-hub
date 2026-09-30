@@ -527,6 +527,22 @@ body.is-gestore .dropdown-item.admin-only { display: flex !important; }
 .role-agente { background: rgba(232,196,104,.1); color: var(--gold); border: 1px solid rgba(232,196,104,.3); }
 .role-altro  { background: rgba(255,255,255,.05); color: var(--muted); border: 1px solid var(--border); }
 .users-count { font-size: 12px; color: var(--muted); margin: 10px 2px 0; }
+.role-select {
+  background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-family: var(--font); font-size: 12px; padding: 4px 8px; cursor: pointer;
+}
+.role-select option { background: var(--blue-dark); }
+.role-select.r-admin  { color: var(--accent); border-color: rgba(0,180,232,.4); }
+.role-select.r-agente { color: var(--gold);   border-color: rgba(232,196,104,.4); }
+.gestore-toggle { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.users-toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 300;
+  background: rgba(13,19,52,.97); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 16px; font-size: 13px; box-shadow: 0 12px 30px rgba(0,0,0,.5); display: none;
+}
+.users-toast.show { display: block; animation: dropIn .2s ease; }
+.users-toast.err { border-color: var(--danger); color: var(--danger); }
+.modal-back select.field-input option { background: var(--blue-dark); }
 
 .modal-back {
   position: fixed; inset: 0; z-index: 200; background: rgba(5,8,20,.7); backdrop-filter: blur(4px);
@@ -848,6 +864,34 @@ body.is-gestore .dropdown-item.admin-only { display: flex !important; }
   </div>
 </div>
 
+<!-- ── MODALE NUOVO UTENTE ── -->
+<div class="modal-back" id="new-user-modal" onclick="if(event.target===this) closeNewUserModal()">
+  <div class="box">
+    <div class="box-title">Nuovo utente</div>
+    <div class="box-sub">L'account è attivo subito, senza email di conferma.</div>
+    <label class="field-label" for="nu-email">Email</label>
+    <input class="field-input" id="nu-email" type="email" placeholder="nome.cognome@pde.it" autocomplete="off"/>
+    <label class="field-label" for="nu-ruolo">Ruolo</label>
+    <select class="field-input" id="nu-ruolo">
+      <option value="agente">Agente</option>
+      <option value="admin">Admin</option>
+    </select>
+    <label class="field-label" for="nu-pwd">Password</label>
+    <div class="pwd-row">
+      <input class="field-input" id="nu-pwd" type="text" placeholder="min. 8 caratteri" autocomplete="new-password"/>
+      <button class="btn-sm" type="button" onclick="document.getElementById('nu-pwd').value = nuovaPasswordCasuale()">Genera</button>
+    </div>
+    <div class="pwd-hint">Comunica la password all'utente: potrà cambiarla dal menu "Cambia password".</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeNewUserModal()">Annulla</button>
+      <button class="btn btn-primary" id="nu-save" onclick="creaUtente()">Crea utente</button>
+    </div>
+    <div class="msg-error" id="nu-error"></div>
+    <div class="msg-ok" id="nu-ok"></div>
+  </div>
+</div>
+<div class="users-toast" id="users-toast"></div>
+
 <script>
 const SUPABASE_URL = "https://tdflwenlylhctxssatax.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZmx3ZW5seWxoY3R4c3NhdGF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMzgyNzYsImV4cCI6MjA5MTkxNDI3Nn0.l35qEL7LOvyYuI1McQlVqj4vbyTqmlevcmqWbTGYi2Q";
@@ -1019,7 +1063,7 @@ async function doLogout() {
   if (openTabs[USERS_TAB_KEY]) closeTab({ stopPropagation(){} }, USERS_TAB_KEY);
   usersCache = [];
   document.body.classList.remove('is-gestore');
-  await sb.auth.signOut();
+  await sb.auth.signOut({ scope: 'local' });
   showScreen('screen-login');
   document.getElementById('login-email').value = '';
   document.getElementById('login-pwd').value = '';
@@ -1084,12 +1128,13 @@ function openUsersPanel() {
               <option value="agente">Agente</option>
             </select>
             <button class="btn-sm" onclick="loadUsers()">↻ Aggiorna</button>
+            <button class="btn-sm primary" onclick="openNewUserModal()">+ Nuovo utente</button>
           </div>
         </div>
         <div class="users-table-wrap">
           <table class="users-table">
-            <thead><tr><th>Email</th><th>Ruolo</th><th>Ultimo accesso</th><th>Creato il</th><th>Password</th><th></th></tr></thead>
-            <tbody id="users-tbody"><tr><td colspan="6" class="dim">Caricamento…</td></tr></tbody>
+            <thead><tr><th>Email</th><th>Ruolo</th><th>Ultimo accesso</th><th>Creato il</th><th>Password</th><th title="Può aprire Gestione utenti">Gestore</th><th></th></tr></thead>
+            <tbody id="users-tbody"><tr><td colspan="7" class="dim">Caricamento…</td></tr></tbody>
           </table>
         </div>
         <div class="users-count" id="users-count"></div>
@@ -1110,13 +1155,13 @@ function openUsersPanel() {
 
 async function loadUsers() {
   const tb = document.getElementById('users-tbody');
-  if (tb) tb.innerHTML = '<tr><td colspan="6" class="dim">Caricamento…</td></tr>';
+  if (tb) tb.innerHTML = '<tr><td colspan="7" class="dim">Caricamento…</td></tr>';
   try {
     const { users } = await callHubUtenti({ action: 'list' });
     usersCache = users || [];
     renderUsers();
   } catch (e) {
-    if (tb) tb.innerHTML = `<tr><td colspan="6" style="color:var(--danger)">${escHtml(e.message)}</td></tr>`;
+    if (tb) tb.innerHTML = `<tr><td colspan="7" style="color:var(--danger)">${escHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -1127,17 +1172,21 @@ function renderUsers() {
   const r = document.getElementById('users-role')?.value || '';
   const rows = usersCache.filter(u => (!q || String(u.email).toLowerCase().includes(q)) && (!r || u.ruolo === r));
   tb.innerHTML = rows.length ? rows.map(u => {
-    const cls = u.ruolo === 'admin' ? 'role-admin' : u.ruolo === 'agente' ? 'role-agente' : 'role-altro';
     const idx = usersCache.indexOf(u);
     return `<tr>
       <td>${escHtml(u.email)}${u.confermato ? '' : ' <span class="dim">(non confermato)</span>'}${u.bloccato ? ' <span class="dim">(bloccato)</span>' : ''}</td>
-      <td><span class="role-chip ${cls}">${escHtml(u.ruolo || '—')}</span></td>
+      <td><select class="role-select r-${escHtml(u.ruolo)}" onchange="cambiaRuolo(${idx}, this)">
+        ${u.ruolo ? '' : '<option value="" selected>—</option>'}
+        <option value="admin" ${u.ruolo === 'admin' ? 'selected' : ''}>admin</option>
+        <option value="agente" ${u.ruolo === 'agente' ? 'selected' : ''}>agente</option>
+      </select></td>
       <td>${fmtData(u.ultimo_accesso)}</td>
       <td>${fmtData(u.creato)}</td>
       <td class="pwd-mask">••••••••</td>
+      <td style="text-align:center"><input type="checkbox" class="gestore-toggle" ${u.gestore ? 'checked' : ''} onchange="cambiaGestore(${idx}, this)"></td>
       <td style="text-align:right"><button class="btn-sm" onclick="openPwdModal(${idx})">🔑 Imposta password</button></td>
     </tr>`;
-  }).join('') : '<tr><td colspan="6" class="dim">Nessun utente trovato.</td></tr>';
+  }).join('') : '<tr><td colspan="7" class="dim">Nessun utente trovato.</td></tr>';
   document.getElementById('users-count').textContent = `${rows.length} di ${usersCache.length} utenti`;
 }
 
@@ -1164,12 +1213,15 @@ function togglePwdVisibility() {
   inp.type = inp.type === 'password' ? 'text' : 'password';
   document.getElementById('adm-pwd-eye').textContent = inp.type === 'password' ? 'Mostra' : 'Nascondi';
 }
-function generaPassword() {
+function nuovaPasswordCasuale() {
   // niente caratteri ambigui (0/O, 1/l/I) per dettarla a voce senza errori
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
   const buf = new Uint32Array(10);
   crypto.getRandomValues(buf);
-  const pwd = Array.from(buf, n => chars[n % chars.length]).join('') + '!';
+  return Array.from(buf, n => chars[n % chars.length]).join('') + '!';
+}
+function generaPassword() {
+  const pwd = nuovaPasswordCasuale();
   const inp = document.getElementById('adm-pwd');
   inp.value = pwd; inp.type = 'text';
   document.getElementById('adm-pwd-eye').textContent = 'Nascondi';
@@ -1192,6 +1244,82 @@ async function salvaPassword() {
     btn.disabled = false;
   }
 }
+
+let toastTimer = null;
+function usersToast(msg, isErr) {
+  const t = document.getElementById('users-toast');
+  t.textContent = msg;
+  t.className = 'users-toast show' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = 'users-toast', 3200);
+}
+function aggiornaCache(user) {
+  const i = usersCache.findIndex(u => u.id === user.id);
+  if (i >= 0) usersCache[i] = user; else usersCache.push(user);
+  usersCache.sort((a, b) => String(a.email).localeCompare(String(b.email)));
+  renderUsers();
+}
+async function cambiaRuolo(idx, sel) {
+  const u = usersCache[idx];
+  const ruolo = sel.value;
+  if (!u || !ruolo || ruolo === u.ruolo) return;
+  if (!confirm(`Impostare il ruolo "${ruolo}" per ${u.email}?\nL'utente vedrà il cambio al prossimo accesso.`)) { renderUsers(); return; }
+  sel.disabled = true;
+  try {
+    const { user } = await callHubUtenti({ action: 'set-role', user_id: u.id, ruolo });
+    aggiornaCache(user);
+    usersToast(`Ruolo di ${u.email}: ${ruolo}`);
+  } catch (e) { usersToast(e.message, true); renderUsers(); }
+}
+async function cambiaGestore(idx, cb) {
+  const u = usersCache[idx];
+  if (!u) return;
+  const on = cb.checked;
+  const msg = on
+    ? `Dare a ${u.email} l'accesso a Gestione utenti?\nPotrà cambiare password e ruoli di tutti, compresi i tuoi.`
+    : `Togliere a ${u.email} l'accesso a Gestione utenti?`;
+  if (!confirm(msg)) { cb.checked = !on; return; }
+  cb.disabled = true;
+  try {
+    const { user } = await callHubUtenti({ action: 'set-gestore', user_id: u.id, gestore: on });
+    aggiornaCache(user);
+    usersToast(on ? `${u.email} ora è gestore` : `${u.email} non è più gestore`);
+  } catch (e) { usersToast(e.message, true); renderUsers(); }
+}
+function openNewUserModal() {
+  ['nu-email', 'nu-pwd'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('nu-ruolo').value = 'agente';
+  document.getElementById('nu-error').textContent = '';
+  document.getElementById('nu-ok').textContent = '';
+  document.getElementById('nu-save').disabled = false;
+  document.getElementById('new-user-modal').classList.add('open');
+  setTimeout(() => document.getElementById('nu-email').focus(), 50);
+}
+function closeNewUserModal() {
+  document.getElementById('new-user-modal').classList.remove('open');
+  document.getElementById('nu-pwd').value = '';
+}
+async function creaUtente() {
+  const err = document.getElementById('nu-error');
+  const ok = document.getElementById('nu-ok');
+  const btn = document.getElementById('nu-save');
+  err.textContent = ''; ok.textContent = '';
+  const email = document.getElementById('nu-email').value.trim();
+  const ruolo = document.getElementById('nu-ruolo').value;
+  const password = document.getElementById('nu-pwd').value;
+  if (!email) { err.textContent = 'Inserisci l\'email.'; return; }
+  if (password.length < 8) { err.textContent = 'Password: minimo 8 caratteri.'; return; }
+  btn.disabled = true;
+  try {
+    const { user } = await callHubUtenti({ action: 'create-user', email, ruolo, password });
+    aggiornaCache(user);
+    ok.textContent = 'Utente creato: ' + user.email;
+    setTimeout(closeNewUserModal, 1400);
+  } catch (e) {
+    err.textContent = e.message;
+    btn.disabled = false;
+  }
+}
 document.getElementById('adm-pwd').addEventListener('keydown', e => { if (e.key === 'Enter') salvaPassword(); });
 
 // ── Mostra app ──
@@ -1204,7 +1332,7 @@ async function showAppForUser() {
     document.getElementById('dropdown-email').textContent = email;
 
     // ── Filtro per ruolo agente ──
-    const role = data.user.user_metadata?.role || '';
+    const role = data.user.app_metadata?.role || data.user.user_metadata?.role || '';
     document.body.classList.toggle('is-gestore', data.user.app_metadata?.gestione_utenti === true);
     if (role === 'agente') {
       document.querySelectorAll('.role-hide-agente').forEach(el => {
