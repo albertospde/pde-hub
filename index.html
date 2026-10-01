@@ -1128,7 +1128,9 @@ function openAppTab(evt, el) {
     // Crea l'iframe una sola volta: resta in memoria mantenendo lo stato/login
     const iframe = document.createElement('iframe');
     iframe.className = 'app-iframe';
-    iframe.src = url;
+    // Parametro anti-cache: altrimenti l'iframe può riaprire una versione vecchia dell'app
+    // (GitHub Pages la tiene in cache fino a 10 minuti) anche dopo un aggiornamento.
+    iframe.src = url + (url.includes('?') ? '&' : '?') + '_v=' + Date.now();
     iframe.setAttribute('title', title);
     document.getElementById('iframe-container').appendChild(iframe);
 
