@@ -632,6 +632,7 @@ html[data-theme="light"] .card-download { background: #ffffff; border-color: var
 html[data-theme="light"] .card-download-label { color: var(--text); }
 html[data-theme="light"] .card-download-sub { color: var(--muted); }
 html[data-theme="light"] .users-table-wrap { background: #ffffff; }
+html[data-theme="light"] .modal-back { background: rgba(22,32,74,.35); }
 html[data-theme="light"] .users-tools input,
 html[data-theme="light"] .users-tools select,
 html[data-theme="light"] .role-select,
@@ -647,6 +648,12 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
     else document.documentElement.removeAttribute('data-theme');
     try { localStorage.setItem('pde-hub-theme', t); } catch (e) {}
   };
+  // tema cambiato da un'altra app PDE (stessa origine: altra scheda o iframe)
+  window.addEventListener('storage', function (e) {
+    if (e.key !== 'pde-hub-theme') return;
+    if (e.newValue === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    else document.documentElement.removeAttribute('data-theme');
+  });
 })();
 </script>
 </head>
@@ -736,6 +743,8 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
       <div class="header-divider"></div>
       <span class="header-time" id="clock"></span>
       <div class="header-divider"></div>
+      <button class="user-btn" onclick="openMyPwdModal()" title="Cambia la tua password">🔑 Cambia password</button>
+      <div class="header-divider"></div>
       <div class="theme-switch" role="group" aria-label="Tema">
         <button class="theme-opt" data-set="light" onclick="setTheme('light')" title="Versione chiara">
           <svg viewBox="0 0 24 24"><path d="M12 7a5 5 0 100 10 5 5 0 000-10zM11 1h2v3h-2zm0 19h2v3h-2zM1 11h3v2H1zm19 0h3v2h-3zM4.22 5.64l1.42-1.42 2.12 2.12-1.42 1.42zm12.02 12.02l1.42-1.42 2.12 2.12-1.42 1.42zM4.22 18.36l2.12-2.12 1.42 1.42-2.12 2.12zM16.24 6.34l2.12-2.12 1.42 1.42-2.12 2.12z"/></svg>
@@ -755,7 +764,7 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
         </button>
         <div class="dropdown" id="dropdown">
           <div class="dropdown-email" id="dropdown-email"></div>
-          <button class="dropdown-item" onclick="showScreen('screen-changepwd'); closeDropdown()">
+          <button class="dropdown-item" onclick="openMyPwdModal(); closeDropdown()">
             <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
             Cambia password
           </button>
@@ -963,6 +972,34 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
   </div>
 </div>
 
+<!-- ── MODALE CAMBIA LA MIA PASSWORD ── -->
+<div class="modal-back" id="my-pwd-modal" onclick="if(event.target===this) closeMyPwdModal()">
+  <div class="box">
+    <div class="box-title">Cambia password</div>
+    <label class="field-label" for="my-pwd-old">Vecchia password</label>
+    <input class="field-input" id="my-pwd-old" type="password" autocomplete="current-password"/>
+    <label class="field-label" for="my-pwd-new">Nuova password</label>
+    <input class="field-input" id="my-pwd-new" type="password" placeholder="min. 8 caratteri" autocomplete="new-password"/>
+    <label class="field-label" for="my-pwd-new2">Ripeti nuova password</label>
+    <input class="field-input" id="my-pwd-new2" type="password" autocomplete="new-password"/>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeMyPwdModal()">Annulla</button>
+      <button class="btn btn-primary" id="my-pwd-save" onclick="confermaMyPwd()">Conferma</button>
+    </div>
+    <div class="msg-error" id="my-pwd-error"></div>
+  </div>
+</div>
+
+<!-- ── MODALE PASSWORD CAMBIATA ── -->
+<div class="modal-back" id="my-pwd-done" onclick="if(event.target===this) this.classList.remove('open')">
+  <div class="box">
+    <div class="box-title">Password cambiata con successo</div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="document.getElementById('my-pwd-done').classList.remove('open')">OK</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── MODALE NUOVO UTENTE ── -->
 <div class="modal-back" id="new-user-modal" onclick="if(event.target===this) closeNewUserModal()">
   <div class="box">
@@ -1156,6 +1193,45 @@ async function doChangePwd() {
     setTimeout(() => showScreen(null), 1500);
   }
 }
+
+// ── Cambia la mia password (popup dall'intestazione) ──
+const MY_PWD_IDS = ['my-pwd-old', 'my-pwd-new', 'my-pwd-new2'];
+function openMyPwdModal() {
+  MY_PWD_IDS.forEach(id => document.getElementById(id).value = '');
+  document.getElementById('my-pwd-error').textContent = '';
+  document.getElementById('my-pwd-save').disabled = false;
+  document.getElementById('my-pwd-modal').classList.add('open');
+  setTimeout(() => document.getElementById('my-pwd-old').focus(), 50);
+}
+function closeMyPwdModal() {
+  document.getElementById('my-pwd-modal').classList.remove('open');
+}
+async function confermaMyPwd() {
+  const [oldPwd, p1, p2] = MY_PWD_IDS.map(id => document.getElementById(id).value);
+  const err = document.getElementById('my-pwd-error');
+  const btn = document.getElementById('my-pwd-save');
+  err.textContent = '';
+  if (!oldPwd || !p1 || !p2) { err.textContent = 'Compila tutti i campi.'; return; }
+  if (p1.length < 8)         { err.textContent = 'La nuova password deve avere almeno 8 caratteri.'; return; }
+  if (p1 !== p2)             { err.textContent = 'Le due nuove password non coincidono.'; return; }
+  if (p1 === oldPwd)         { err.textContent = 'La nuova password deve essere diversa dalla vecchia.'; return; }
+
+  btn.disabled = true;
+  try {
+    const { data } = await sb.auth.getUser();
+    const email = data?.user?.email;
+    if (!email) { err.textContent = 'Sessione scaduta: accedi di nuovo.'; return; }
+    const { error: loginErr } = await sb.auth.signInWithPassword({ email, password: oldPwd });
+    if (loginErr) { err.textContent = 'La vecchia password non è corretta.'; return; }
+    const { error } = await sb.auth.updateUser({ password: p1 });
+    if (error) { err.textContent = 'Errore: ' + error.message; return; }
+    closeMyPwdModal();
+    document.getElementById('my-pwd-done').classList.add('open');
+  } finally {
+    btn.disabled = false;
+  }
+}
+MY_PWD_IDS.forEach(id => document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') confermaMyPwd(); }));
 
 // ── Logout ──
 async function doLogout() {
