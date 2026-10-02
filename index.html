@@ -589,6 +589,14 @@ body.is-gestore .dropdown-item.admin-only { display: flex !important; }
 .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
 .modal-actions .btn { margin: 0; }
 .pwd-hint { font-size: 11px; color: var(--muted); margin: 8px 0 14px; }
+.sezioni-list { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; }
+.sezioni-item {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  font-size: 13px; color: var(--text);
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+}
+.sezioni-item:hover { border-color: var(--accent); }
+.sezioni-item input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 @media (max-width: 640px) {
   .users-panel { padding: 20px 16px 48px; }
   .users-tools input { width: 100%; }
@@ -1070,6 +1078,23 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
   </div>
 </div>
 
+<!-- ── MODALE SEZIONI BOOKUP DI UN AGENTE ── -->
+<div class="modal-back" id="sezioni-modal" onclick="if(event.target===this) closeSezioniModal()">
+  <div class="box">
+    <div class="box-title">Sezioni BookUp in più</div>
+    <div class="box-sub" id="sezioni-email"></div>
+    <div class="pwd-hint">Giri Vendita e Ordini urgenti l'agente li vede sempre. Spunta le sezioni in più che può usare.</div>
+    <div class="sezioni-list" id="sezioni-list"></div>
+    <div class="pwd-hint" id="sezioni-rif-note" style="display:none">⚠ Con "Inserisci rifornimenti" gli ordini partono con l'utenza Messaggerie dell'agente: deve collegarla in BookUp da 🔑 Accessi → Accesso a Messaggerie.</div>
+    <div class="pwd-hint">L'agente vede la modifica dopo essere uscito e rientrato in BookUp (o entro un'ora).</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeSezioniModal()">Annulla</button>
+      <button class="btn btn-primary" id="sezioni-save" onclick="salvaSezioni()">Salva</button>
+    </div>
+    <div class="msg-error" id="sezioni-error"></div>
+  </div>
+</div>
+
 <!-- ── MODALE PASSWORD CAMBIATA ── -->
 <div class="modal-back" id="my-pwd-done" onclick="if(event.target===this) this.classList.remove('open')">
   <div class="box">
@@ -1505,7 +1530,7 @@ function renderUsers() {
       <td>${fmtData(u.creato)}</td>
       <td class="pwd-mask">••••••••</td>
       <td style="text-align:center"><input type="checkbox" class="gestore-toggle" ${u.gestore ? 'checked' : ''} onchange="cambiaGestore(${idx}, this)"></td>
-      <td style="text-align:right">${u.ruolo === 'agente' && u.ultimo_accesso && !u.primo_accesso ? `<button class="btn-sm" onclick="riattivaPrimoAccesso(${idx})" title="L'agente potrà ricrearsi la password dal tasto Primo accesso">↺ Riattiva primo accesso</button> ` : ''}<button class="btn-sm" onclick="openPwdModal(${idx})">🔑 Imposta password</button></td>
+      <td style="text-align:right">${u.ruolo === 'agente' && u.ultimo_accesso && !u.primo_accesso ? `<button class="btn-sm" onclick="riattivaPrimoAccesso(${idx})" title="L'agente potrà ricrearsi la password dal tasto Primo accesso">↺ Riattiva primo accesso</button> ` : ''}${u.ruolo === 'agente' ? `<button class="btn-sm" onclick="openSezioniModal(${idx})" title="${escHtml(sezioniBookupTitle(u))}">📚 Sezioni BookUp${(u.bookup_sezioni || []).length ? ` (${u.bookup_sezioni.length})` : ''}</button> ` : ''}<button class="btn-sm" onclick="openPwdModal(${idx})">🔑 Imposta password</button></td>
     </tr>`;
   }).join('') : '<tr><td colspan="7" class="dim">Nessun utente trovato.</td></tr>';
   document.getElementById('users-count').textContent = `${rows.length} di ${usersCache.length} utenti`;
@@ -1606,6 +1631,57 @@ async function cambiaGestore(idx, cb) {
     aggiornaCache(user);
     usersToast(on ? `${u.email} ora è gestore` : `${u.email} non è più gestore`);
   } catch (e) { usersToast(e.message, true); renderUsers(); }
+}
+// Sezioni BookUp normalmente nascoste agli agenti (stessi codici di AGENTE_BLOCKED_SECTIONS in BookUp)
+const SEZIONI_BOOKUP = [
+  ['raccolta', 'Inserisci e verifica novità'],
+  ['trasmissione', 'Trasmissione lancio novità'],
+  ['rifornimento', 'Inserisci rifornimenti'],
+  ['ordini', 'Consultazione ordini'],
+  ['consultazione', 'Consultazione titoli'],
+  ['carichi', 'Verifica carichi'],
+  ['condizioni', 'Condizioni librai'],
+  ['anagrafiche', 'Anagrafiche clienti'],
+];
+let sezioniTarget = null;
+function sezioniBookupTitle(u) {
+  const nomi = SEZIONI_BOOKUP.filter(([c]) => (u.bookup_sezioni || []).includes(c)).map(([, n]) => n);
+  return nomi.length ? 'Sezioni in più: ' + nomi.join(', ') : 'Nessuna sezione in più';
+}
+function openSezioniModal(idx) {
+  sezioniTarget = usersCache[idx];
+  if (!sezioniTarget) return;
+  const attive = sezioniTarget.bookup_sezioni || [];
+  document.getElementById('sezioni-email').textContent = sezioniTarget.email;
+  document.getElementById('sezioni-list').innerHTML = SEZIONI_BOOKUP.map(([c, n]) =>
+    `<label class="sezioni-item"><input type="checkbox" value="${c}" ${attive.includes(c) ? 'checked' : ''} onchange="aggiornaNotaRifornimento()"> ${escHtml(n)}</label>`).join('');
+  document.getElementById('sezioni-error').textContent = '';
+  document.getElementById('sezioni-save').disabled = false;
+  aggiornaNotaRifornimento();
+  document.getElementById('sezioni-modal').classList.add('open');
+}
+function closeSezioniModal() {
+  document.getElementById('sezioni-modal').classList.remove('open');
+  sezioniTarget = null;
+}
+function aggiornaNotaRifornimento() {
+  const on = !!document.querySelector('#sezioni-list input[value="rifornimento"]:checked');
+  document.getElementById('sezioni-rif-note').style.display = on ? '' : 'none';
+}
+async function salvaSezioni() {
+  if (!sezioniTarget) return;
+  const sezioni = [...document.querySelectorAll('#sezioni-list input:checked')].map(i => i.value);
+  const btn = document.getElementById('sezioni-save');
+  btn.disabled = true;
+  try {
+    const { user } = await callHubUtenti({ action: 'set-bookup-sezioni', user_id: sezioniTarget.id, sezioni });
+    aggiornaCache(user);
+    usersToast(`Sezioni BookUp di ${user.email}: ${sezioni.length ? sezioni.length + ' in più' : 'nessuna in più'}. Le vedrà al prossimo accesso a BookUp.`);
+    closeSezioniModal();
+  } catch (e) {
+    document.getElementById('sezioni-error').textContent = e.message;
+    btn.disabled = false;
+  }
 }
 async function riattivaPrimoAccesso(idx) {
   const u = usersCache[idx];
