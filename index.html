@@ -1097,7 +1097,7 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
   <div class="box">
     <div class="box-title">Sezioni BookUp in più</div>
     <div class="box-sub" id="sezioni-email"></div>
-    <div class="pwd-hint">Giri Vendita e Ordini urgenti l'agente li vede sempre. Spunta le sezioni in più che può usare.</div>
+    <div class="pwd-hint">Giri Vendita, Ordini urgenti, Consultazione titoli, Condizioni librai e Anagrafiche clienti l'agente li vede sempre. Spunta le sezioni in più che può usare.</div>
     <div class="sezioni-list" id="sezioni-list"></div>
     <div class="pwd-hint" id="sezioni-rif-note" style="display:none">⚠ Con "Inserisci rifornimenti" gli ordini partono con l'utenza Messaggerie dell'agente: deve collegarla in BookUp da 🔑 Accessi → Accesso a Messaggerie.</div>
     <div class="pwd-hint">L'agente vede la modifica dopo essere uscito e rientrato in BookUp (o entro un'ora).</div>
@@ -1652,11 +1652,9 @@ const SEZIONI_BOOKUP = [
   ['trasmissione', 'Trasmissione lancio novità'],
   ['rifornimento', 'Inserisci rifornimenti'],
   ['ordini', 'Consultazione ordini'],
-  ['consultazione', 'Consultazione titoli'],
   ['carichi', 'Verifica carichi'],
-  ['condizioni', 'Condizioni librai'],
-  ['anagrafiche', 'Anagrafiche clienti'],
 ];
+// Consultazione titoli, Condizioni librai e Anagrafiche clienti gli agenti le vedono sempre (BookUp commit 0fc2794).
 let sezioniTarget = null;
 function sezioniBookupTitle(u) {
   const nomi = SEZIONI_BOOKUP.filter(([c]) => (u.bookup_sezioni || []).includes(c)).map(([, n]) => n);
