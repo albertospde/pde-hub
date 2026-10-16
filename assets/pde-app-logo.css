@@ -1,0 +1,33 @@
+/* Logo delle app PDE — stesso stampo di Giro Manager e delle schede del PDE Hub.
+   Uso in ogni app:
+     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap">
+     <link rel="stylesheet" href="https://albertospde.github.io/pde-hub/assets/pde-app-logo.css">
+     <div class="pde-logo" role="img" aria-label="PDE NDC">
+       <div class="pl-text">
+         <div class="pl-name"><b>PDE</b><span>NDC</span></div>          (nome unito, es. BOOKUP: class="pl-name uno")
+         <div class="pl-tag"><i class="c0">NOTE</i> <i class="c1">DI</i> <i class="c2">CREDITO</i></div>
+       </div>
+       <div class="pl-wing"></div>
+     </div>
+   Motto a verbi:  <i class="c0">PIANIFICA.</i><em>I</em><i class="c1">PRENOTA.</i><em>I</em><i class="c2">MONITORA.</i>
+   Dimensione: si cambia solo font-size di .pde-logo (default 15px = altezza logo 37px), es. style="font-size:20px".
+   Su sfondo scuro mettere il logo dentro un riquadro bianco: i colori sono pensati per il bianco. */
+
+.pde-logo { --pde-art: url("pde-logo-art.webp"); display: inline-flex; align-items: center; gap: .18em; font-size: 15px; }
+.pde-logo .pl-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.pde-logo .pl-name { font-family: Montserrat, "Segoe UI", sans-serif; font-size: 1.3em; line-height: 1; letter-spacing: .01em; white-space: nowrap; color: #0f1c4d; }
+.pde-logo .pl-name b { font-weight: 700; }
+.pde-logo .pl-name span { font-weight: 400; color: #1f6fe5; margin-left: .22em; }
+.pde-logo .pl-name.uno span { margin-left: 0; }
+.pde-logo .pl-tag { font-family: Montserrat, "Segoe UI", sans-serif; font-weight: 500; font-size: .36em; letter-spacing: .24em; margin-top: .55em; white-space: nowrap; color: #0f1c4d; }
+.pde-logo .pl-tag i { font-style: normal; }
+.pde-logo .pl-tag .c1 { color: #1f6fe5; }
+.pde-logo .pl-tag .c2 { color: #29a9e1; }
+.pde-logo .pl-tag em { font-style: normal; margin: 0 .35em; color: #0f1c4d; }
+/* ala PDE ritagliata dal logo ufficiale (1536x1024): x 1039-1420, y 254-668 (382x414) */
+.pde-logo .pl-wing {
+  height: 2.45em; aspect-ratio: 382 / 414; flex-shrink: 0;
+  background-image: var(--pde-art); background-repeat: no-repeat;
+  background-size: calc(1536 / 382 * 100%) auto;
+  background-position: calc(1039 / (1536 - 382) * 100%) calc(254 / (1024 - 414) * 100%);
+}
