@@ -13,11 +13,11 @@
    Dimensione: si cambia solo font-size di .pde-logo (default 15px = altezza logo 37px), es. style="font-size:20px".
    Su sfondo scuro mettere il logo dentro un riquadro bianco: i colori sono pensati per il bianco. */
 
-.pde-logo { --pde-art: url("pde-logo-art.webp"); display: inline-flex; align-items: center; gap: .18em; font-size: 15px; }
+.pde-logo { --pde-art: url("pde-logo-art.webp"); display: inline-flex; align-items: center; gap: .16em; font-size: 15px; }
 .pde-logo .pl-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
-.pde-logo .pl-name { font-family: Montserrat, "Segoe UI", sans-serif; font-size: 1.3em; line-height: 1; letter-spacing: .01em; white-space: nowrap; color: #0f1c4d; }
+.pde-logo .pl-name { font-family: Montserrat, "Segoe UI", sans-serif; font-size: 1.3em; line-height: 1; letter-spacing: -.015em; white-space: nowrap; color: #0f1c4d; }
 .pde-logo .pl-name b { font-weight: 700; }
-.pde-logo .pl-name span { font-weight: 400; color: #1f6fe5; margin-left: .22em; }
+.pde-logo .pl-name span { font-weight: 400; color: #1f6fe5; margin-left: .16em; }
 .pde-logo .pl-name.uno span { margin-left: 0; }
 .pde-logo .pl-tag { font-family: Montserrat, "Segoe UI", sans-serif; font-weight: 500; font-size: .36em; letter-spacing: .24em; margin-top: .55em; white-space: nowrap; color: #0f1c4d; }
 .pde-logo .pl-tag i { font-style: normal; }
