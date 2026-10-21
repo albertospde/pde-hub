@@ -541,6 +541,10 @@ main {
   letter-spacing: .02em;
 }
 
+/* ── APP INTERNE: nascoste finché non è confermato che l'utente non è un agente ──
+   (prima erano visibili e si nascondevano dopo: se Supabase non rispondeva restavano visibili a tutti) */
+body:not(.ruolo-interno) .role-hide-agente { display: none !important; }
+
 /* ── GESTIONE UTENTI (solo gestori) ── */
 .admin-only { display: none !important; }
 body.is-gestore .admin-only { display: revert !important; }
@@ -1475,7 +1479,7 @@ MY_PWD_IDS.forEach(id => document.getElementById(id).addEventListener('keydown',
 async function doLogout() {
   if (openTabs[USERS_TAB_KEY]) closeTab({ stopPropagation(){} }, USERS_TAB_KEY);
   usersCache = [];
-  document.body.classList.remove('is-gestore');
+  document.body.classList.remove('is-gestore', 'ruolo-interno');
   await sb.auth.signOut({ scope: 'local' });
   showScreen('screen-login');
   document.getElementById('login-email').value = '';
@@ -1796,26 +1800,26 @@ document.getElementById('adm-pwd').addEventListener('keydown', e => { if (e.key 
 
 // ── Mostra app ──
 async function showAppForUser() {
-  const { data } = await sb.auth.getUser();
-  if (data?.user) {
-    const email = data.user.email;
+  // Utente verificato dal server; se Supabase non risponde, quello della sessione salvata nel browser.
+  // Senza nessuno dei due le app interne restano nascoste (classe ruolo-interno assente).
+  const verificato = (await sb.auth.getUser().catch(() => null))?.data?.user;
+  const user = verificato || (await sb.auth.getSession().catch(() => null))?.data?.session?.user;
+  document.body.classList.remove('ruolo-interno');
+  if (user) {
+    const email = user.email;
     const short = email.split('@')[0];
     document.getElementById('user-email-short').textContent = short;
     document.getElementById('dropdown-email').textContent = email;
 
     // ── Filtro per ruolo agente ──
-    const role = data.user.app_metadata?.role || data.user.user_metadata?.role || '';
-    document.body.classList.toggle('is-gestore', data.user.app_metadata?.gestione_utenti === true);
+    const role = user.app_metadata?.role || user.user_metadata?.role || '';
+    document.body.classList.toggle('is-gestore', user.app_metadata?.gestione_utenti === true);
     // App in prova riservate a pochi utenti: data-solo-per="email1,email2" (nascoste a tutti gli altri)
     document.querySelectorAll('[data-solo-per]').forEach(el => {
       const ammessi = el.dataset.soloPer.split(',').map(x => x.trim().toLowerCase());
       el.style.display = ammessi.includes(String(email).toLowerCase()) ? '' : 'none';
     });
-    if (role === 'agente') {
-      document.querySelectorAll('.role-hide-agente').forEach(el => {
-        el.style.display = 'none';
-      });
-    }
+    document.body.classList.toggle('ruolo-interno', role !== 'agente');
   }
   showScreen(null);
 }
