@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDE Parking</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f6fe5'/%3E%3Ctext x='16' y='23' font-family='Arial' font-weight='700' font-size='20' fill='white' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../assets/pde-app-logo.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>try { if (localStorage.getItem('pde-hub-theme') === 'light') document.documentElement.setAttribute('data-theme', 'light'); } catch (e) {}</script>
+<style>
+:root {
+  --bg: #0b1128; --surface: rgba(20,28,68,.7); --accent: #00b4e8; --on-accent: #0b1128; --text: #e8eaf8; --muted: #8a92c0;
+  --border: rgba(0,180,232,.2); --chip: rgba(255,255,255,.04); --green: #6ccf8e; --danger: #e06c6c; --gold: #e8c468;
+}
+:root[data-theme="light"] {
+  --bg: #eef2f9; --surface: #fff; --accent: #0092c2; --on-accent: #fff; --text: #16204a; --muted: #5a6388;
+  --border: rgba(26,45,107,.16); --chip: #f4f6fb; --green: #1f8a4c; --danger: #c43e3e; --gold: #a8781a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 Inter, "Segoe UI", sans-serif; padding: 20px 16px 40px; }
+main { max-width: 640px; margin: 0 auto; }
+.hidden { display: none !important; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.logo-box { background: #fff; border-radius: 12px; padding: 8px 12px; display: inline-flex; }
+.prossimo { font-size: 13px; color: var(--muted); text-align: right; }
+.prossimo b { display: block; color: var(--text); font-size: 15px; font-weight: 600; }
+section { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; margin-top: 14px; }
+h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
+.nota { color: var(--muted); font-size: 12.5px; margin-top: 10px; }
+.utenza + .utenza { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.utenza-nome { font-weight: 600; text-transform: capitalize; margin-bottom: 10px; }
+.giorni { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.giorno input, .opz input { position: absolute; opacity: 0; width: 0; height: 0; }
+.giorno span { display: block; text-align: center; padding: 11px 0; border-radius: 10px; border: 1px solid var(--border); background: var(--chip); color: var(--muted); cursor: pointer; font-weight: 500; transition: background .12s, color .12s; }
+.giorno input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
+.giorno input:focus-visible + span, .opz input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opzioni { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.opz span { display: inline-block; font-size: 12.5px; padding: 5px 11px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); cursor: pointer; }
+.opz input:checked + span { color: var(--text); border-color: var(--accent); }
+.opz input:checked + span::before { content: "✓ "; color: var(--accent); }
+input[type=text] { width: 100%; background: var(--chip); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 11px 12px; font: inherit; }
+.azioni { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+button { background: var(--accent); color: var(--on-accent); border: 0; border-radius: 10px; padding: 11px 24px; font: 600 14px Inter, sans-serif; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+#msg { font-size: 13px; }
+#msg.ok { color: var(--green); } #msg.ko { color: var(--danger); }
+.pren { display: flex; flex-wrap: wrap; gap: 8px; }
+.pren div { background: var(--chip); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+.pren b { display: block; font-size: 14px; }
+.esito { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.esito:last-child { border-bottom: 0; padding-bottom: 0; }
+.esito .sub { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
+.ok { color: var(--green); } .ko { color: var(--danger); } .neutro { color: var(--muted); }
+.vuoto { color: var(--muted); font-size: 13px; }
+.centro { text-align: center; padding: 60px 20px; }
+.centro a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <div id="blocco" class="centro hidden"></div>
+  <div id="app" class="hidden">
+    <header>
+      <div class="logo-box"><div class="pde-logo" role="img" aria-label="PDE Parking"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>PARKING</span></div><div class="pl-tag"><i class="c0">IL</i> <i class="c1">TUO</i> <i class="c2">POSTO</i></div></div><div class="pl-wing"></div></div></div>
+      <div class="prossimo">Prossimo avvio<b id="prossimo"></b></div>
+    </header>
+
+    <section>
+      <h2>Giorni in cui parcheggi</h2>
+      <div id="utenze"></div>
+      <div class="nota">Il programma parte alle 7:00 sul PC, 14 giorni prima del giorno scelto.</div>
+    </section>
+
+    <section>
+      <h2><label for="posti">Posti preferiti, in ordine</label></h2>
+      <input type="text" id="posti" inputmode="numeric" placeholder="Esempio: 52, 54, 55">
+      <div class="nota">Se sono tutti occupati prende il primo posto libero.</div>
+      <div class="azioni"><button id="salva">Salva</button><span id="msg" role="status"></span></div>
+    </section>
+
+    <section>
+      <h2>Prenotati dal programma</h2>
+      <div id="prenotati" class="pren"></div>
+    </section>
+
+    <section>
+      <h2>Ultimi esiti</h2>
+      <div id="esiti"></div>
+    </section>
+  </div>
+</main>
+<script>
+const sb = supabase.createClient('https://tdflwenlylhctxssatax.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZmx3ZW5seWxoY3R4c3NhdGF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMzgyNzYsImV4cCI6MjA5MTkxNDI3Nn0.l35qEL7LOvyYuI1McQlVqj4vbyTqmlevcmqWbTGYi2Q');
+const HUB = 'https://albertospde.github.io/pde-hub/';
+const G = ['lun', 'mar', 'mer', 'gio', 'ven'];
+const ESITI = {
+  prenotato: ['Prenotato', 'ok'], gia_prenotato: ['Già prenotato', 'ok'], prova_ok: ['Prova riuscita', 'neutro'],
+  nessun_posto: ['Nessun posto libero', 'ko'], limite_settimanale: ['Limite settimanale raggiunto', 'ko'],
+  login_richiesto: ['Serve rifare l\'accesso', 'ko'], consenso_richiesto: ['Serve accettare i permessi', 'ko'],
+  data_non_comparsa: ['Data non ancora comparsa', 'ko'], esito_sconosciuto: ['Esito da controllare nell\'app', 'ko'],
+};
+const $ = id => document.getElementById(id);
+const el = (tag, props = {}, ...figli) => { const e = Object.assign(document.createElement(tag), props); e.append(...figli); return e; };
+const fmtData = iso => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+let cfg;
+
+function prossimoAvvio() {
+  const ora = new Date(), d = new Date(ora);
+  if (ora.getHours() >= 7) d.setDate(d.getDate() + 1);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  const per = new Date(d); per.setDate(per.getDate() + cfg.anticipo_giorni);
+  const fmt = x => x.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+  $('prossimo').textContent = `${fmt(d)}, 7:00 → per ${fmt(per)}`;
+}
+
+function disegnaUtenze() {
+  $('utenze').replaceChildren(...Object.entries(cfg.utenze).map(([nome, u]) => {
+    const giorni = el('div', { className: 'giorni' }, ...G.map(g => {
+      const i = el('input', { type: 'checkbox', checked: u.giorni.includes(g) });
+      i.onchange = () => {
+        u.giorni = i.checked ? G.filter(x => x === g || u.giorni.includes(x)) : u.giorni.filter(x => x !== g);
+        pulisciMsg();
+      };
+      return el('label', { className: 'giorno' }, i, el('span', { textContent: g[0].toUpperCase() + g.slice(1) }));
+    }));
+    const opz = (chiave, testo) => {
+      const i = el('input', { type: 'checkbox', checked: u[chiave] });
+      i.onchange = () => { u[chiave] = i.checked; pulisciMsg(); };
+      return el('label', { className: 'opz' }, i, el('span', { textContent: testo }));
+    };
+    return el('div', { className: 'utenza' }, el('div', { className: 'utenza-nome', textContent: nome }), giorni,
+      el('div', { className: 'opzioni' }, opz('mail', 'Mail di conferma'), opz('calendario', 'Evento in calendario')));
+  }));
+}
+
+function pulisciMsg() { $('msg').textContent = ''; $('msg').className = ''; }
+
+async function caricaEsiti() {
+  const { data, error } = await sb.from('parking_esiti').select('*').order('quando', { ascending: false }).limit(30);
+  if (error) { $('esiti').replaceChildren(el('div', { className: 'vuoto', textContent: 'Esiti non disponibili.' })); return; }
+  const oggi = new Date().toLocaleDateString('sv-SE');
+  const pren = data.filter(r => r.esito === 'prenotato' && !r.prova && r.data >= oggi).sort((a, b) => a.data.localeCompare(b.data));
+  $('prenotati').replaceChildren(...(pren.length
+    ? pren.map(r => el('div', {}, el('b', { textContent: fmtData(r.data) }), `Posto ${r.posto}`))
+    : [el('div', { className: 'vuoto', style: 'background:none;border:0;padding:0', textContent: 'Ancora nessuna. Quelle fatte a mano si vedono nell\'app Parking Reservation.' })]));
+  const righe = data.slice(0, 10);
+  $('esiti').replaceChildren(...(righe.length ? righe.map(r => {
+    const [testo, classe] = ESITI[r.esito] || ['Non riuscita', 'ko'];
+    const quando = new Date(r.quando).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const info = [`per ${fmtData(r.data)}`, r.posto && `posto ${r.posto}`, r.posti_liberi != null && `${r.posti_liberi} liberi`, r.utenza].filter(Boolean).join(' · ');
+    return el('div', { className: 'esito' }, el('span', { className: classe, textContent: testo }),
+      el('span', { className: 'neutro', textContent: quando }), el('span', { className: 'sub', textContent: info }));
+  }) : [el('div', { className: 'vuoto', textContent: 'Nessun avvio finora.' })]));
+}
+
+$('salva').onclick = async () => {
+  $('salva').disabled = true;
+  const posti = $('posti').value.split(/[^0-9]+/).filter(Boolean);
+  const { error, data } = await sb.from('parking_config')
+    .update({ posti_preferiti: posti, utenze: cfg.utenze, aggiornato_il: new Date().toISOString() })
+    .eq('id', true).select('id');
+  $('salva').disabled = false;
+  const ok = !error && data && data.length === 1;
+  $('msg').textContent = ok ? 'Salvato' : 'Salvataggio non riuscito';
+  $('msg').className = ok ? 'ok' : 'ko';
+  if (ok) { cfg.posti_preferiti = posti; $('posti').value = posti.join(', '); }
+};
+
+function blocca(titolo, testo) {
+  $('blocco').replaceChildren(el('h2', { textContent: titolo }), el('p', { className: 'nota', textContent: testo }),
+    el('a', { href: HUB, target: '_top', textContent: 'Vai a PDE Hub' }));
+  $('blocco').classList.remove('hidden');
+}
+
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return blocca('Accesso richiesto', 'Apri PDE Parking da PDE Hub.');
+  const { data, error } = await sb.from('parking_config').select('*').maybeSingle();
+  if (error) return blocca('Impostazioni non disponibili', 'Riprova tra poco.');
+  if (!data) return blocca('Accesso non autorizzato', 'Questa app è riservata.');
+  cfg = data;
+  $('posti').value = cfg.posti_preferiti.join(', ');
+  prossimoAvvio();
+  disegnaUtenze();
+  $('app').classList.remove('hidden');
+  caricaEsiti();
+})();
+</script>
+</body>
+</html>
