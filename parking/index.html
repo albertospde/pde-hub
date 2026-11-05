@@ -149,7 +149,7 @@ async function caricaEsiti() {
   $('esiti').replaceChildren(...(righe.length ? righe.map(r => {
     const [testo, classe] = ESITI[r.esito] || ['Non riuscita', 'ko'];
     const quando = new Date(r.quando).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    const info = [`per ${fmtData(r.data)}`, r.posto && `posto ${r.posto}`, r.posti_liberi != null && `${r.posti_liberi} liberi`, r.utenza].filter(Boolean).join(' · ');
+    const info = [`per ${fmtData(r.data)}`, r.posto && `posto ${r.posto}`, r.posti_liberi != null && `${r.posti_liberi} ${r.posti_liberi === 1 ? 'libero' : 'liberi'}`, r.utenza].filter(Boolean).join(' · ');
     return el('div', { className: 'esito' }, el('span', { className: classe, textContent: testo }),
       el('span', { className: 'neutro', textContent: quando }), el('span', { className: 'sub', textContent: info }));
   }) : [el('div', { className: 'vuoto', textContent: 'Nessun avvio finora.' })]));
