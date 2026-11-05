@@ -54,6 +54,18 @@ button:disabled { opacity: .5; cursor: default; }
 .esito .sub { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
 .ok { color: var(--green); } .ko { color: var(--danger); } .neutro { color: var(--muted); }
 .vuoto { color: var(--muted); font-size: 13px; }
+.utenza-testa { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.utenza-testa .utenza-nome { margin: 0; }
+.conteggio { font-size: 12px; color: var(--muted); margin-left: 8px; font-weight: 400; text-transform: none; }
+.togli { background: none; color: var(--muted); padding: 2px 6px; font-size: 12px; font-weight: 500; text-decoration: underline; }
+.copertura { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--muted); }
+.copertura b { display: block; font-size: 17px; color: var(--text); }
+.copertura .zero b { color: var(--danger); }
+.ko-testo { color: var(--gold); }
+.ko-testo:empty { display: none; }
+.aggiungi { display: flex; gap: 8px; margin-top: 14px; }
+button.secondario { background: var(--chip); color: var(--text); border: 1px solid var(--border); padding: 0 16px; white-space: nowrap; }
+code { font-size: 12px; color: var(--text); }
 .centro { text-align: center; padding: 60px 20px; }
 .centro a { color: var(--accent); }
 </style>
@@ -70,7 +82,13 @@ button:disabled { opacity: .5; cursor: default; }
     <section>
       <h2>Giorni in cui parcheggi</h2>
       <div id="utenze"></div>
-      <div class="nota">Il programma parte alle 7:00 sul PC, 14 giorni prima del giorno scelto.</div>
+      <div class="copertura" id="copertura" aria-label="Copertura della settimana"></div>
+      <div class="nota ko-testo" id="avviso" role="status"></div>
+      <div class="aggiungi">
+        <input type="text" id="nuova" maxlength="30" placeholder="Nome nuova utenza (es. giulia)" aria-label="Nome nuova utenza">
+        <button id="aggiungi" class="secondario" type="button">Aggiungi</button>
+      </div>
+      <div class="nota">Il programma parte alle 7:00 sul PC, 14 giorni prima del giorno scelto. Ogni nuova utenza deve fare l'accesso di persona sul PC con <code>Aggiungi_utenza.bat</code>, usando lo stesso nome.</div>
     </section>
 
     <section>
@@ -95,10 +113,12 @@ button:disabled { opacity: .5; cursor: default; }
 const sb = supabase.createClient('https://tdflwenlylhctxssatax.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZmx3ZW5seWxoY3R4c3NhdGF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMzgyNzYsImV4cCI6MjA5MTkxNDI3Nn0.l35qEL7LOvyYuI1McQlVqj4vbyTqmlevcmqWbTGYi2Q');
 const HUB = 'https://albertospde.github.io/pde-hub/';
 const G = ['lun', 'mar', 'mer', 'gio', 'ven'];
+const LIMITE = 2; // l'app ha segnato "limite settimanale" con 2 prenotazioni
 const ESITI = {
   prenotato: ['Prenotato', 'ok'], gia_prenotato: ['Già prenotato', 'ok'], prova_ok: ['Prova riuscita', 'neutro'],
   nessun_posto: ['Nessun posto libero', 'ko'], limite_settimanale: ['Limite settimanale raggiunto', 'ko'],
   login_richiesto: ['Serve rifare l\'accesso', 'ko'], consenso_richiesto: ['Serve accettare i permessi', 'ko'],
+  profilo_mancante: ['Utenza senza accesso sul PC', 'ko'],
   data_non_comparsa: ['Data non ancora comparsa', 'ko'], esito_sconosciuto: ['Esito da controllare nell\'app', 'ko'],
 };
 const $ = id => document.getElementById(id);
@@ -115,13 +135,27 @@ function prossimoAvvio() {
   $('prossimo').textContent = `${fmt(d)}, 7:00 → per ${fmt(per)}`;
 }
 
+function disegnaCopertura() {
+  const tutte = Object.values(cfg.utenze);
+  $('copertura').replaceChildren(...G.map(g => {
+    const n = tutte.filter(u => u.giorni.includes(g)).length;
+    return el('div', { className: n ? '' : 'zero' }, el('b', { textContent: n }), g[0].toUpperCase() + g.slice(1));
+  }));
+  const oltre = Object.entries(cfg.utenze).filter(([, u]) => u.giorni.length > LIMITE).map(([n]) => n);
+  $('avviso').textContent = oltre.length
+    ? `${oltre.join(', ')}: più di ${LIMITE} giorni a settimana. L'app potrebbe rifiutare quelli oltre il limite.` : '';
+}
+
 function disegnaUtenze() {
   $('utenze').replaceChildren(...Object.entries(cfg.utenze).map(([nome, u]) => {
+    const conteggio = el('span', { className: 'conteggio', textContent: `${u.giorni.length} a settimana` });
     const giorni = el('div', { className: 'giorni' }, ...G.map(g => {
       const i = el('input', { type: 'checkbox', checked: u.giorni.includes(g) });
       i.onchange = () => {
         u.giorni = i.checked ? G.filter(x => x === g || u.giorni.includes(x)) : u.giorni.filter(x => x !== g);
         pulisciMsg();
+        conteggio.textContent = `${u.giorni.length} a settimana`;
+        disegnaCopertura();
       };
       return el('label', { className: 'giorno' }, i, el('span', { textContent: g[0].toUpperCase() + g.slice(1) }));
     }));
@@ -130,10 +164,30 @@ function disegnaUtenze() {
       i.onchange = () => { u[chiave] = i.checked; pulisciMsg(); };
       return el('label', { className: 'opz' }, i, el('span', { textContent: testo }));
     };
-    return el('div', { className: 'utenza' }, el('div', { className: 'utenza-nome', textContent: nome }), giorni,
+    const togli = el('button', { className: 'togli', type: 'button', textContent: 'Togli' });
+    togli.onclick = () => {
+      if (!confirm(`Togliere l'utenza "${nome}"? Dopo devi premere Salva.`)) return;
+      delete cfg.utenze[nome];
+      pulisciMsg();
+      disegnaUtenze();
+    };
+    const testa = el('div', { className: 'utenza-testa' },
+      el('div', { className: 'utenza-nome' }, nome, conteggio),
+      Object.keys(cfg.utenze).length > 1 ? togli : '');
+    return el('div', { className: 'utenza' }, testa, giorni,
       el('div', { className: 'opzioni' }, opz('mail', 'Mail di conferma'), opz('calendario', 'Evento in calendario')));
   }));
+  disegnaCopertura();
 }
+
+$('aggiungi').onclick = () => {
+  const nome = $('nuova').value.trim().toLowerCase();
+  if (!/^[a-z0-9_-]{1,30}$/.test(nome)) { $('msg').textContent = 'Nome: solo lettere, numeri, - e _'; $('msg').className = 'ko'; return; }
+  if (!cfg.utenze[nome]) cfg.utenze[nome] = { giorni: [], mail: true, calendario: true };
+  $('nuova').value = '';
+  $('msg').textContent = 'Ricorda di premere Salva'; $('msg').className = '';
+  disegnaUtenze();
+};
 
 function pulisciMsg() { $('msg').textContent = ''; $('msg').className = ''; }
 
