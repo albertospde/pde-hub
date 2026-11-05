@@ -1004,8 +1004,8 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
     </div>
     </div><!-- /role-hide-agente AppSelling -->
 
-    <!-- SEZIONE 3B: COMUNICAZIONE (solo amministratori e responsabili) -->
-    <div data-solo-admin-bookup style="display:none">
+    <!-- SEZIONE 3B: COMUNICAZIONE (per ora solo Alberto: per allargarla, aggiungere email a data-solo-per) -->
+    <div data-solo-per="alberto.simola@pde.it" style="display:none">
     <div class="section-header">
       <span class="section-label">Comunicazione</span>
       <div class="section-line"></div>
@@ -1844,13 +1844,6 @@ async function showAppForUser() {
       el.style.display = ammessi.includes(String(email).toLowerCase()) ? '' : 'none';
     });
     document.body.classList.toggle('ruolo-interno', role !== 'agente');
-    // Sezioni riservate ad amministratori e responsabili: data-solo-admin-bookup. Decide la stessa regola
-    // che protegge i dati (_bookup_is_admin); se Supabase non risponde la sezione resta nascosta.
-    const schedeAdmin = document.querySelectorAll('[data-solo-admin-bookup]');
-    schedeAdmin.forEach(el => { el.style.display = 'none'; });
-    sb.rpc('_bookup_is_admin').then(({ data }) => {
-      if (data === true) schedeAdmin.forEach(el => { el.style.display = ''; });
-    }).catch(() => {});
   }
   showScreen(null);
 }
