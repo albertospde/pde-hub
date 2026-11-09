@@ -297,6 +297,15 @@ header {
 }
 .app-tab-close:hover { color: var(--danger); background: rgba(224,108,108,.15); }
 .app-tab-close svg { width: 10px; height: 10px; fill: currentColor; }
+.app-tab-reload {
+  width: 16px; height: 16px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); flex-shrink: 0;
+}
+.app-tab-reload:hover { color: var(--accent); background: rgba(0,180,232,.15); }
+.app-tab-reload svg { width: 12px; height: 12px; fill: currentColor; }
+.app-tab-reload.spin svg { animation: tabReloadSpin .8s linear infinite; }
+@keyframes tabReloadSpin { to { transform: rotate(360deg); } }
 
 .iframe-container { display: none; }
 .iframe-container.visible { display: block; }
@@ -1232,6 +1241,51 @@ function adattaMottiLoghi() {
 // ── App Tab System (iframe interni, niente nuove finestre) ──
 const openTabs = {};      // { url: { title, iconSrc, iframeEl, tabEl } }
 let activeTabUrl = null;  // null = Home
+const TABS_STORAGE_KEY = 'pde-hub-schede';
+let tabsRipristinate = false;
+let tabsInRipristino = false;
+
+// Parametro anti-cache: altrimenti l'iframe può riaprire una versione vecchia dell'app
+// (GitHub Pages la tiene in cache fino a 10 minuti) anche dopo un aggiornamento.
+function urlAggiornato(url) {
+  return url + (url.includes('?') ? '&' : '?') + '_v=' + Date.now();
+}
+
+// Le schede aperte restano in sessionStorage: dopo F5 si riaprono (Gestione utenti esclusa).
+function salvaSchede() {
+  if (tabsInRipristino) return;
+  const urls = Object.keys(openTabs).filter(u => u !== USERS_TAB_KEY);
+  try {
+    sessionStorage.setItem(TABS_STORAGE_KEY, JSON.stringify({ urls, attiva: urls.includes(activeTabUrl) ? activeTabUrl : null }));
+  } catch (e) {}
+}
+
+function ripristinaSchede() {
+  if (tabsRipristinate) return;
+  tabsRipristinate = true;
+  let salvate = null;
+  try { salvate = JSON.parse(sessionStorage.getItem(TABS_STORAGE_KEY)); } catch (e) {}
+  if (!salvate || !Array.isArray(salvate.urls)) return;
+  // Si riaprono solo le app che questo utente vede ora in home (si controlla prima di aprire: poi la home si nasconde)
+  const carte = [...document.querySelectorAll('a.card-app[onclick*="openAppTab"]')].filter(a => a.offsetParent !== null);
+  const daAprire = salvate.urls.map(u => carte.find(a => a.getAttribute('href') === u)).filter(Boolean);
+  tabsInRipristino = true;
+  daAprire.forEach(a => openAppTab({ preventDefault() {} }, a));
+  tabsInRipristino = false;
+  if (openTabs[salvate.attiva]) switchTab(salvate.attiva);
+  else if (daAprire.length) goHome();
+  else salvaSchede();
+}
+
+function ricaricaScheda(evt, url) {
+  evt.stopPropagation();
+  const tab = openTabs[url];
+  if (!tab) return;
+  const btn = evt.currentTarget;
+  btn.classList.add('spin');
+  tab.iframeEl.addEventListener('load', () => btn.classList.remove('spin'), { once: true });
+  tab.iframeEl.src = urlAggiornato(url);
+}
 
 function openAppTab(evt, el) {
   evt.preventDefault();
@@ -1244,9 +1298,7 @@ function openAppTab(evt, el) {
     // Crea l'iframe una sola volta: resta in memoria mantenendo lo stato/login
     const iframe = document.createElement('iframe');
     iframe.className = 'app-iframe';
-    // Parametro anti-cache: altrimenti l'iframe può riaprire una versione vecchia dell'app
-    // (GitHub Pages la tiene in cache fino a 10 minuti) anche dopo un aggiornamento.
-    iframe.src = url + (url.includes('?') ? '&' : '?') + '_v=' + Date.now();
+    iframe.src = urlAggiornato(url);
     iframe.setAttribute('title', title);
     document.getElementById('iframe-container').appendChild(iframe);
 
@@ -1257,6 +1309,8 @@ function openAppTab(evt, el) {
     tabEl.innerHTML =
       (hasPdeLogo ? '<span class="app-tab-icon tab-wing"></span>' : iconSrc ? `<img class="app-tab-icon" src="${iconSrc}">` : '') +
       `<span>${title}</span>` +
+      `<span class="app-tab-reload" title="Ricarica questa app" onclick="ricaricaScheda(event, '${url.replace(/'/g, "\\'")}')">` +
+      `<svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.75 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></span>` +
       `<span class="app-tab-close" onclick="closeTab(event, '${url.replace(/'/g, "\\'")}')">` +
       `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></span>`;
     document.getElementById('app-tabbar').appendChild(tabEl);
@@ -1279,6 +1333,7 @@ function switchTab(url) {
     t.tabEl.classList.toggle('active', isActive);
     t.iframeEl.classList.toggle('active', isActive);
   });
+  salvaSchede();
 }
 
 function goHome() {
@@ -1290,6 +1345,7 @@ function goHome() {
     t.tabEl.classList.remove('active');
     t.iframeEl.classList.remove('active');
   });
+  salvaSchede();
 }
 
 function closeTab(evt, url) {
@@ -1307,6 +1363,7 @@ function closeTab(evt, url) {
   } else if (activeTabUrl === url) {
     switchTab(remaining[remaining.length - 1]);
   }
+  salvaSchede();
 }
 
 // ── Utility ──
@@ -1504,6 +1561,7 @@ async function doLogout() {
   if (openTabs[USERS_TAB_KEY]) closeTab({ stopPropagation(){} }, USERS_TAB_KEY);
   usersCache = [];
   document.body.classList.remove('is-gestore', 'ruolo-interno');
+  try { sessionStorage.removeItem(TABS_STORAGE_KEY); } catch (e) {}
   await sb.auth.signOut({ scope: 'local' });
   showScreen('screen-login');
   document.getElementById('login-email').value = '';
@@ -1846,6 +1904,7 @@ async function showAppForUser() {
     document.body.classList.toggle('ruolo-interno', role !== 'agente');
   }
   showScreen(null);
+  if (user) ripristinaSchede();
 }
 
 // ── Sessione esistente / reset password via link ──
