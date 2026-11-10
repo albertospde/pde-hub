@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TicketUp · PDE</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://albertospde.github.io/pde-hub/assets/pde-app-logo.css">
+<style>
+  :root{--blue:#00b4e8;--navy:#1a2d6b;--bg:#0d1117;--panel:#161b22;--panel2:#11151c;--line:#2a3140;--text:#e6e9f0;--muted:#8b93a7;
+        --ok:#3fb950;--warn:#d29922;--bad:#f85149;--violet:#a371f7}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);margin:0;color:var(--text);font-size:14px}
+  a{color:var(--blue)}
+  .pde-logo-box{background:#fff;border-radius:10px;padding:7px 14px;display:inline-flex;align-items:center;line-height:0}
+  header{background:var(--panel2);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20;flex-wrap:wrap}
+  nav{display:flex;gap:4px;flex-wrap:wrap}
+  nav a{color:var(--muted);text-decoration:none;padding:7px 12px;border-radius:6px;font-size:13px;font-weight:600}
+  nav a.on{background:#222a38;color:var(--text)}
+  nav a.cta{background:var(--blue);color:#03222d}
+  .hright{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+  main{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:18px}
+  .card h2{font-size:14px;margin:0 0 14px;color:var(--blue);text-transform:uppercase;letter-spacing:.06em}
+  .banner{background:#2a2110;border:1px solid #5c4813;color:#f0d68a;border-radius:8px;padding:10px 14px;font-size:12.5px;margin-bottom:16px}
+  .banner.ok{background:#0f2417;border-color:#23502f;color:#9be3ad}
+  label{font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px}
+  input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:var(--bg);color:var(--text);font-family:inherit}
+  textarea{min-height:140px;resize:vertical;line-height:1.45}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--blue);border-color:var(--blue)}
+  option{background:var(--bg)}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  @media (max-width:760px){.g2,.g3,.g4{grid-template-columns:minmax(0,1fr)} header{padding:10px 12px} .hright{width:100%;margin-left:0}}
+  .btn{border:none;border-radius:6px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn-primary{background:var(--blue);color:#03222d}
+  .btn-ghost{background:#222a38;color:var(--text)}
+  .btn-ok{background:#1f4d2b;color:#c6f0d0}
+  .btn-bad{background:#4d1f1f;color:#ffd0cc}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;cursor:pointer}
+  .kpi b{display:block;font-size:28px;line-height:1.1;margin-top:4px}
+  .kpi span{font-size:12px;color:var(--muted);font-weight:600}
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{color:var(--muted);text-align:left;font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr.click{cursor:pointer} tr.click:hover td{background:#1b212b}
+  .code{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:var(--blue);white-space:nowrap}
+  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap}
+  .s-aperto{background:#222a38;color:#c9d1d9}
+  .s-in_attesa{background:#3a2e10;color:#f0c75e}
+  .s-risposto{background:#0f2f3d;color:#6fd3f5}
+  .s-chiuso{background:#13301b;color:#7ee29a}
+  .p-alta{color:var(--warn);font-weight:700} .p-urgente{color:var(--bad);font-weight:700}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .muted{color:var(--muted)} .small{font-size:12px}
+  .late{color:var(--bad);font-weight:700}
+  .thread{display:flex;flex-direction:column;gap:10px}
+  .msg{border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--panel2);border-left:3px solid var(--line)}
+  .msg.inviato{border-left-color:var(--blue)} .msg.sollecito{border-left-color:var(--warn)}
+  .msg.ricevuto{border-left-color:var(--ok);background:#0f1a13} .msg.nota{border-left-color:var(--violet)}
+  .msg.stato{padding:6px 12px;font-size:12px;color:var(--muted);background:transparent;border-style:dashed}
+  .msg .mh{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .msg .mh b{color:var(--text)}
+  .msg .mb{white-space:pre-wrap;line-height:1.45;word-break:break-word}
+  .tabs{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap}
+  .tabs button{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:6px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .tabs button.on{background:#222a38;color:var(--text);border-color:#3a4458}
+  .empty{padding:24px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:8px}
+  #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222a38;border:1px solid var(--line);padding:10px 18px;border-radius:8px;font-size:13px;display:none;z-index:100;max-width:90vw}
+  #loginScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;padding:16px}
+  #loginBox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:32px 28px;width:100%;max-width:330px;text-align:center}
+  #loginBox input{margin-bottom:10px}
+  #loginErr{color:var(--bad);font-size:12px;min-height:16px;margin-top:8px}
+  .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 18px;font-size:13px}
+  .meta div span{display:block;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+</style>
+</head>
+<body>
+
+<div id="loginScreen" style="display:none">
+  <div id="loginBox">
+    <span class="pde-logo-box" style="margin-bottom:20px"><div class="pde-logo" role="img" aria-label="PDE TicketUp" style="font-size:15px"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>TICKETUP</span></div><div class="pl-tag" style="letter-spacing:.1em"><i class="c0">RICHIESTE</i> <i class="c1">AGLI</i> <i class="c2">UFFICI</i></div></div><div class="pl-wing"></div></div></span>
+    <input id="loginEmail" type="email" placeholder="Email" autocomplete="username">
+    <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Accedi</button>
+    <div id="loginErr"></div>
+  </div>
+</div>
+
+<div id="appRoot" style="display:none">
+  <header>
+    <span class="pde-logo-box" style="padding:5px 12px"><div class="pde-logo" role="img" aria-label="PDE TicketUp" style="font-size:12px"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>TICKETUP</span></div><div class="pl-tag" style="letter-spacing:.1em"><i class="c0">RICHIESTE</i> <i class="c1">AGLI</i> <i class="c2">UFFICI</i></div></div><div class="pl-wing"></div></div></span>
+    <nav>
+      <a href="#dash" data-v="dash">Cruscotto</a>
+      <a href="#lista" data-v="lista">Ticket</a>
+      <a href="#rubrica" data-v="rubrica">Rubrica uffici</a>
+      <a href="#nuovo" data-v="nuovo" class="cta">+ Nuovo ticket</a>
+    </nav>
+    <div class="hright">
+      <span id="userEmail"></span>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="doLogout()">Esci</button>
+    </div>
+  </header>
+  <main>
+    <div id="mailBanner"></div>
+    <div id="view"></div>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://tdflwenlylhctxssatax.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_fjL4LhUPmYMALh4kyhZUug_G_0Fl5fr';
+const FN_URL = `${SUPABASE_URL}/functions/v1/ticketup-mail`;
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const STATI = { aperto:'Bozza', in_attesa:'In attesa', risposto:'Risposto', chiuso:'Chiuso' };
+const S = { session:null, uffici:[], tickets:[], mail:{configured:false}, filtro:{stato:'attivi', ufficio:'', q:''} };
+
+// ---------- utilità ----------
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = d => d ? new Date(d).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+const fmtD = d => d ? new Date(d).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+const giorni = (a,b=new Date()) => Math.floor((new Date(b)-new Date(a))/86400000);
+const badge = s => `<span class="badge s-${s}">${STATI[s]}</span>`;
+const isLate = t => t.stato==='in_attesa' && t.prossimo_sollecito_at && new Date(t.prossimo_sollecito_at) < new Date();
+const ufficio = id => S.uffici.find(u => u.id===id) || {};
+function toast(msg, ms=3200){ const t=$('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',ms); }
+function fail(e){ console.error(e); toast('Errore: '+(e.message||e), 6000); }
+
+// ---------- auth (logout solo locale, come nelle altre app PDE) ----------
+async function boot(){
+  const { data:{ session } } = await sb.auth.getSession();
+  S.session = session;
+  if(!session){ $('loginScreen').style.display='flex'; $('appRoot').style.display='none'; return; }
+  $('loginScreen').style.display='none'; $('appRoot').style.display='block';
+  $('userEmail').textContent = session.user.email;
+  const { data:abil } = await sb.from('tu_utenti_abilitati').select('user_id').eq('user_id', session.user.id).maybeSingle();
+  if(!abil){ $('view').innerHTML = `<div class="empty">TicketUp non è ancora abilitato per il tuo utente.</div>`; return; }
+  await Promise.all([loadUffici(), loadTickets(), mailStatus()]);
+  window.addEventListener('hashchange', route);
+  route();
+}
+async function doLogin(){
+  $('loginErr').textContent='';
+  const { error } = await sb.auth.signInWithPassword({ email:$('loginEmail').value.trim(), password:$('loginPass').value });
+  if(error){ $('loginErr').textContent='Credenziali non valide'; return; }
+  boot();
+}
+function doLogout(){
+  localStorage.removeItem(`sb-${SUPABASE_URL.split('//')[1].split('.')[0]}-auth-token`);
+  location.reload();
+}
+
+// ---------- dati ----------
+async function loadUffici(){
+  const { data, error } = await sb.from('tu_uffici').select('*').order('ordine');
+  if(error) return fail(error); S.uffici = data;
+}
+async function loadTickets(){
+  const { data, error } = await sb.from('tu_ticket').select('*').order('updated_at',{ascending:false}).limit(1000);
+  if(error) return fail(error); S.tickets = data;
+}
+async function callFn(body){
+  const { data:{ session } } = await sb.auth.getSession();
+  const r = await fetch(FN_URL,{ method:'POST', headers:{ 'Content-Type':'application/json', apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${session.access_token}` }, body:JSON.stringify(body) });
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+  return d;
+}
+async function mailStatus(){
+  try{ S.mail = await callFn({action:'status'}); }catch(e){ S.mail = {configured:false}; }
+  $('mailBanner').innerHTML = S.mail.configured
+    ? `<div class="banner ok row" style="justify-content:space-between">Outlook collegato: le mail partono da <b>${esc(S.mail.mailbox)}</b> e le risposte arrivano qui in automatico. <button class="btn btn-ghost" onclick="controllaRisposte(this)">Controlla risposte ora</button></div>`
+    : `<div class="banner">Modalità manuale: "Invia" apre Outlook con oggetto e codice già compilati. Quando arriva una risposta, incollala nel ticket con "Registra risposta". L'invio e la ricezione diventeranno automatici dopo l'attivazione da parte dell'IT.</div>`;
+}
+async function controllaRisposte(btn){
+  btn.disabled=true;
+  try{ const r = await callFn({action:'poll'}); await loadTickets(); route(); toast(`${r.agganciati} risposte agganciate ai ticket`); }
+  catch(e){ fail(e); } finally{ btn.disabled=false; }
+}
+
+// ---------- invio (Graph se configurato, altrimenti Outlook manuale) ----------
+async function inviaMail(t, corpo, tipo='inviato'){
+  if(S.mail.configured){
+    await callFn({ action:'send', ticket_id:t.id, corpo, tipo });
+    toast(tipo==='sollecito' ? 'Sollecito inviato' : 'Mail inviata');
+    return;
+  }
+  const u = ufficio(t.ufficio_id);
+  const to = t.destinatario || u.email;
+  const cc = (t.cc?.length ? t.cc : u.cc) || [];
+  const oggetto = `${tipo==='sollecito'?'Sollecito – ':''}[${t.codice}] ${t.oggetto}`;
+  const testo = `${corpo}\n\n—\nRif. ${t.codice}: per rispondere mantenere il codice tra parentesi quadre nell'oggetto.`;
+  let href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(oggetto)}` + (cc.length?`&cc=${encodeURIComponent(cc.join(';'))}`:'');
+  // i link mailto troppo lunghi vengono troncati: in quel caso il testo va negli appunti
+  if((href + testo).length < 1800) href += `&body=${encodeURIComponent(testo)}`;
+  else { try{ await navigator.clipboard.writeText(testo); }catch(_){} toast('Testo lungo: copiato negli appunti, incollalo nella mail', 6000); }
+  const a = document.createElement('a'); a.href = href; a.target = '_top'; document.body.appendChild(a); a.click(); a.remove();
+
+  const now = new Date();
+  const next = new Date(now.getTime() + (u.giorni_sollecito||3)*86400000);
+  const r1 = await sb.from('tu_messaggi').insert({ ticket_id:t.id, tipo, canale:'outlook', destinatari:[to,...cc], oggetto, corpo });
+  if(r1.error) throw r1.error;
+  const r2 = await sb.from('tu_ticket').update({ stato:'in_attesa', ultimo_invio_at:now.toISOString(), prossimo_sollecito_at:next.toISOString(),
+    n_solleciti: tipo==='sollecito' ? t.n_solleciti+1 : t.n_solleciti }).eq('id',t.id);
+  if(r2.error) throw r2.error;
+}
+
+// ---------- routing ----------
+function route(){
+  const h = location.hash.slice(1) || 'dash';
+  const [v, id] = h.split('/');
+  document.querySelectorAll('nav a').forEach(a => a.classList.toggle('on', a.dataset.v===v));
+  window.scrollTo(0,0);
+  if(v==='lista') return viewLista();
+  if(v==='nuovo') return viewNuovo(id);
+  if(v==='t') return viewTicket(+id);
+  if(v==='rubrica') return viewRubrica();
+  return viewDash();
+}
+
+// ---------- cruscotto ----------
+function viewDash(){
+  const T = S.tickets;
+  const n = f => T.filter(f).length;
+  const chiusi30 = n(t => t.stato==='chiuso' && giorni(t.chiuso_at) <= 30);
+  const daGestire = T.filter(t => t.stato==='risposto' || isLate(t) || t.stato==='aperto')
+    .sort((a,b) => (b.stato==='risposto')-(a.stato==='risposto') || new Date(a.updated_at)-new Date(b.updated_at));
+
+  const perUff = S.uffici.map(u => {
+    const tu = T.filter(t => t.ufficio_id===u.id);
+    const conRisp = tu.filter(t => t.ultima_risposta_at && t.ultimo_invio_at);
+    const media = conRisp.length ? conRisp.reduce((s,t)=>s+(new Date(t.ultima_risposta_at)-new Date(t.created_at)),0)/conRisp.length/86400000 : null;
+    return { u, attesa:tu.filter(t=>t.stato==='in_attesa').length, risposti:tu.filter(t=>t.stato==='risposto').length,
+             scaduti:tu.filter(isLate).length, tot:tu.length, media };
+  }).filter(r => r.tot);
+
+  $('view').innerHTML = `
+    <div class="grid g4" style="margin-bottom:18px">
+      ${kpi('Da leggere (risposti)', n(t=>t.stato==='risposto'), 'risposto', 'var(--blue)')}
+      ${kpi('In attesa di risposta', n(t=>t.stato==='in_attesa'), 'in_attesa', 'var(--warn)')}
+      ${kpi('Da sollecitare', n(isLate), 'scaduti', 'var(--bad)')}
+      ${kpi('Chiusi ultimi 30 gg', chiusi30, 'chiuso', 'var(--ok)')}
+    </div>
+    <div class="card"><h2>Da gestire</h2>
+      ${daGestire.length ? tabellaTicket(daGestire.slice(0,15)) : '<div class="empty">Nessun ticket da gestire. Tutto in ordine.</div>'}
+    </div>
+    <div class="card"><h2>Per ufficio</h2>
+      ${perUff.length ? `<div class="tw"><table><thead><tr><th>Ufficio</th><th>In attesa</th><th>Risposti</th><th>Da sollecitare</th><th>Totale</th><th>Tempo medio risposta</th></tr></thead><tbody>
+        ${perUff.map(r=>`<tr class="click" onclick="filtraUfficio(${r.u.id})"><td><span class="dot" style="background:${r.u.colore}"></span>${esc(r.u.categoria)}</td>
+          <td>${r.attesa}</td><td>${r.risposti}</td><td class="${r.scaduti?'late':''}">${r.scaduti}</td><td>${r.tot}</td>
+          <td>${r.media===null?'—':r.media.toFixed(1).replace('.',',')+' gg'}</td></tr>`).join('')}
+      </tbody></table></div>` : '<div class="empty">Le statistiche compariranno dopo i primi ticket.</div>'}
+    </div>`;
+}
+const kpi = (l,v,f,c) => `<div class="kpi" onclick="filtraStato('${f}')"><span>${l}</span><b style="color:${c}">${v}</b></div>`;
+function filtraStato(s){ S.filtro = {stato:s, ufficio:'', q:''}; location.hash='lista'; }
+function filtraUfficio(id){ S.filtro = {stato:'attivi', ufficio:String(id), q:''}; location.hash='lista'; }
+
+// ---------- lista ----------
+function tabellaTicket(list){
+  return `<div class="tw"><table><thead><tr><th>Codice</th><th>Oggetto</th><th>Ufficio</th><th>Stato</th><th>Ultimo invio</th><th>Aggiornato</th></tr></thead><tbody>
+    ${list.map(t => { const u = ufficio(t.ufficio_id); return `<tr class="click" onclick="location.hash='t/${t.id}'">
+      <td class="code">${t.codice}</td>
+      <td><b class="${t.priorita!=='normale'?'p-'+t.priorita:''}">${t.priorita==='urgente'?'⚠ ':''}${esc(t.oggetto)}</b>${t.editore?`<div class="small muted">${esc(t.editore)}${t.riferimento?' · '+esc(t.riferimento):''}</div>`:''}</td>
+      <td style="white-space:nowrap"><span class="dot" style="background:${u.colore}"></span>${esc(u.categoria)}</td>
+      <td>${badge(t.stato)}${isLate(t)?`<div class="small late">da sollecitare</div>`:''}</td>
+      <td class="small">${t.ultimo_invio_at?fmtD(t.ultimo_invio_at)+`<div class="muted">${giorni(t.ultimo_invio_at)} gg fa</div>`:'—'}</td>
+      <td class="small muted">${fmt(t.updated_at)}</td></tr>`; }).join('')}
+  </tbody></table></div>`;
+}
+function viewLista(){
+  const f = S.filtro;
+  $('view').innerHTML = `<div class="card">
+    <div class="grid g3" style="margin-bottom:14px">
+      <div><label>Cerca</label><input id="fq" placeholder="Codice, oggetto, editore, riferimento…" value="${esc(f.q)}"></div>
+      <div><label>Ufficio</label><select id="fu"><option value="">Tutti gli uffici</option>${S.uffici.map(u=>`<option value="${u.id}" ${f.ufficio==u.id?'selected':''}>${esc(u.categoria)}</option>`).join('')}</select></div>
+      <div><label>Stato</label><select id="fs">
+        ${[['attivi','Aperti (tutti tranne chiusi)'],['risposto','Risposti'],['in_attesa','In attesa'],['scaduti','Da sollecitare'],['aperto','Bozze'],['chiuso','Chiusi'],['tutti','Tutti']]
+          .map(([v,l])=>`<option value="${v}" ${f.stato===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    </div>
+    <div id="listaBody"></div></div>`;
+  const draw = () => {
+    f.q = $('fq').value; f.ufficio = $('fu').value; f.stato = $('fs').value;
+    const q = f.q.trim().toLowerCase();
+    const list = S.tickets.filter(t =>
+      (!f.ufficio || t.ufficio_id==f.ufficio) &&
+      (f.stato==='tutti' || (f.stato==='attivi' ? t.stato!=='chiuso' : f.stato==='scaduti' ? isLate(t) : t.stato===f.stato)) &&
+      (!q || [t.codice,t.oggetto,t.editore,t.riferimento].some(x => (x||'').toLowerCase().includes(q))));
+    $('listaBody').innerHTML = list.length ? `<div class="small muted" style="margin-bottom:6px">${list.length} ticket</div>`+tabellaTicket(list) : '<div class="empty">Nessun ticket con questi filtri.</div>';
+  };
+  ['fq','fu','fs'].forEach(id => $(id).addEventListener('input', draw));
+  draw();
+}
+
+// ---------- nuovo ticket ----------
+function viewNuovo(dupId){
+  const src = dupId ? S.tickets.find(t => t.id==dupId) : null;
+  const attivi = S.uffici.filter(u => u.attivo);
+  $('view').innerHTML = `<div class="card"><h2>${src?'Duplica ticket '+src.codice:'Nuovo ticket'}</h2>
+    <div class="grid g2">
+      <div><label>Ufficio / categoria *</label><select id="nUff">${attivi.map(u=>`<option value="${u.id}" ${src?.ufficio_id===u.id?'selected':''}>${esc(u.categoria)}</option>`).join('')}</select></div>
+      <div><label>Priorità</label><select id="nPri"><option value="normale">Normale</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></div>
+      <div><label>A</label><input id="nTo"></div>
+      <div><label>CC (separati da virgola)</label><input id="nCc" placeholder="es. collega@pde.it"></div>
+      <div><label>Editore</label><input id="nEd" value="${esc(src?.editore)}"></div>
+      <div><label>Riferimento (EAN, n° ordine, codice cliente…)</label><input id="nRif" value="${esc(src?.riferimento)}"></div>
+    </div>
+    <div style="margin-top:14px"><label>Oggetto *</label><input id="nOgg" value="${esc(src?.oggetto)}" placeholder="Breve descrizione della richiesta"></div>
+    <div style="margin-top:14px"><label>Testo della mail *</label><textarea id="nCorpo" style="min-height:200px"></textarea>
+      <div class="small muted" style="margin-top:4px">Il codice ticket viene aggiunto in automatico all'oggetto e in fondo alla mail.</div></div>
+    <div class="row" style="margin-top:16px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="salvaNuovo(false,this)">Salva come bozza</button>
+      <button class="btn btn-primary" onclick="salvaNuovo(true,this)">Crea e invia</button>
+    </div></div>`;
+  let toccato = false;
+  $('nCorpo').addEventListener('input', () => toccato = true);
+  const applica = () => {
+    const u = ufficio(+$('nUff').value);
+    $('nTo').value = u.email || ''; $('nCc').value = (u.cc||[]).join(', ');
+    if(!toccato) $('nCorpo').value = (u.template||'Buongiorno,\n\n')
+      .replaceAll('{editore}', $('nEd').value || '…').replaceAll('{riferimento}', $('nRif').value || '…') + 'Grazie,\n';
+  };
+  $('nUff').addEventListener('change', () => { toccato=false; applica(); });
+  ['nEd','nRif'].forEach(id => $(id).addEventListener('input', applica));
+  applica();
+}
+async function salvaNuovo(invia, btn){
+  const ogg = $('nOgg').value.trim(), corpo = $('nCorpo').value.trim();
+  if(!ogg || !corpo) return toast('Oggetto e testo sono obbligatori');
+  btn.disabled = true;
+  try{
+    const u = ufficio(+$('nUff').value);
+    const cc = $('nCc').value.split(/[,;]/).map(s=>s.trim()).filter(Boolean);
+    const to = $('nTo').value.trim();
+    const { data:t, error } = await sb.from('tu_ticket').insert({
+      ufficio_id:u.id, oggetto:ogg, descrizione:corpo, editore:$('nEd').value.trim()||null, riferimento:$('nRif').value.trim()||null,
+      priorita:$('nPri').value, destinatario: to && to!==u.email ? to : null,
+      cc: cc.join(',')===(u.cc||[]).join(',') ? [] : cc
+    }).select().single();
+    if(error) throw error;
+    if(invia) await inviaMail(t, corpo);
+    else await sb.from('tu_messaggi').insert({ ticket_id:t.id, tipo:'nota', corpo:'Bozza creata. Testo preparato:\n\n'+corpo });
+    await loadTickets();
+    location.hash = 't/'+t.id;
+  }catch(e){ fail(e); btn.disabled=false; }
+}
+
+// ---------- dettaglio ticket ----------
+async function viewTicket(id){
+  const t = S.tickets.find(x => x.id===id);
+  if(!t){ $('view').innerHTML = '<div class="empty">Ticket non trovato.</div>'; return; }
+  const u = ufficio(t.ufficio_id);
+  const { data:msgs, error } = await sb.from('tu_messaggi').select('*').eq('ticket_id',id).order('created_at');
+  if(error) return fail(error);
+  const lab = { inviato:'Inviata', ricevuto:'Risposta ricevuta', sollecito:'Sollecito', nota:'Nota interna' };
+  const canale = { graph:'Outlook automatico', outlook:'via Outlook', manuale:'registrata a mano', app:'' };
+
+  $('view').innerHTML = `
+    <div class="row" style="margin-bottom:12px"><a href="#lista" class="small">← Tutti i ticket</a></div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:12px">
+        <div><span class="code" style="font-size:15px">${t.codice}</span> ${badge(t.stato)} ${isLate(t)?'<span class="badge" style="background:#4d1f1f;color:#ffd0cc">da sollecitare</span>':''}
+          <div style="font-size:18px;font-weight:700;margin-top:6px">${esc(t.oggetto)}</div></div>
+        <div class="row">
+          ${t.stato!=='chiuso' ? `<button class="btn btn-ok" onclick="chiudi(${t.id})">Chiudi ticket</button>` : `<button class="btn btn-ghost" onclick="cambiaStato(${t.id},'risposto','Ticket riaperto')">Riapri</button>`}
+          <button class="btn btn-ghost" onclick="location.hash='nuovo/${t.id}'">Duplica</button>
+        </div>
+      </div>
+      <div class="meta">
+        <div><span>Ufficio</span><span class="dot" style="background:${u.colore}"></span>${esc(u.categoria)}</div>
+        <div><span>Destinatario</span>${esc(t.destinatario||u.email)}</div>
+        <div><span>Editore</span>${esc(t.editore)||'—'}</div>
+        <div><span>Riferimento</span>${esc(t.riferimento)||'—'}</div>
+        <div><span>Priorità</span><span class="${t.priorita!=='normale'?'p-'+t.priorita:''}">${t.priorita}</span></div>
+        <div><span>Aperto</span>${fmt(t.created_at)}<div class="small muted">${esc(t.creato_da_email||'')}</div></div>
+        <div><span>Prossimo sollecito</span>${t.stato==='in_attesa'?fmtD(t.prossimo_sollecito_at):'—'}${t.n_solleciti?`<div class="small muted">${t.n_solleciti} già inviati</div>`:''}</div>
+        ${t.esito?`<div><span>Esito</span>${esc(t.esito)}</div>`:''}
+      </div>
+    </div>
+
+    <div class="card"><h2>Comunicazioni</h2>
+      <div class="thread">${msgs.length ? msgs.map(m => m.tipo==='stato'
+        ? `<div class="msg stato">${fmt(m.created_at)} · ${esc(m.corpo)} · ${esc(m.autore_email||'')}</div>`
+        : `<div class="msg ${m.tipo}"><div class="mh"><b>${lab[m.tipo]}</b><span>${fmt(m.created_at)}</span>
+            <span>${esc(m.tipo==='ricevuto' ? (m.mittente||'') : (m.autore_email||''))}</span>${canale[m.canale]?`<span>${canale[m.canale]}</span>`:''}</div>
+            <div class="mb">${esc(m.corpo)}</div></div>`).join('') : '<div class="empty">Nessuna comunicazione.</div>'}
+      </div>
+    </div>
+
+    <div class="card"><h2>Azioni</h2>
+      <div class="tabs" id="aTabs">
+        <button data-a="scrivi" class="on">${t.stato==='aperto'?'Invia richiesta':'Scrivi all\'ufficio'}</button>
+        ${t.stato==='in_attesa'?'<button data-a="sollecita">Sollecita</button>':''}
+        ${!S.mail.configured?'<button data-a="risposta">Registra risposta</button>':''}
+        <button data-a="nota">Nota interna</button>
+      </div>
+      <textarea id="aTxt"></textarea>
+      <div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn btn-primary" id="aBtn">Invia</button></div>
+    </div>`;
+
+  const testi = {
+    scrivi: t.stato==='aperto' ? (msgs.find(m=>m.tipo==='nota')?.corpo.replace(/^Bozza creata\. Testo preparato:\n\n/,'') || t.descrizione || '') : 'Buongiorno,\n\nGrazie,\n',
+    sollecita: `Buongiorno,\nvi sollecitiamo gentilmente un riscontro sulla richiesta ${t.codice} "${t.oggetto}" inviata il ${fmtD(t.ultimo_invio_at)}.\n\nGrazie,\n`,
+    risposta: '', nota: ''
+  };
+  const btnLab = { scrivi:'Invia', sollecita:'Invia sollecito', risposta:'Registra risposta', nota:'Salva nota' };
+  const ph = { risposta:'Incolla qui il testo della risposta ricevuta su Outlook', nota:'Appunto visibile solo in TicketUp' };
+  let azione = 'scrivi';
+  const setA = a => { azione=a; document.querySelectorAll('#aTabs button').forEach(b=>b.classList.toggle('on',b.dataset.a===a));
+    $('aTxt').value = testi[a]; $('aTxt').placeholder = ph[a]||''; $('aBtn').textContent = btnLab[a]; };
+  document.querySelectorAll('#aTabs button').forEach(b => b.onclick = () => setA(b.dataset.a));
+  setA('scrivi');
+  $('aBtn').onclick = async () => {
+    const txt = $('aTxt').value.trim(); if(!txt) return toast('Scrivi un testo');
+    $('aBtn').disabled = true;
+    try{
+      if(azione==='scrivi') await inviaMail(t, txt, 'inviato');
+      else if(azione==='sollecita') await inviaMail(t, txt, 'sollecito');
+      else if(azione==='risposta'){
+        const r = await sb.from('tu_messaggi').insert({ ticket_id:t.id, tipo:'ricevuto', canale:'manuale', mittente:t.destinatario||u.email, corpo:txt });
+        if(r.error) throw r.error;
+        await sb.from('tu_ticket').update({ stato:'risposto', ultima_risposta_at:new Date().toISOString(), prossimo_sollecito_at:null }).eq('id',t.id);
+      } else {
+        const r = await sb.from('tu_messaggi').insert({ ticket_id:t.id, tipo:'nota', corpo:txt }); if(r.error) throw r.error;
+        await sb.from('tu_ticket').update({ updated_at:new Date().toISOString() }).eq('id',t.id);
+      }
+      await loadTickets(); viewTicket(id);
+    }catch(e){ fail(e); $('aBtn').disabled=false; }
+  };
+}
+async function cambiaStato(id, stato, nota, extra={}){
+  try{
+    const r = await sb.from('tu_ticket').update({ stato, ...extra }).eq('id',id); if(r.error) throw r.error;
+    await sb.from('tu_messaggi').insert({ ticket_id:id, tipo:'stato', corpo:nota });
+    await loadTickets(); viewTicket(id);
+  }catch(e){ fail(e); }
+}
+function chiudi(id){
+  const esito = prompt('Esito (facoltativo): es. "Anagrafica aggiornata", "Ordine sbloccato"');
+  if(esito===null) return;
+  cambiaStato(id, 'chiuso', 'Ticket chiuso'+(esito?': '+esito:''), { esito: esito||null });
+}
+
+// ---------- rubrica uffici ----------
+function viewRubrica(){
+  $('view').innerHTML = `<div class="card"><h2>Rubrica uffici</h2>
+    <div class="small muted" style="margin-bottom:12px">Ogni categoria ha il suo indirizzo, le copie conoscenza fisse, i giorni dopo cui scatta il sollecito e un testo di partenza. Nel testo puoi usare {editore} e {riferimento}.</div>
+    <div class="grid" id="rub">${S.uffici.map(rigaUfficio).join('')}</div>
+    <div class="row" style="margin-top:14px"><button class="btn btn-ghost" onclick="nuovoUfficio()">+ Aggiungi categoria</button></div></div>`;
+}
+const rigaUfficio = u => `<div class="card" style="margin:0;background:var(--panel2)" id="u${u.id}">
+  <div class="grid g4">
+    <div><label>Categoria</label><input data-k="categoria" value="${esc(u.categoria)}"></div>
+    <div><label>Email</label><input data-k="email" value="${esc(u.email)}"></div>
+    <div><label>CC fissi</label><input data-k="cc" value="${esc((u.cc||[]).join(', '))}"></div>
+    <div class="grid g2"><div><label>Sollecito dopo (gg)</label><input data-k="giorni_sollecito" type="number" min="1" max="30" value="${u.giorni_sollecito}"></div>
+      <div><label>Colore</label><input data-k="colore" type="color" value="${u.colore}" style="height:36px;padding:2px"></div></div>
+  </div>
+  <div style="margin-top:10px"><label>Testo di partenza</label><textarea data-k="template" style="min-height:70px">${esc(u.template)}</textarea></div>
+  <div class="row" style="margin-top:10px;justify-content:space-between">
+    <label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" data-k="attivo" ${u.attivo?'checked':''} style="width:auto"> Attiva</label>
+    <button class="btn btn-primary" onclick="salvaUfficio(${u.id},this)">Salva</button></div></div>`;
+async function salvaUfficio(id, btn){
+  const box = $('u'+id), v = k => box.querySelector(`[data-k="${k}"]`);
+  const rec = { categoria:v('categoria').value.trim(), email:v('email').value.trim(),
+    cc:v('cc').value.split(/[,;]/).map(s=>s.trim()).filter(Boolean), giorni_sollecito:+v('giorni_sollecito').value||3,
+    colore:v('colore').value, template:v('template').value, attivo:v('attivo').checked };
+  if(!rec.categoria || !rec.email) return toast('Categoria ed email obbligatorie');
+  btn.disabled = true;
+  const { error } = await sb.from('tu_uffici').update(rec).eq('id',id);
+  btn.disabled = false;
+  if(error) return fail(error);
+  await loadUffici(); toast('Salvato');
+}
+async function nuovoUfficio(){
+  const categoria = prompt('Nome della nuova categoria'); if(!categoria) return;
+  const email = prompt('Indirizzo email dell\'ufficio'); if(!email) return;
+  const { error } = await sb.from('tu_uffici').insert({ categoria, email, ordine:(S.uffici.length+1)*10 });
+  if(error) return fail(error);
+  await loadUffici(); viewRubrica();
+}
+
+boot();
+</script>
+</body>
+</html>
