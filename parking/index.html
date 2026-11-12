@@ -50,6 +50,22 @@ h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
 ol, ul { margin: 0; padding-left: 20px; }
 li { margin: 4px 0; }
 li.fatto { color: var(--muted); text-decoration: line-through; }
+.cal-testa { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.cal-testa h2 { margin: 0; }
+.cal-nav { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; text-transform: capitalize; }
+.cal-nav button { background: var(--chip); color: var(--text); border: 1px solid var(--border); border-radius: 8px; width: 30px; height: 30px; cursor: pointer; font-size: 16px; }
+.cal-legenda { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.cal-legenda span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; background: var(--c); vertical-align: -1px; }
+.calendario { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-intest { font-size: 11px; color: var(--muted); text-align: center; text-transform: uppercase; padding-bottom: 2px; }
+.cal-giorno { min-height: 64px; background: var(--chip); border: 1px solid var(--border); border-radius: 8px; padding: 4px; font-size: 11px; overflow: hidden; }
+.cal-giorno.fuori { opacity: .35; }
+.cal-giorno.weekend { opacity: .55; }
+.cal-giorno.oggi { border-color: var(--accent); }
+.cal-num { font-weight: 600; font-size: 12px; margin-bottom: 2px; }
+.cal-pren { border-left: 3px solid var(--c); padding: 1px 0 1px 4px; margin-top: 2px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-pren b { font-weight: 600; }
+@media (max-width: 520px) { .cal-giorno { min-height: 54px; font-size: 10px; } .cal-pren b { display: block; } }
 .centro { text-align: center; padding: 60px 20px; }
 .centro a { color: var(--accent); }
 @media (max-width: 520px) {
@@ -71,6 +87,20 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
       <h2>Prossima notte</h2>
       <div class="stanotte" id="stanotte"></div>
       <div class="nota">I flussi partono alle 00:00, dal lunedì al venerdì, e prenotano la data a 14 giorni. Ognuno riceve una mail con l'esito.</div>
+    </section>
+
+    <section>
+      <div class="cal-testa">
+        <h2>Calendario prenotazioni</h2>
+        <div class="cal-nav">
+          <button type="button" id="cal-prec" aria-label="Mese precedente">‹</button>
+          <span id="cal-mese"></span>
+          <button type="button" id="cal-succ" aria-label="Mese successivo">›</button>
+        </div>
+      </div>
+      <div class="cal-legenda" id="cal-legenda"></div>
+      <div class="calendario" id="calendario" role="grid" aria-label="Calendario prenotazioni"></div>
+      <div class="nota" id="cal-agg"></div>
     </section>
 
     <section>
@@ -156,6 +186,41 @@ function disegna() {
       el('span', { className: 'stato ' + (p.attivo ? 'ok' : 'attesa'), textContent: p.attivo ? 'Attivo' : 'Da attivare' })))));
 }
 
+const COLORI = { Alberto: '#00b4e8', Valeria: '#e8c468', Federica: '#6ccf8e', Elisa: '#c58af9' };
+let prenotazioni = [], meseVisto = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+function disegnaCalendario() {
+  $('cal-mese').textContent = meseVisto.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  $('cal-legenda').replaceChildren(...Object.entries(COLORI).map(([n, c]) => { const s = el('span', { textContent: n }); s.style.setProperty('--c', c); return s; }));
+  const primo = new Date(meseVisto), inizio = new Date(primo);
+  inizio.setDate(1 - ((primo.getDay() + 6) % 7));
+  const oggi = iso(new Date());
+  const celle = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(g => el('div', { className: 'cal-intest', textContent: g }));
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(inizio); d.setDate(inizio.getDate() + i);
+    if (i >= 35 && d.getMonth() !== meseVisto.getMonth()) break;
+    const k = iso(d), del_giorno = prenotazioni.filter(p => p.data === k);
+    const cls = ['cal-giorno', d.getMonth() !== meseVisto.getMonth() ? 'fuori' : '', d.getDay() % 6 === 0 ? 'weekend' : '', k === oggi ? 'oggi' : ''].filter(Boolean).join(' ');
+    celle.push(el('div', { className: cls, role: 'gridcell', ariaLabel: d.toLocaleDateString('it-IT') + (del_giorno.length ? ': ' + del_giorno.map(p => p.persona + ' ' + p.posto).join(', ') : '') },
+      el('div', { className: 'cal-num', textContent: d.getDate() }),
+      ...del_giorno.map(p => { const r = el('div', { className: 'cal-pren', title: `${p.persona} · posto ${p.posto}` }, el('b', { textContent: p.persona }), ' ' + p.posto.replace('(P-2)', '')); r.style.setProperty('--c', COLORI[p.persona] || 'var(--muted)'); return r; })));
+  }
+  $('calendario').replaceChildren(...celle);
+}
+
+async function caricaCalendario() {
+  const [{ data: righe }, { data: stato }] = await Promise.all([
+    sb.from('parking_calendario').select('data,posto,persona').order('data'),
+    sb.from('parking_calendario_stato').select('aggiornato_il').maybeSingle(),
+  ]);
+  prenotazioni = righe || [];
+  $('cal-agg').textContent = stato ? 'Dati letti da SharePoint il ' + new Date(stato.aggiornato_il).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' (si aggiornano dal PC di Alberto). Per la situazione in tempo reale usa "Prenotazioni attive".' : '';
+  disegnaCalendario();
+}
+$('cal-prec').onclick = () => { meseVisto.setMonth(meseVisto.getMonth() - 1); disegnaCalendario(); };
+$('cal-succ').onclick = () => { meseVisto.setMonth(meseVisto.getMonth() + 1); disegnaCalendario(); };
+
 function blocca(titolo, testo) {
   $('blocco').replaceChildren(el('h2', { textContent: titolo }), el('p', { className: 'nota', textContent: testo }),
     el('a', { href: HUB, target: '_top', textContent: 'Vai a PDE Hub' }));
@@ -171,6 +236,7 @@ function blocca(titolo, testo) {
   if (!data) return blocca('Accesso non autorizzato', 'Questa app è riservata.');
   disegna();
   $('app').classList.remove('hidden');
+  caricaCalendario();
 })();
 </script>
 </body>
