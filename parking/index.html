@@ -61,7 +61,7 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
   <div id="app" class="hidden">
     <header>
       <div class="logo-box"><div class="pde-logo" role="img" aria-label="PDE Parking"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>PARKING</span></div><div class="pl-tag"><i class="c0">IL</i> <i class="c1">TUO</i> <i class="c2">POSTO</i></div></div><div class="pl-wing"></div></div></div>
-      <div class="aggiornato">Riepilogo aggiornato al 12/11/2026, 14:40</div>
+      <div class="aggiornato">Riepilogo aggiornato al 12/11/2026, 14:50</div>
     </header>
 
     <section>
@@ -92,7 +92,7 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
       <h2>Da fare</h2>
       <ol>
         <li>Lunedì 16/11: controllare la prima prenotazione reale di Alberto (mail e app), per lunedì 30/11.</li>
-        <li>Valeria e Federica: creare la copia ricevuta via mail con le proprie connessioni, attivarla e aggiungere alberto.simola@pde.it come comproprietario.</li>
+        <li>Valeria: creare la copia ricevuta via mail con le proprie connessioni, attivarla e aggiungere alberto.simola@pde.it come comproprietario.</li>
         <li>Poi impostare i loro giorni nei rispettivi flussi.</li>
         <li>Elisa: aggiungere la regola dei posti accanto a quelli del gruppo.</li>
         <li>Pulizia: eliminare le copie modello spente e disattivare il vecchio programma sul PC.</li>
@@ -117,7 +117,7 @@ const HUB = 'https://albertospde.github.io/pde-hub/';
 const PERSONE = [
   { nome: 'Alberto', giorni: [1, 2], attivo: true, nota: 'Lunedì e martedì · flusso attivo, prima prenotazione reale lun 16/11' },
   { nome: 'Valeria', giorni: [2, 3], attivo: false, nota: 'Martedì e mercoledì · copia inviata, da attivare' },
-  { nome: 'Federica', giorni: [4, 5], attivo: false, nota: 'Giovedì e venerdì · copia inviata, da attivare' },
+  { nome: 'Federica', giorni: [4, 5], attivo: true, nota: 'Giovedì e venerdì · attivo, prima prenotazione ven 13/11 notte per ven 27/11' },
   { nome: 'Elisa', giorni: [3, 4], attivo: true, nota: 'Mercoledì e giovedì · attivo, prima prenotazione mer 18/11 per mer 2/12' },
 ];
 const GIORNI = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven'];
