@@ -73,8 +73,8 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
     <section>
       <h2>Prenotazioni attive</h2>
       <a class="pulsante-link" target="_blank" rel="noopener"
-         href="https://lafeltrinelli.sharepoint.com/sites/FeltrinelliCommonTasks/Lists/Parking%20Reservations/AllItems.aspx?FilterFields1=ReservedBy&amp;FilterValues1=Simola%20Alberto%3B%23Pallotta%20Valeria%3B%23Sala%20Federica&amp;FilterTypes1=User&amp;sortField=CheckOutFrom&amp;isAscending=false">Apri le prenotazioni di Alberto, Valeria e Federica ↗</a>
-      <div class="nota">Elenco SharePoint dell'app parcheggi, filtrato sui tre nomi, con le date più lontane in alto. Per cancellare usa l'app Parking Reservation.</div>
+         href="https://lafeltrinelli.sharepoint.com/sites/FeltrinelliCommonTasks/Lists/Parking%20Reservations/AllItems.aspx?FilterFields1=ReservedBy&amp;FilterValues1=Simola%20Alberto%3B%23Pallotta%20Valeria%3B%23Sala%20Federica%3B%23Ferrario%20Elisa&amp;FilterTypes1=User&amp;sortField=CheckOutFrom&amp;isAscending=false">Apri le prenotazioni di Alberto, Valeria, Federica ed Elisa ↗</a>
+      <div class="nota">Elenco SharePoint dell'app parcheggi, filtrato sui vostri nomi, con le date più lontane in alto. Per cancellare usa l'app Parking Reservation.</div>
     </section>
 
     <section>
@@ -92,7 +92,7 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
       <h2>Da fare</h2>
       <ol>
         <li>Lunedì 16/11: controllare la prima prenotazione reale di Alberto (mail e app), per lunedì 30/11.</li>
-        <li>Valeria e Federica: creare la copia ricevuta via mail con le proprie connessioni, attivarla e aggiungere alberto.simola@pde.it come comproprietario.</li>
+        <li>Valeria, Federica ed Elisa: creare la copia ricevuta via mail con le proprie connessioni, attivarla e aggiungere alberto.simola@pde.it come comproprietario.</li>
         <li>Poi impostare i loro giorni nei rispettivi flussi.</li>
         <li>Pulizia: eliminare le copie modello spente e disattivare il vecchio programma sul PC.</li>
       </ol>
@@ -117,6 +117,7 @@ const PERSONE = [
   { nome: 'Alberto', giorni: [1, 2], attivo: true, nota: 'Lunedì e martedì · flusso attivo, prima prenotazione reale lun 16/11' },
   { nome: 'Valeria', giorni: [2, 3], attivo: false, nota: 'Martedì e mercoledì · copia inviata, da attivare' },
   { nome: 'Federica', giorni: [4, 5], attivo: false, nota: 'Giovedì e venerdì · copia inviata, da attivare' },
+  { nome: 'Elisa', giorni: [3, 4], attivo: false, nota: 'Mercoledì e giovedì · copia inviata, da attivare' },
 ];
 const GIORNI = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven'];
 const $ = id => document.getElementById(id);
