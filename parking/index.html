@@ -44,6 +44,9 @@ h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
 .persona .sub { color: var(--muted); font-size: 12.5px; }
 .stato { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; border: 1px solid currentColor; }
 .stato.ok { color: var(--green); } .stato.attesa { color: var(--gold); }
+.azioni-persona { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.prenota-ora { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 8px; background: var(--accent); color: var(--on-accent); text-decoration: none; white-space: nowrap; }
+.prenota-ora:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 ol, ul { margin: 0; padding-left: 20px; }
 li { margin: 4px 0; }
 li.fatto { color: var(--muted); text-decoration: line-through; }
@@ -86,6 +89,7 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
     <section>
       <h2>Flussi</h2>
       <div class="persone" id="persone"></div>
+      <div class="nota">"Prenota ora" apre il flusso in Power Automate: clicca <b>Esegui</b> e poi <b>Esegui flusso</b>. Prenota subito la data a 14 giorni da oggi, se è uno dei giorni di quella persona e non c'è già una prenotazione; altrimenti arriva solo la mail di esito.</div>
     </section>
 
     <section>
@@ -115,10 +119,10 @@ const sb = supabase.createClient('https://tdflwenlylhctxssatax.supabase.co', 'ey
 const HUB = 'https://albertospde.github.io/pde-hub/';
 // Riepilogo: aggiornato a mano quando cambiano giorni o stato dei flussi.
 const PERSONE = [
-  { nome: 'Alberto', giorni: [1, 2], attivo: true, nota: 'Lunedì e martedì · flusso attivo, prima prenotazione reale lun 16/11' },
+  { nome: 'Alberto', flusso: 'https://make.powerautomate.com/environments/Default-226606f1-93e8-43d2-9f36-ca7ade542ad3/flows/ba382b0f-24ef-414a-aa22-81c20b918131/details', giorni: [1, 2], attivo: true, nota: 'Lunedì e martedì · flusso attivo, prima prenotazione reale lun 16/11' },
   { nome: 'Valeria', giorni: [2, 3], attivo: false, nota: 'Martedì e mercoledì · copia inviata, da attivare' },
-  { nome: 'Federica', giorni: [4, 5], attivo: true, nota: 'Giovedì e venerdì · attivo, prima prenotazione ven 13/11 notte per ven 27/11' },
-  { nome: 'Elisa', giorni: [3, 4], attivo: true, nota: 'Mercoledì e giovedì · attivo, prima prenotazione mer 18/11 per mer 2/12' },
+  { nome: 'Federica', flusso: 'https://make.powerautomate.com/environments/Default-226606f1-93e8-43d2-9f36-ca7ade542ad3/flows/shared/48b02580-0373-4e62-aa22-1a13a8d6cda9/details', giorni: [4, 5], attivo: true, nota: 'Giovedì e venerdì · attivo, prima prenotazione ven 13/11 notte per ven 27/11' },
+  { nome: 'Elisa', flusso: 'https://make.powerautomate.com/environments/Default-226606f1-93e8-43d2-9f36-ca7ade542ad3/flows/shared/fb46d95f-5a8a-4199-9728-b997e0f26402/details', giorni: [3, 4], attivo: true, nota: 'Mercoledì e giovedì · attivo, prima prenotazione mer 18/11 per mer 2/12' },
 ];
 const GIORNI = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven'];
 const $ = id => document.getElementById(id);
@@ -147,7 +151,9 @@ function disegna() {
 
   $('persone').replaceChildren(...PERSONE.map(p => el('div', { className: 'persona' },
     el('div', {}, el('div', { textContent: p.nome, style: 'font-weight:600' }), el('div', { className: 'sub', textContent: p.nota })),
-    el('span', { className: 'stato ' + (p.attivo ? 'ok' : 'attesa'), textContent: p.attivo ? 'Attivo' : 'Da attivare' }))));
+    el('div', { className: 'azioni-persona' },
+      p.attivo && p.flusso ? el('a', { className: 'prenota-ora', href: p.flusso, target: '_blank', rel: 'noopener', textContent: 'Prenota ora ↗' }) : '',
+      el('span', { className: 'stato ' + (p.attivo ? 'ok' : 'attesa'), textContent: p.attivo ? 'Attivo' : 'Da attivare' })))));
 }
 
 function blocca(titolo, testo) {
