@@ -12,64 +12,47 @@
 <style>
 :root {
   --bg: #0b1128; --surface: rgba(20,28,68,.7); --accent: #00b4e8; --on-accent: #0b1128; --text: #e8eaf8; --muted: #8a92c0;
-  --border: rgba(0,180,232,.2); --chip: rgba(255,255,255,.04); --green: #6ccf8e; --danger: #e06c6c; --gold: #e8c468;
+  --border: rgba(0,180,232,.2); --chip: rgba(255,255,255,.04); --green: #6ccf8e; --gold: #e8c468; --danger: #e06c6c;
 }
 :root[data-theme="light"] {
   --bg: #eef2f9; --surface: #fff; --accent: #0092c2; --on-accent: #fff; --text: #16204a; --muted: #5a6388;
-  --border: rgba(26,45,107,.16); --chip: #f4f6fb; --green: #1f8a4c; --danger: #c43e3e; --gold: #a8781a;
+  --border: rgba(26,45,107,.16); --chip: #f4f6fb; --green: #1f8a4c; --gold: #a8781a; --danger: #c43e3e;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 Inter, "Segoe UI", sans-serif; padding: 20px 16px 40px; }
-main { max-width: 640px; margin: 0 auto; }
+main { max-width: 680px; margin: 0 auto; }
 .hidden { display: none !important; }
-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
 .logo-box { background: #fff; border-radius: 12px; padding: 8px 12px; display: inline-flex; }
-.prossimo { font-size: 13px; color: var(--muted); text-align: right; }
-.prossimo b { display: block; color: var(--text); font-size: 15px; font-weight: 600; }
+.aggiornato { font-size: 12px; color: var(--muted); }
 section { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; margin-top: 14px; }
 h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
 .nota { color: var(--muted); font-size: 12.5px; margin-top: 10px; }
-.utenza + .utenza { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
-.utenza-nome { font-weight: 600; text-transform: capitalize; margin-bottom: 10px; }
-.giorni { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.giorno input, .opz input { position: absolute; opacity: 0; width: 0; height: 0; }
-.giorno span { display: block; text-align: center; padding: 11px 0; border-radius: 10px; border: 1px solid var(--border); background: var(--chip); color: var(--muted); cursor: pointer; font-weight: 500; transition: background .12s, color .12s; }
-.giorno input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
-.giorno input:focus-visible + span, .opz input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
-.opzioni { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-.opz span { display: inline-block; font-size: 12.5px; padding: 5px 11px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); cursor: pointer; }
-.opz input:checked + span { color: var(--text); border-color: var(--accent); }
-.opz input:checked + span::before { content: "✓ "; color: var(--accent); }
-input[type=text] { width: 100%; background: var(--chip); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 11px 12px; font: inherit; }
-.azioni { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
-button { background: var(--accent); color: var(--on-accent); border: 0; border-radius: 10px; padding: 11px 24px; font: 600 14px Inter, sans-serif; cursor: pointer; }
-button:disabled { opacity: .5; cursor: default; }
-#msg { font-size: 13px; }
-#msg.ok { color: var(--green); } #msg.ko { color: var(--danger); }
-.pren { display: flex; flex-wrap: wrap; gap: 8px; }
-.pren div { background: var(--chip); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font-size: 13px; }
-.pren b { display: block; font-size: 14px; }
-.esito { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-.esito:last-child { border-bottom: 0; padding-bottom: 0; }
-.esito .sub { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
-.ok { color: var(--green); } .ko { color: var(--danger); } .neutro { color: var(--muted); }
-.vuoto { color: var(--muted); font-size: 13px; }
-.utenza-testa { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.utenza-testa .utenza-nome { margin: 0; }
-.conteggio { font-size: 12px; color: var(--muted); margin-left: 8px; font-weight: 400; text-transform: none; }
-.togli { background: none; color: var(--muted); padding: 2px 6px; font-size: 12px; font-weight: 500; text-decoration: underline; }
-.copertura { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--muted); }
-.copertura b { display: block; font-size: 17px; color: var(--text); }
-.copertura .zero b { color: var(--danger); }
-.ko-testo { color: var(--gold); }
-.ko-testo:empty { display: none; }
-.aggiungi { display: flex; gap: 8px; margin-top: 14px; }
-button.secondario { background: var(--chip); color: var(--text); border: 1px solid var(--border); padding: 0 16px; white-space: nowrap; }
-code { font-size: 12px; color: var(--text); }
+.stanotte { font-size: 15px; }
+.stanotte b { font-size: 17px; }
 .pulsante-link { display: inline-block; background: var(--accent); color: var(--on-accent); border-radius: 10px; padding: 11px 18px; font-weight: 600; font-size: 14px; text-decoration: none; }
 .pulsante-link:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.settimana { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.giorno { background: var(--chip); border: 1px solid var(--border); border-radius: 10px; padding: 10px 8px; min-height: 92px; }
+.giorno .nome-g { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.giorno .p { font-size: 13px; font-weight: 600; line-height: 1.3; margin-top: 3px; }
+.giorno .p.attesa { color: var(--muted); font-weight: 500; }
+.doppio { border-color: var(--accent); }
+.persone { display: grid; gap: 10px; }
+.persona { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.persona:last-child { border-bottom: 0; padding-bottom: 0; }
+.persona .sub { color: var(--muted); font-size: 12.5px; }
+.stato { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; border: 1px solid currentColor; }
+.stato.ok { color: var(--green); } .stato.attesa { color: var(--gold); }
+ol, ul { margin: 0; padding-left: 20px; }
+li { margin: 4px 0; }
+li.fatto { color: var(--muted); text-decoration: line-through; }
 .centro { text-align: center; padding: 60px 20px; }
 .centro a { color: var(--accent); }
+@media (max-width: 520px) {
+  .settimana { grid-template-columns: 1fr 1fr; }
+  .giorno { min-height: 0; }
+}
 </style>
 </head>
 <body>
@@ -78,158 +61,92 @@ code { font-size: 12px; color: var(--text); }
   <div id="app" class="hidden">
     <header>
       <div class="logo-box"><div class="pde-logo" role="img" aria-label="PDE Parking"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>PARKING</span></div><div class="pl-tag"><i class="c0">IL</i> <i class="c1">TUO</i> <i class="c2">POSTO</i></div></div><div class="pl-wing"></div></div></div>
-      <div class="prossimo">Prossimo avvio<b id="prossimo"></b></div>
+      <div class="aggiornato">Riepilogo aggiornato al 12/11/2026</div>
     </header>
+
+    <section>
+      <h2>Prossima notte</h2>
+      <div class="stanotte" id="stanotte"></div>
+      <div class="nota">I flussi partono alle 00:00, dal lunedì al venerdì, e prenotano la data a 14 giorni. Ognuno riceve una mail con l'esito.</div>
+    </section>
 
     <section>
       <h2>Prenotazioni attive</h2>
       <a class="pulsante-link" target="_blank" rel="noopener"
          href="https://lafeltrinelli.sharepoint.com/sites/FeltrinelliCommonTasks/Lists/Parking%20Reservations/AllItems.aspx?FilterFields1=ReservedBy&amp;FilterValues1=Simola%20Alberto%3B%23Pallotta%20Valeria%3B%23Sala%20Federica&amp;FilterTypes1=User&amp;sortField=CheckOutFrom&amp;isAscending=false">Apri le prenotazioni di Alberto, Valeria e Federica ↗</a>
-      <div class="nota">Si apre l'elenco SharePoint dell'app parcheggi, filtrato sui tre nomi e con le date più lontane in alto. Solo lettura: per cancellare usa l'app Parking Reservation.</div>
+      <div class="nota">Elenco SharePoint dell'app parcheggi, filtrato sui tre nomi, con le date più lontane in alto. Per cancellare usa l'app Parking Reservation.</div>
     </section>
 
     <section>
-      <h2>Giorni in cui parcheggi</h2>
-      <div id="utenze"></div>
-      <div class="copertura" id="copertura" aria-label="Copertura della settimana"></div>
-      <div class="nota ko-testo" id="avviso" role="status"></div>
-      <div class="aggiungi">
-        <input type="text" id="nuova" maxlength="30" placeholder="Nome nuova utenza (es. giulia)" aria-label="Nome nuova utenza">
-        <button id="aggiungi" class="secondario" type="button">Aggiungi</button>
-      </div>
-      <div class="nota">Il programma parte alle 7:00 sul PC, 14 giorni prima del giorno scelto. Ogni nuova utenza deve fare l'accesso di persona sul PC con <code>Aggiungi_utenza.bat</code>, usando lo stesso nome.</div>
+      <h2>La settimana</h2>
+      <div class="settimana" id="settimana"></div>
+      <div class="nota">In grigio chi non ha ancora attivato il proprio flusso.</div>
     </section>
 
     <section>
-      <h2><label for="posti">Posti preferiti, in ordine</label></h2>
-      <input type="text" id="posti" inputmode="numeric" placeholder="Esempio: 52, 54, 55">
-      <div class="nota">Se sono tutti occupati prende il primo posto libero.</div>
-      <div class="azioni"><button id="salva">Salva</button><span id="msg" role="status"></span></div>
+      <h2>Flussi</h2>
+      <div class="persone" id="persone"></div>
     </section>
 
     <section>
-      <h2>Prenotati dal programma</h2>
-      <div id="prenotati" class="pren"></div>
+      <h2>Da fare</h2>
+      <ol>
+        <li>Lunedì 16/11: controllare la prima prenotazione reale di Alberto (mail e app), per lunedì 30/11.</li>
+        <li>Valeria e Federica: creare la copia ricevuta via mail con le proprie connessioni, attivarla e aggiungere alberto.simola@pde.it come comproprietario.</li>
+        <li>Poi impostare i loro giorni nei rispettivi flussi.</li>
+        <li>Pulizia: eliminare le copie modello spente e disattivare il vecchio programma sul PC.</li>
+      </ol>
     </section>
 
     <section>
-      <h2>Ultimi esiti</h2>
-      <div id="esiti"></div>
+      <h2>Da sapere</h2>
+      <ul>
+        <li>14 posti al piano -2; limite di 2 prenotazioni a settimana per persona.</li>
+        <li>La nuova data si apre a mezzanotte, 14 giorni prima.</li>
+        <li>Se un posto è già preso, il flusso prova il successivo.</li>
+        <li>Per cambiare giorni o posti, chiedi a Claude: si modificano dentro i flussi Power Automate.</li>
+      </ul>
     </section>
   </div>
 </main>
 <script>
 const sb = supabase.createClient('https://tdflwenlylhctxssatax.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZmx3ZW5seWxoY3R4c3NhdGF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMzgyNzYsImV4cCI6MjA5MTkxNDI3Nn0.l35qEL7LOvyYuI1McQlVqj4vbyTqmlevcmqWbTGYi2Q');
 const HUB = 'https://albertospde.github.io/pde-hub/';
-const G = ['lun', 'mar', 'mer', 'gio', 'ven'];
-const LIMITE = 2; // l'app ha segnato "limite settimanale" con 2 prenotazioni
-const ESITI = {
-  prenotato: ['Prenotato', 'ok'], gia_prenotato: ['Già prenotato', 'ok'], prova_ok: ['Prova riuscita', 'neutro'],
-  nessun_posto: ['Nessun posto libero', 'ko'], limite_settimanale: ['Limite settimanale raggiunto', 'ko'],
-  login_richiesto: ['Serve rifare l\'accesso', 'ko'], consenso_richiesto: ['Serve accettare i permessi', 'ko'],
-  profilo_mancante: ['Utenza senza accesso sul PC', 'ko'],
-  data_non_comparsa: ['Data non ancora comparsa', 'ko'], esito_sconosciuto: ['Esito da controllare nell\'app', 'ko'],
-};
+// Riepilogo: aggiornato a mano quando cambiano giorni o stato dei flussi.
+const PERSONE = [
+  { nome: 'Alberto', giorni: [1, 2], attivo: true, nota: 'Lunedì e martedì · flusso attivo, prima prenotazione reale lun 16/11' },
+  { nome: 'Valeria', giorni: [2, 3], attivo: false, nota: 'Martedì e mercoledì · copia inviata, da attivare' },
+  { nome: 'Federica', giorni: [4, 5], attivo: false, nota: 'Giovedì e venerdì · copia inviata, da attivare' },
+];
+const GIORNI = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven'];
 const $ = id => document.getElementById(id);
 const el = (tag, props = {}, ...figli) => { const e = Object.assign(document.createElement(tag), props); e.append(...figli); return e; };
-const fmtData = iso => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
-let cfg;
+const fmt = d => d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
 
-function prossimoAvvio() {
-  const ora = new Date(), d = new Date(ora);
-  if (ora.getHours() >= 7) d.setDate(d.getDate() + 1);
-  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-  const per = new Date(d); per.setDate(per.getDate() + cfg.anticipo_giorni);
-  const fmt = x => x.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
-  $('prossimo').textContent = `${fmt(d)}, 7:00 → per ${fmt(per)}`;
-}
+function disegna() {
+  // Prossima esecuzione: stanotte (cioè domani alle 00:00), saltando sabato e domenica.
+  const avvio = new Date(); avvio.setHours(0, 0, 0, 0); avvio.setDate(avvio.getDate() + 1);
+  while (avvio.getDay() === 0 || avvio.getDay() === 6) avvio.setDate(avvio.getDate() + 1);
+  const per = new Date(avvio); per.setDate(per.getDate() + 14);
+  const chi = PERSONE.filter(p => p.giorni.includes(per.getDay()));
+  const attivi = chi.filter(p => p.attivo).map(p => p.nome);
+  const inattesa = chi.filter(p => !p.attivo).map(p => p.nome);
+  $('stanotte').replaceChildren(
+    `Notte di ${fmt(avvio)}, 00:00 → prenota per `, el('b', { textContent: fmt(per) }), ': ',
+    attivi.length ? attivi.join(' e ') : 'nessuno',
+    inattesa.length ? ` (${inattesa.join(' e ')} non ancora attiv${inattesa.length > 1 ? 'e' : 'a'})` : '');
 
-function disegnaCopertura() {
-  const tutte = Object.values(cfg.utenze);
-  $('copertura').replaceChildren(...G.map(g => {
-    const n = tutte.filter(u => u.giorni.includes(g)).length;
-    return el('div', { className: n ? '' : 'zero' }, el('b', { textContent: n }), g[0].toUpperCase() + g.slice(1));
+  $('settimana').replaceChildren(...GIORNI.map((g, i) => {
+    const qui = PERSONE.filter(p => p.giorni.includes(i + 1));
+    return el('div', { className: 'giorno' + (qui.length > 1 ? ' doppio' : '') },
+      el('div', { className: 'nome-g', textContent: g + (qui.length > 1 ? ' · doppio' : '') }),
+      ...qui.map(p => el('div', { className: 'p' + (p.attivo ? '' : ' attesa'), textContent: p.nome })));
   }));
-  const oltre = Object.entries(cfg.utenze).filter(([, u]) => u.giorni.length > LIMITE).map(([n]) => n);
-  $('avviso').textContent = oltre.length
-    ? `${oltre.join(', ')}: più di ${LIMITE} giorni a settimana. L'app potrebbe rifiutare quelli oltre il limite.` : '';
+
+  $('persone').replaceChildren(...PERSONE.map(p => el('div', { className: 'persona' },
+    el('div', {}, el('div', { textContent: p.nome, style: 'font-weight:600' }), el('div', { className: 'sub', textContent: p.nota })),
+    el('span', { className: 'stato ' + (p.attivo ? 'ok' : 'attesa'), textContent: p.attivo ? 'Attivo' : 'Da attivare' }))));
 }
-
-function disegnaUtenze() {
-  $('utenze').replaceChildren(...Object.entries(cfg.utenze).map(([nome, u]) => {
-    const conteggio = el('span', { className: 'conteggio', textContent: `${u.giorni.length} a settimana` });
-    const giorni = el('div', { className: 'giorni' }, ...G.map(g => {
-      const i = el('input', { type: 'checkbox', checked: u.giorni.includes(g) });
-      i.onchange = () => {
-        u.giorni = i.checked ? G.filter(x => x === g || u.giorni.includes(x)) : u.giorni.filter(x => x !== g);
-        pulisciMsg();
-        conteggio.textContent = `${u.giorni.length} a settimana`;
-        disegnaCopertura();
-      };
-      return el('label', { className: 'giorno' }, i, el('span', { textContent: g[0].toUpperCase() + g.slice(1) }));
-    }));
-    const opz = (chiave, testo) => {
-      const i = el('input', { type: 'checkbox', checked: u[chiave] });
-      i.onchange = () => { u[chiave] = i.checked; pulisciMsg(); };
-      return el('label', { className: 'opz' }, i, el('span', { textContent: testo }));
-    };
-    const togli = el('button', { className: 'togli', type: 'button', textContent: 'Togli' });
-    togli.onclick = () => {
-      if (!confirm(`Togliere l'utenza "${nome}"? Dopo devi premere Salva.`)) return;
-      delete cfg.utenze[nome];
-      pulisciMsg();
-      disegnaUtenze();
-    };
-    const testa = el('div', { className: 'utenza-testa' },
-      el('div', { className: 'utenza-nome' }, nome, conteggio),
-      Object.keys(cfg.utenze).length > 1 ? togli : '');
-    return el('div', { className: 'utenza' }, testa, giorni,
-      el('div', { className: 'opzioni' }, opz('mail', 'Mail di conferma'), opz('calendario', 'Evento in calendario')));
-  }));
-  disegnaCopertura();
-}
-
-$('aggiungi').onclick = () => {
-  const nome = $('nuova').value.trim().toLowerCase();
-  if (!/^[a-z0-9_-]{1,30}$/.test(nome)) { $('msg').textContent = 'Nome: solo lettere, numeri, - e _'; $('msg').className = 'ko'; return; }
-  if (!cfg.utenze[nome]) cfg.utenze[nome] = { giorni: [], mail: true, calendario: true };
-  $('nuova').value = '';
-  $('msg').textContent = 'Ricorda di premere Salva'; $('msg').className = '';
-  disegnaUtenze();
-};
-
-function pulisciMsg() { $('msg').textContent = ''; $('msg').className = ''; }
-
-async function caricaEsiti() {
-  const { data, error } = await sb.from('parking_esiti').select('*').order('quando', { ascending: false }).limit(30);
-  if (error) { $('esiti').replaceChildren(el('div', { className: 'vuoto', textContent: 'Esiti non disponibili.' })); return; }
-  const oggi = new Date().toLocaleDateString('sv-SE');
-  const pren = data.filter(r => r.esito === 'prenotato' && !r.prova && r.data >= oggi).sort((a, b) => a.data.localeCompare(b.data));
-  $('prenotati').replaceChildren(...(pren.length
-    ? pren.map(r => el('div', {}, el('b', { textContent: fmtData(r.data) }), `Posto ${r.posto}`))
-    : [el('div', { className: 'vuoto', style: 'background:none;border:0;padding:0', textContent: 'Ancora nessuna. Quelle fatte a mano si vedono nell\'app Parking Reservation.' })]));
-  const righe = data.slice(0, 10);
-  $('esiti').replaceChildren(...(righe.length ? righe.map(r => {
-    const [testo, classe] = ESITI[r.esito] || ['Non riuscita', 'ko'];
-    const quando = new Date(r.quando).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    const info = [`per ${fmtData(r.data)}`, r.posto && `posto ${r.posto}`, r.posti_liberi != null && `${r.posti_liberi} ${r.posti_liberi === 1 ? 'libero' : 'liberi'}`, r.utenza].filter(Boolean).join(' · ');
-    return el('div', { className: 'esito' }, el('span', { className: classe, textContent: testo }),
-      el('span', { className: 'neutro', textContent: quando }), el('span', { className: 'sub', textContent: info }));
-  }) : [el('div', { className: 'vuoto', textContent: 'Nessun avvio finora.' })]));
-}
-
-$('salva').onclick = async () => {
-  $('salva').disabled = true;
-  const posti = $('posti').value.split(/[^0-9]+/).filter(Boolean);
-  const { error, data } = await sb.from('parking_config')
-    .update({ posti_preferiti: posti, utenze: cfg.utenze, aggiornato_il: new Date().toISOString() })
-    .eq('id', true).select('id');
-  $('salva').disabled = false;
-  const ok = !error && data && data.length === 1;
-  $('msg').textContent = ok ? 'Salvato' : 'Salvataggio non riuscito';
-  $('msg').className = ok ? 'ok' : 'ko';
-  if (ok) { cfg.posti_preferiti = posti; $('posti').value = posti.join(', '); }
-};
 
 function blocca(titolo, testo) {
   $('blocco').replaceChildren(el('h2', { textContent: titolo }), el('p', { className: 'nota', textContent: testo }),
@@ -240,15 +157,12 @@ function blocca(titolo, testo) {
 (async () => {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) return blocca('Accesso richiesto', 'Apri PDE Parking da PDE Hub.');
-  const { data, error } = await sb.from('parking_config').select('*').maybeSingle();
-  if (error) return blocca('Impostazioni non disponibili', 'Riprova tra poco.');
+  // La riga è leggibile solo dall'utente abilitato (regola di sicurezza su Supabase).
+  const { data, error } = await sb.from('parking_config').select('id').maybeSingle();
+  if (error) return blocca('Pagina non disponibile', 'Riprova tra poco.');
   if (!data) return blocca('Accesso non autorizzato', 'Questa app è riservata.');
-  cfg = data;
-  $('posti').value = cfg.posti_preferiti.join(', ');
-  prossimoAvvio();
-  disegnaUtenze();
+  disegna();
   $('app').classList.remove('hidden');
-  caricaEsiti();
 })();
 </script>
 </body>
