@@ -66,6 +66,8 @@ button:disabled { opacity: .5; cursor: default; }
 .aggiungi { display: flex; gap: 8px; margin-top: 14px; }
 button.secondario { background: var(--chip); color: var(--text); border: 1px solid var(--border); padding: 0 16px; white-space: nowrap; }
 code { font-size: 12px; color: var(--text); }
+.pulsante-link { display: inline-block; background: var(--accent); color: var(--on-accent); border-radius: 10px; padding: 11px 18px; font-weight: 600; font-size: 14px; text-decoration: none; }
+.pulsante-link:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .centro { text-align: center; padding: 60px 20px; }
 .centro a { color: var(--accent); }
 </style>
@@ -78,6 +80,13 @@ code { font-size: 12px; color: var(--text); }
       <div class="logo-box"><div class="pde-logo" role="img" aria-label="PDE Parking"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>PARKING</span></div><div class="pl-tag"><i class="c0">IL</i> <i class="c1">TUO</i> <i class="c2">POSTO</i></div></div><div class="pl-wing"></div></div></div>
       <div class="prossimo">Prossimo avvio<b id="prossimo"></b></div>
     </header>
+
+    <section>
+      <h2>Prenotazioni attive</h2>
+      <a class="pulsante-link" target="_blank" rel="noopener"
+         href="https://lafeltrinelli.sharepoint.com/sites/FeltrinelliCommonTasks/Lists/Parking%20Reservations/AllItems.aspx?FilterFields1=ReservedBy&amp;FilterValues1=Simola%20Alberto%3B%23Pallotta%20Valeria%3B%23Sala%20Federica&amp;FilterTypes1=User&amp;sortField=CheckOutFrom&amp;isAscending=false">Apri le prenotazioni di Alberto, Valeria e Federica ↗</a>
+      <div class="nota">Si apre l'elenco SharePoint dell'app parcheggi, filtrato sui tre nomi e con le date più lontane in alto. Solo lettura: per cancellare usa l'app Parking Reservation.</div>
+    </section>
 
     <section>
       <h2>Giorni in cui parcheggi</h2>
