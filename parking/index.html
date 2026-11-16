@@ -82,13 +82,13 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
   <div id="app" class="hidden">
     <header>
       <div class="logo-box"><div class="pde-logo" role="img" aria-label="PDE Parking"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>PARKING</span></div><div class="pl-tag"><i class="c0">IL</i> <i class="c1">TUO</i> <i class="c2">POSTO</i></div></div><div class="pl-wing"></div></div></div>
-      <div class="aggiornato">Riepilogo aggiornato al 12/11/2026, 14:50</div>
+      <div class="aggiornato">Riepilogo aggiornato al 16/11/2026</div>
     </header>
 
     <section>
       <h2>Prossima notte</h2>
       <div class="stanotte" id="stanotte"></div>
-      <div class="nota">I flussi partono alle 00:00, dal lunedì al venerdì, e prenotano la data a 14 giorni. Ognuno riceve una mail con l'esito.</div>
+      <div class="nota">I flussi partono alle 00:30, dal lunedì al venerdì, e prenotano la data a 14 giorni. Ognuno riceve una mail con l'esito.</div>
     </section>
 
     <section>
@@ -127,9 +127,6 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
     <section>
       <h2>Da fare</h2>
       <ol>
-        <li>Lunedì 16/11: controllare la prima prenotazione reale di Alberto (mail e app), per lunedì 30/11.</li>
-        <li>Valeria: creare la copia ricevuta via mail con le proprie connessioni, attivarla e aggiungere alberto.simola@pde.it come comproprietario.</li>
-        <li>Poi impostare i loro giorni nei rispettivi flussi.</li>
         <li>Elisa: aggiungere la regola dei posti accanto a quelli del gruppo.</li>
         <li>Pulizia: eliminare le copie modello spente e disattivare il vecchio programma sul PC.</li>
       </ol>
@@ -139,7 +136,7 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
       <h2>Da sapere</h2>
       <ul>
         <li>14 posti al piano -2; limite di 2 prenotazioni a settimana per persona.</li>
-        <li>La nuova data si apre a mezzanotte, 14 giorni prima.</li>
+        <li>La nuova data si apre a mezzanotte, 14 giorni prima; i flussi partono alle 00:30.</li>
         <li>Se un posto è già preso, il flusso prova il successivo.</li>
         <li>Per cambiare giorni o posti, chiedi a Claude: si modificano dentro i flussi Power Automate.</li>
       </ul>
@@ -151,10 +148,10 @@ const sb = supabase.createClient('https://tdflwenlylhctxssatax.supabase.co', 'ey
 const HUB = 'https://albertospde.github.io/pde-hub/';
 // Riepilogo: aggiornato a mano quando cambiano giorni o stato dei flussi.
 const PERSONE = [
-  { nome: 'Alberto', flusso: 'https://make.powerautomate.com/environments/Default-226606f1-93e8-43d2-9f36-ca7ade542ad3/flows/ba382b0f-24ef-414a-aa22-81c20b918131/details', giorni: [1, 2], attivo: true, nota: 'Lunedì e martedì · flusso attivo, prima prenotazione reale lun 16/11' },
-  { nome: 'Valeria', giorni: [2, 3], attivo: false, nota: 'Martedì e mercoledì · copia inviata, da attivare' },
-  { nome: 'Federica', flusso: 'https://make.powerautomate.com/environments/Default-226606f1-93e8-43d2-9f36-ca7ade542ad3/flows/shared/48b02580-0373-4e62-aa22-1a13a8d6cda9/details', giorni: [4, 5], attivo: true, nota: 'Giovedì e venerdì · attivo, prima prenotazione ven 13/11 notte per ven 27/11' },
-  { nome: 'Elisa', flusso: 'https://make.powerautomate.com/environments/Default-226606f1-93e8-43d2-9f36-ca7ade542ad3/flows/shared/fb46d95f-5a8a-4199-9728-b997e0f26402/details', giorni: [3, 4], attivo: true, nota: 'Mercoledì e giovedì · attivo, prima prenotazione mer 18/11 per mer 2/12' },
+  { nome: 'Alberto', flusso: 'https://make.powerautomate.com/environments/Default-226606f1-93e8-43d2-9f36-ca7ade542ad3/flows/ba382b0f-24ef-414a-aa22-81c20b918131/details', giorni: [1, 2], attivo: true, nota: 'Lunedì e martedì · attivo' },
+  { nome: 'Valeria', flusso: 'https://make.powerautomate.com/environments/Default-226606f1-93e8-43d2-9f36-ca7ade542ad3/flows/shared/a42c6a53-2075-4aaf-a2ae-50776f5f24d2/details', giorni: [2, 3], attivo: true, nota: 'Martedì e mercoledì · attivo dal 16/11' },
+  { nome: 'Federica', flusso: 'https://make.powerautomate.com/environments/Default-226606f1-93e8-43d2-9f36-ca7ade542ad3/flows/shared/48b02580-0373-4e62-aa22-1a13a8d6cda9/details', giorni: [4, 5], attivo: true, nota: 'Giovedì e venerdì · attivo' },
+  { nome: 'Elisa', flusso: 'https://make.powerautomate.com/environments/Default-226606f1-93e8-43d2-9f36-ca7ade542ad3/flows/shared/fb46d95f-5a8a-4199-9728-b997e0f26402/details', giorni: [3, 4], attivo: true, nota: 'Mercoledì e giovedì · attivo' },
 ];
 const GIORNI = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven'];
 const $ = id => document.getElementById(id);
@@ -162,7 +159,7 @@ const el = (tag, props = {}, ...figli) => { const e = Object.assign(document.cre
 const fmt = d => d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
 
 function disegna() {
-  // Prossima esecuzione: stanotte (cioè domani alle 00:00), saltando sabato e domenica.
+  // Prossima esecuzione: stanotte (cioè domani alle 00:30), saltando sabato e domenica.
   const avvio = new Date(); avvio.setHours(0, 0, 0, 0); avvio.setDate(avvio.getDate() + 1);
   while (avvio.getDay() === 0 || avvio.getDay() === 6) avvio.setDate(avvio.getDate() + 1);
   const per = new Date(avvio); per.setDate(per.getDate() + 14);
@@ -170,7 +167,7 @@ function disegna() {
   const attivi = chi.filter(p => p.attivo).map(p => p.nome);
   const inattesa = chi.filter(p => !p.attivo).map(p => p.nome);
   $('stanotte').replaceChildren(
-    `Notte di ${fmt(avvio)}, 00:00 → prenota per `, el('b', { textContent: fmt(per) }), ': ',
+    `Notte di ${fmt(avvio)}, 00:30 → prenota per `, el('b', { textContent: fmt(per) }), ': ',
     attivi.length ? attivi.join(' e ') : 'nessuno',
     inattesa.length ? ` (${inattesa.join(' e ')} non ancora attiv${inattesa.length > 1 ? 'e' : 'a'})` : '');
 
