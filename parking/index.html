@@ -61,8 +61,10 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
 .cal-giorno { min-height: 64px; background: var(--chip); border: 1px solid var(--border); border-radius: 8px; padding: 4px; font-size: 11px; overflow: hidden; }
 .cal-giorno.fuori { opacity: .35; }
 .cal-giorno.weekend { opacity: .55; }
-.cal-giorno.oggi { border-color: var(--accent); }
+.cal-giorno.oggi { border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--chip)); opacity: 1; }
 .cal-num { font-weight: 600; font-size: 12px; margin-bottom: 2px; }
+.cal-giorno.oggi .cal-num { display: inline-block; background: var(--accent); color: var(--on-accent); border-radius: 6px; padding: 0 6px; }
+.cal-giorno.oggi .cal-num::after { content: " · oggi"; font-weight: 500; }
 .cal-pren { border-left: 3px solid var(--c); padding: 1px 0 1px 4px; margin-top: 2px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-pren b { font-weight: 600; }
 @media (max-width: 520px) { .cal-giorno { min-height: 54px; font-size: 10px; } .cal-pren b { display: block; } }
@@ -214,7 +216,8 @@ async function caricaCalendario() {
     sb.from('parking_calendario').select('data,posto,persona').order('data'),
     sb.from('parking_calendario_stato').select('aggiornato_il').maybeSingle(),
   ]);
-  prenotazioni = righe || [];
+  // Solo voi 4: eventuali righe di altri colleghi non vengono mostrate.
+  prenotazioni = (righe || []).filter(p => p.persona in COLORI);
   $('cal-agg').textContent = stato ? 'Dati letti da SharePoint il ' + new Date(stato.aggiornato_il).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' (si aggiornano dal PC di Alberto). Per la situazione in tempo reale usa "Prenotazioni attive".' : '';
   disegnaCalendario();
 }
