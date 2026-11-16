@@ -44,11 +44,11 @@
   /* ---------- menu laterale (stile BookUp) ---------- */
   .side{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--card);border-right:1px solid var(--border);padding:18px 12px 24px}
   .brand{padding:4px 8px 14px;border-bottom:1px solid var(--border);margin-bottom:6px}
-  /* Logo BookUp Publisher Edition: logo BookUp con la dicitura sotto la parola, allineata alla "B" */
+  /* Logo BookUp Publisher Edition: logo BookUp con la dicitura larga quanto tutto il logo (dall'ala alla "p"), lettere distribuite */
   .bu-logo{container-type:inline-size;width:100%;background:#fff;border-radius:12px}
   .bu-logo img{display:block;width:100%;height:auto}
-  .bu-ed{margin:-1.5cqw 0 0 26.5%;padding-bottom:2.5cqw;font-family:Montserrat,'Segoe UI',sans-serif;font-size:5.15cqw;letter-spacing:.27em;line-height:1;white-space:nowrap}
-  .bu-ed b{font-weight:700;color:#13297a} .bu-ed i{font-style:normal;font-weight:700;color:#1a8ff0}
+  .bu-ed{display:flex;justify-content:space-between;margin:-.6cqw 1.6% 0 1.1%;padding-bottom:2.5cqw;font-family:Montserrat,'Segoe UI',sans-serif;font-size:5.6cqw;font-weight:700;line-height:1}
+  .bu-ed b{font-weight:700;color:#13297a} .bu-ed i{font-style:normal;font-weight:700;color:#1a8ff0} .bu-ed s{width:3cqw;text-decoration:none}
   .brand .bu-logo{max-width:236px}
   .editore-box{margin:12px 6px 4px;padding:10px 12px;border-radius:14px;background:linear-gradient(140deg,#e3f3fb,#eef1ff);border:1px solid var(--border)}
   :root[data-theme="dark"] .editore-box{background:var(--card-2)}
@@ -187,7 +187,7 @@
 <body>
 <div class="login" id="login" hidden>
   <form id="f-login" autocomplete="on">
-    <div class="login-logo"><div class="bu-logo" role="img" aria-label="BookUp Publisher Edition"><img src="assets/bookup-logo.jpg" alt=""><div class="bu-ed"><b>PUBLISHER</b> <i>EDITION</i></div></div></div>
+    <div class="login-logo"><div class="bu-logo" role="img" aria-label="BookUp Publisher Edition"><img src="assets/bookup-logo.jpg" alt=""><div class="bu-ed" aria-hidden="true"><b>P</b><b>U</b><b>B</b><b>L</b><b>I</b><b>S</b><b>H</b><b>E</b><b>R</b><s></s><i>E</i><i>D</i><i>I</i><i>T</i><i>I</i><i>O</i><i>N</i></div></div></div>
     <h2>Area editori</h2>
     <p class="muted" style="margin:0;font-size:14px">Accedi con le credenziali ricevute da PDE.</p>
     <label>Email<input type="email" name="email" required autocomplete="username"></label>
@@ -199,7 +199,7 @@
 <div class="app" id="app" hidden>
   <aside class="side">
     <div class="brand">
-      <div class="bu-logo" role="img" aria-label="BookUp Publisher Edition"><img src="assets/bookup-logo.jpg" alt=""><div class="bu-ed"><b>PUBLISHER</b> <i>EDITION</i></div></div>
+      <div class="bu-logo" role="img" aria-label="BookUp Publisher Edition"><img src="assets/bookup-logo.jpg" alt=""><div class="bu-ed" aria-hidden="true"><b>P</b><b>U</b><b>B</b><b>L</b><b>I</b><b>S</b><b>H</b><b>E</b><b>R</b><s></s><i>E</i><i>D</i><i>I</i><i>T</i><i>I</i><i>O</i><i>N</i></div></div>
     </div>
     <div class="editore-box">
       <div class="lab">Area riservata editore</div>
