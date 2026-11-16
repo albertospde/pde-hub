@@ -388,6 +388,9 @@ main {
 /* ── Logo delle app PDE: stesso stampo di Giro Manager (nome in due pesi + motto + ala PDE) ── */
 .pde-logo { display: flex; align-items: center; gap: .16em; font-size: 17px; transition: transform .35s; }
 .card-app:hover .card-app-icon .pde-logo { transform: scale(1.04); }
+/* BookUp Publisher Edition: logo BookUp + dicitura, si ingrandisce tutto insieme */
+.card-app-icon .bu-pe-logo img { transform: none !important; }
+.card-app:hover .card-app-icon .bu-pe-logo { transform: scale(1.04); }
 .pl-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
 .pl-name { font-family: Montserrat, "Segoe UI", sans-serif; font-size: 1.3em; line-height: 1; letter-spacing: -.015em; white-space: nowrap; color: #0f1c4d; }
 .pl-name b { font-weight: 700; }
@@ -940,6 +943,13 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
         <div class="card-app-icon"><div class="pde-logo" role="img" aria-label="PDE Analisi"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>ANALISI</span></div><div class="pl-tag"><i class="c0">RACCOGLI.</i><em>I</em><i class="c1">ANALIZZA.</i><em>I</em><i class="c2">DECIDI.</i></div></div><div class="pl-wing"></div></div></div>
         <div class="card-app-footer">
           <span class="card-app-desc">Analisi dati Messaggerie</span>
+          <span class="badge-live">● live</span>
+        </div>
+      </a>
+      <a class="card-app role-hide-agente" data-solo-per="alberto.simola@pde.it,elisa.ferrario@pde.it" style="display:none" href="https://albertospde.github.io/pde-hub/publisher/" onclick="return openAppTab(event, this)" data-app-title="BookUp Publisher Edition">
+        <div class="card-app-icon"><div class="bu-pe-logo" role="img" aria-label="BookUp Publisher Edition" style="width:80%;container-type:inline-size;transition:transform .35s"><img src="publisher/assets/bookup-logo.jpg" alt="" style="width:100%;height:auto"><div style="margin:-1.5cqw 0 0 26.5%;font-family:Montserrat,'Segoe UI',sans-serif;font-size:5.15cqw;font-weight:700;letter-spacing:.27em;line-height:1;white-space:nowrap"><span style="color:#13297a">PUBLISHER</span> <span style="color:#1a8ff0">EDITION</span></div></div></div>
+        <div class="card-app-footer">
+          <span class="card-app-desc">Dati e giri per gli editori</span>
           <span class="badge-live">● live</span>
         </div>
       </a>
