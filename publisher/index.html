@@ -131,6 +131,9 @@
   .giro.on{outline:2px solid var(--cyan);border-color:var(--cyan)}
   .giro .n{font-family:'Bree Serif',serif;font-size:19px}
   .giro .d{font-size:12.5px;color:var(--text-dim);margin:2px 0 8px}
+  .giro:has(.giro-ck){position:relative;padding-bottom:36px}
+  .giro-ck{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);display:grid;place-items:center;width:30px;height:24px;cursor:pointer}
+  .giro-ck input{width:17px;height:17px;margin:0;accent-color:var(--cyan);cursor:pointer}
   .giro .row{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:13px;margin-top:8px}
   .list-ev{display:flex;flex-direction:column;gap:10px}
   .ev{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
@@ -217,9 +220,6 @@
       <div class="dx">
         <label class="sel" id="sel-editore" hidden>Editore
           <select id="f-editore"></select>
-        </label>
-        <label class="sel">Marchio
-          <select id="f-marchio"></select>
         </label>
         <span class="dati-al" id="dati-al"></span>
         <span class="utente"><span id="utente"></span><button class="btn" type="button" id="b-esci">Esci</button></span>
@@ -630,6 +630,7 @@ const IC = {
 
 /* =====================================================================
    DATI REALI (Supabase, funzioni ed_*: ogni editore legge solo i suoi)
+   Tutto è per codice editore: i marchi non si separano.
    ===================================================================== */
 const SUPABASE_URL = 'https://tdflwenlylhctxssatax.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZmx3ZW5seWxoY3R4c3NhdGF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMzgyNzYsImV4cCI6MjA5MTkxNDI3Nn0.l35qEL7LOvyYuI1McQlVqj4vbyTqmlevcmqWbTGYi2Q';
@@ -641,16 +642,17 @@ let SESS = null;   // risposta di ed_sessione()
 let ED = null;     // editore scelto { codice_editore, nome }
 let R = null;      // dati reali dell'editore
 let PER = null;    // periodi di confronto
+const ADMIN = () => !!(SESS && SESS.admin);
 
 const pd = s => { if (!s) return null; const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d || 1); };
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const titleCase = s => String(s || '').toLowerCase().replace(/(^|[\s'’.(\/-])([a-zà-ù])/g, (_m, a, b) => a + b.toUpperCase());
 const pctS = v => (v > 0 ? '+' : '') + pct(v);
-const nomeM = m => titleCase(m).replace(/\bHc\b/g, 'HC');
-const nomeGiro = g => titleCase(g.label || `Giro ${g.numero} ${g.anno}`);
+const nomeGiro = g => `Giro ${g.numero} ${g.anno}`;
 const TIPI = { classico: 'Catalogo', novita: 'Novità', lancio: 'Lancio' };
 const GRUPPI = { CATENE: 'Catene', ONLINE: 'Online', INDIE: 'Indipendenti', GROSSISTI: 'Grossisti', ALTRO: 'Altro' };
 const nomeGruppo = g => GRUPPI[(g || 'ALTRO').toUpperCase()] || titleCase(g);
+const SEDE = ['PP00002', 'PP00199'];   // amministratori PDE: i loro clienti sono direzionali
 
 const PROV_ZONA = {};
 [['Nord-Ovest', 'TO VC NO CN AT AL BI VB AO GE IM SP SV MI BG BS CO CR LC LO MN PV SO VA MB'],
@@ -680,32 +682,35 @@ async function rpc(nome, args){
 }
 async function caricaEditore(codice){
   const p = { p_editore: codice };
-  const [vendite, titoli, giri, gfk, materiali, mesiCli] = await Promise.all([
+  const [vendite, titoli, giri, gfk, materiali, mesiCli, meli, inv, fatt] = await Promise.all([
     rpc('ed_vendite_mese', p),
     rpc('ed_titoli', { ...p, p_dal: PER.dal, p_al: PER.al, p_dal_prima: PER.dal1, p_al_prima: PER.al1 }),
     rpc('ed_giri', p), rpc('ed_gfk', p), rpc('ed_materiali', p), rpc('ed_clienti_mesi', p),
+    rpc('ed_meli_lista', p), rpc('ed_investimenti_lista', p), rpc('ed_fatture_lista', p),
   ]);
   vendite.forEach(v => v.d = pd(v.mese));
   giri.forEach(g => {
-    g.inizio = pd(g.inizio); g.fine = pd(g.fine); g.consegna = pd(g.consegna);
-    g.titoli ||= []; g.per_canale ||= []; g.per_regione ||= []; g.per_agente ||= [];
+    g.inizio = pd(g.inizio); g.fine = pd(g.fine); g.consegna = pd(g.consegna); g.titoli ||= [];
     g.obiettivo = sum(g.titoli.map(t => +t.obiettivo)); g.prenotato = sum(g.titoli.map(t => +t.prenotato));
     g.cf = sum(g.titoli.map(t => +t.cf)); g.cr = sum(g.titoli.map(t => +t.cr));
     g.stato = !g.inizio || !g.fine ? 'senza date' : g.fine < OGGI ? 'chiuso' : g.inizio <= OGGI ? 'in corso' : 'programmato';
   });
-  R = { vendite, titoli, giri, gfk: gfk || { righe: [] }, materiali: materiali || [], mesiCli: mesiCli || [], clienti: {}, agenti: {},
-        marchi: [...new Set(vendite.map(v => v.marchio))].sort() };
-  // nomi degli agenti (servono anche ai giri): dal periodo clienti più recente
+  R = { vendite, titoli, giri, gfk: gfk || { righe: [] }, materiali: materiali || [], mesiCli: mesiCli || [], clienti: {}, agenti: {}, giriDett: {},
+        meli: meli || { righe: [] }, inv: inv || [], fatt: fatt || { perc: .05, fatture: [] }, anag: null };
+  R.titoliMap = new Map(titoli.map(t => [t.ean, t]));
+  R.meliMap = new Map((R.meli.righe || []).map(m => [m.ean, m]));
   const opz = opzioniPeriodoCli();
-  if (opz.length) await clientiPer(opz[0].v);
+  if (opz.length) await clientiPer(opz[0].v);   // nomi degli agenti, servono anche ai giri
 }
+async function ricarica(chiave, nome){ R[chiave] = await rpc(nome, { p_editore: ED.codice_editore }); }
 
-/* ---- vendite (msg_titolo_mese) ---- */
-const VF = () => STATO.marchio === 'tutti' ? R.vendite : R.vendite.filter(v => v.marchio === STATO.marchio);
-const TF = () => STATO.marchio === 'tutti' ? R.titoli : R.titoli.filter(t => t.marchio === STATO.marchio);
+/* ---- vendite (msg_titolo_mese), sempre per codice editore ---- */
+const VF = () => R.vendite;
+const TF = () => R.titoli;
 const fVen = v => v.lf - v.lr, fNet = v => v.nf - v.nr, fCop = v => v.cf - v.cr;
 const totA = (rows, anno, f) => sum(rows.filter(v => v.d.getFullYear() === anno && v.d.getMonth() <= PER.m).map(f));
 const serieA = (rows, anno, f, fino = 11) => MESI.map((_, m) => m > fino ? null : sum(rows.filter(v => v.d.getFullYear() === anno && v.d.getMonth() === m).map(f)));
+const genereDi = ean => (R.meliMap.get(ean) || {}).genere ? titleCase(R.meliMap.get(ean).genere) : null;
 
 /* ---- clienti (ed_cliente_mese): solo i mesi con il dettaglio completo ---- */
 function opzioniPeriodoCli(){
@@ -726,12 +731,14 @@ async function clientiPer(k){
   const [dal, al] = k.split('|').map(pd);
   const D = await rpc('ed_clienti', { p_editore: ED.codice_editore, p_dal: iso(dal), p_al: iso(al),
     p_dal_prima: iso(new Date(dal.getFullYear() - 1, dal.getMonth(), 1)), p_al_prima: iso(new Date(al.getFullYear() - 1, al.getMonth(), 1)) });
-  (D.agenti || []).forEach(a => R.agenti[a.codice] = a.codice === 'PP00199' ? 'PDE (sede)' : titleCase(a.nome));
+  (D.agenti || []).forEach(a => R.agenti[a.codice] = { nome: titleCase(a.nome), reale: !!a.reale });
   (D.clienti || []).forEach(c => {
     ['cf', 'cr', 'lf', 'lr', 'nf', 'nr', 'lf1', 'lr1'].forEach(x => c[x] = +c[x] || 0);
     c.zona = zonaDi(c.provincia, c.regione);
-    const ag = (c.agenti || []).filter(a => a !== 'PP00199').sort();
-    c.agente = ag[0] || (c.agenti || [])[0] || null;
+    const reali = (c.agenti || []).filter(a => R.agenti[a]?.reale).sort();
+    c.agente = reali[0] || null;
+    c.direzionale = !c.agente && (c.agenti || []).some(a => SEDE.includes(a));
+    c.senzaAgente = !c.agente && !c.direzionale;
     c.f = c.lf - c.lr; c.n = c.nf - c.nr; c.f1 = c.lf1 - c.lr1;
     c.sconto = c.lf > 0 ? 1 - c.nf / c.lf : null;
     c.nome = titleCase(c.nome); c.citta = titleCase(c.citta);
@@ -749,8 +756,24 @@ const etichettaPerCli = () => (opzioniPeriodoCli().find(o => o.v === STATO.perCl
 const selPerCli = () => `<label class="sel">Periodo <select id="f-percli">${opzioniPeriodoCli().map(o => `<option value="${o.v}" ${o.v === STATO.perCli ? 'selected' : ''}>${o.label}</option>`).join('')}</select></label>`;
 function agganciaPerCli(){ const s = $('#f-percli'); if (s) s.addEventListener('change', e => { STATO.perCli = e.target.value; render(); }); }
 const notaCopertura = () => `<p class="note">Il dettaglio per cliente c'è solo per i mesi in elenco: gli altri mesi sono archiviati e verranno recuperati.</p>`;
-const nomeAgente = c => c ? (R.agenti[c] || c) : 'Non assegnato';
+const nomeAgente = c => c === 'DIREZIONALE' ? 'Clienti direzionali' : c ? ((R.agenti[c] || {}).nome || c) : 'Direzionale';
 const vuoto = t => `<div class="card empty">${t}</div>`;
+
+/* ---- giri: dettaglio (canali, zone, agenti) di uno o più giri insieme ---- */
+async function dettaglioGiri(chiavi){
+  const k = [...chiavi].sort().join(',');
+  if (!R.giriDett[k]) R.giriDett[k] = await rpc('ed_giri_dettaglio', { p_editore: ED.codice_editore, p_chiavi: [...chiavi] });
+  return R.giriDett[k];
+}
+
+/* ---- anagrafica clienti per i moduli ---- */
+async function anagrafica(){
+  if (!R.anag){
+    const L = await rpc('ed_anagrafica_clienti', { p_editore: ED.codice_editore });
+    R.anag = L.filter(c => c.nome && c.nome !== c.cc).map(c => ({ ...c, nome: titleCase(c.nome), citta: titleCase(c.citta) }));
+  }
+  return R.anag;
+}
 
 /* =====================================================================
    SEZIONI
@@ -766,6 +789,24 @@ function evHtml(e){
 const pillGiro = st => st === 'chiuso' ? '<span class="pill mut">Chiuso</span>' : st === 'in corso' ? '<span class="pill ok">In corso</span>' : st === 'programmato' ? '<span class="pill info">Programmato</span>' : '<span class="pill mut">Senza date</span>';
 const pillPerc = p => `<span class="pill ${p >= 1 ? 'ok' : p >= .9 ? 'warn' : 'ko'}">${pct(p, 0)}</span>`;
 const lineOpts = (tick, tt) => ({ interaction: { mode: 'index', intersect: false }, scales: { y: { beginAtZero: true, ticks: tick }, x: { grid: { display: false } } }, plugins: { tooltip: tt, legend: { position: 'top', align: 'end' } } });
+Chart.register({
+  id: 'lineaY',
+  afterDatasetsDraw(c, _a, o){
+    if (!o || o.valore == null) return;
+    const { ctx, chartArea: { left, right } } = c;
+    const y = c.scales.y.getPixelForValue(o.valore);
+    ctx.save(); ctx.strokeStyle = css('--text'); ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle = css('--text'); ctx.font = "700 12px 'DM Sans'"; ctx.textAlign = 'right';
+    ctx.fillText(o.etichetta, right - 4, y - 6); ctx.restore();
+  }
+});
+const fdata = f => Object.fromEntries(new FormData(f));
+async function salvaCon(btn, fn){
+  const t = btn.textContent; btn.disabled = true; btn.textContent = 'Salvataggio…';
+  try { await fn(); } catch (e) { alert('Non salvato: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = t; }
+}
 
 /* ---------- Panoramica ---------- */
 S.dashboard = {
@@ -781,25 +822,27 @@ S.dashboard = {
     const sc = lf ? 1 - nf / lf : 0, sc1 = lf1 ? 1 - nf1 / lf1 : 0;
     const s0 = serieA(V, Y, fVen, PER.m), s1 = serieA(V, Y - 1, fVen);
     const mb = s0.reduce((b, v, i) => v != null && v > (s0[b] ?? -Infinity) ? i : b, 0);
-    const marchi = R.marchi.map(m => { const r = R.vendite.filter(v => v.marchio === m); return { m, f: totA(r, Y, fVen), f1: totA(r, Y - 1, fVen) }; }).filter(x => x.f > 0 || x.f1 > 0);
+    const gen = generiAgg();
     const tipi = Object.keys(TIPI).map(k => ({ k, f: totA(V.filter(v => v.tipo === k), Y, fVen) }));
     const inCorso = R.giri.filter(g => g.stato === 'in corso');
     const pc = sum(inCorso.map(g => g.prenotato)), oc = sum(inCorso.map(g => g.obiettivo));
     const week = (R.gfk.righe || []).filter(r => r.tipo === 'WEEK');
     const bestW = week.length ? week.reduce((a, b) => a.rank_pos < b.rank_pos ? a : b) : null;
+    const zeri = (R.meli.righe || []).filter(m => m.stato_articolo_cod === '1' && m.stato_vendita_cod === '1' && m.disponibilita <= 0);
     const prossimi = R.giri.filter(g => g.stato !== 'chiuso');
-    this._d = { s0, s1, marchi, tipi };
+    this._d = { s0, s1, gen, tipi };
     const li = [];
     li.push(`Da inizio anno il venduto a prezzo di copertina è <b>${eurK(f)}</b>, ${f >= f1 ? 'in crescita' : 'in calo'} del <b>${pct(Math.abs(varr(f, f1)))}</b> sul ${Y - 1}.`);
     li.push(`Il mese migliore è stato <b>${MESI_L[mb]}</b> con ${eurK(s0[mb])}.`);
-    const mm = STATO.marchio === 'tutti' ? marchi.filter(x => x.f1 > 0).sort((a, b) => varr(b.f, b.f1) - varr(a.f, a.f1))[0] : null;
-    if (mm && marchi.length > 1) li.push(`Il marchio che cresce di più è <b>${esc(nomeM(mm.m))}</b> (${pctS(varr(mm.f, mm.f1))}).`);
-    if (inCorso.length) li.push(`${inCorso.length > 1 ? 'Sono in corso' : 'È in corso'} <b>${inCorso.map(g => esc(nomeGiro(g))).join(', ')}</b>: prenotate <b>${num(pc)}</b> copie${oc ? `, il ${pct(pc / oc, 0)} dell'obiettivo` : ''}.`);
+    const gg = gen.rilevati ? gen.righe.filter(x => x.f1 > 0 && x.quota >= .03).sort((a, b) => varr(b.f, b.f1) - varr(a.f, a.f1))[0] : null;
+    if (gg) li.push(`Il genere che cresce di più è <b>${esc(gg.n)}</b> (${pctS(varr(gg.f, gg.f1))}).`);
+    if (inCorso.length) li.push(`${inCorso.length > 1 ? 'Sono in corso' : 'È in corso il'} <b>${inCorso.map(g => esc(nomeGiro(g))).join(', ')}</b>: prenotate <b>${num(pc)}</b> copie${oc ? `, il ${pct(pc / oc, 0)} dell'obiettivo` : ''}.`);
     if (bestW) li.push(`Nella classifica GfK dell'ultima settimana il titolo più alto è <b>${esc(titleCase(bestW.title))}</b>, al <b>${bestW.rank_pos}º posto</b>.`);
+    if (zeri.length) li.push(`<b>${zeri.length} titoli</b> disponibili in catalogo sono a giacenza zero su Messaggerie: <a href="#alert">vedi gli alert</a>.`);
     li.push(`La resa è al <b>${pct(rp)}</b> del fornito, ${rp <= rp1 ? 'meglio' : 'peggio'} del ${pct(rp1)} del ${Y - 1}.`);
     return `
-      <p class="lead">Il colpo d'occhio su ${esc(ED.nome)}${STATO.marchio !== 'tutti' ? ' · ' + esc(nomeM(STATO.marchio)) : ''}: quanto si vende, come va rispetto all'anno scorso e cosa sta succedendo nei giri.
-      Il venduto è a prezzo di copertina, al netto delle rese.</p>
+      <p class="lead">Il colpo d'occhio su ${esc(ED.nome)}: quanto si vende, come va rispetto all'anno scorso e cosa sta succedendo nei giri.
+      Il venduto è a prezzo di copertina, al netto delle rese, per tutto il codice editore.</p>
       <div class="grid g-kpi">
         ${kpi('Venduto', eurK(f), `${delta(f, f1)} <span>a prezzo di copertina</span>`, '--s1')}
         ${kpi('Fatturato netto', eurK(n), `${delta(n, n1)} <span>dopo lo sconto ai clienti</span>`, '--s3')}
@@ -813,7 +856,7 @@ S.dashboard = {
         <div class="card insight"><h3>In sintesi</h3><ul>${li.map((x, i) => `<li data-i="${i + 1}">${x}</li>`).join('')}</ul></div>
       </div>
       <div class="grid g3">
-        <div class="card"><h3>Venduto per marchio</h3><p class="h-sub">${PER.etichetta}</p><div class="ch sm"><canvas id="c-marchi"></canvas></div></div>
+        <div class="card"><h3>Venduto per ${gen.rilevati ? 'genere' : 'collana'}</h3><p class="h-sub">${PER.etichetta}${gen.rilevati ? ' · genere Messaggerie' : ''}</p><div class="ch sm"><canvas id="c-gen"></canvas></div></div>
         <div class="card"><h3>Catalogo, novità e lanci</h3><p class="h-sub">${PER.etichetta}</p><div class="ch sm"><canvas id="c-tipi"></canvas></div></div>
         <div class="card"><h3>Giri aperti</h3><p class="h-sub">Prenotato sull'obiettivo</p>
           ${prossimi.length ? prossimi.map(g => `<div class="check"><span style="flex:1"><b>${esc(nomeGiro(g))}</b><br><span class="small muted">${g.inizio ? fData(g.inizio) + ' – ' + fData(g.fine) : ''}</span></span>${pillGiro(g.stato)}<b class="num" style="min-width:56px;text-align:right">${g.obiettivo ? pct(g.prenotato / g.obiettivo, 0) : num(g.prenotato)}</b></div>`).join('') : '<div class="empty">Nessun giro aperto</div>'}
@@ -821,12 +864,16 @@ S.dashboard = {
       </div>`;
   },
   init(){
-    const { s0, s1, marchi, tipi } = this._d, s = SER();
+    const { s0, s1, gen, tipi } = this._d, s = SER();
     mk('c-trend', { type: 'line', data: { labels: MESI, datasets: [
       linea(String(PER.Y), s0, s[0], { fill: { target: 'origin', above: s[0] + '14' }, pointRadius: 3 }),
       linea(String(PER.Y - 1), s1, css('--prev'), { borderDash: [5, 4] }),
     ] }, options: lineOpts(tickEur, ttEur) });
-    torta('c-marchi', marchi.map(x => nomeM(x.m)), marchi.map(x => Math.max(0, Math.round(x.f))), { eur: true, legenda: 'bottom' });
+    const g = gen.rilevati ? gen.righe : collaneAgg();
+    let top = g.filter(x => x.f > 0).slice(0, 6);
+    const altri = sum(g.filter(x => x.f > 0).slice(6).map(x => x.f));
+    if (altri > 0) top = [...top, { n: 'Altri', f: altri }];
+    torta('c-gen', top.map(x => x.n), top.map(x => Math.round(x.f)), { eur: true, legenda: 'bottom' });
     torta('c-tipi', tipi.map(x => TIPI[x.k]), tipi.map(x => Math.max(0, Math.round(x.f))), { eur: true, legenda: 'bottom' });
   },
 };
@@ -860,7 +907,7 @@ S.analisi = {
       <div class="card">
         <div class="card-head"><div><h3>Classifica titoli</h3><p class="h-sub">${num(ord.length)} titoli, ordinati per venduto · ${PER.etichetta}</p></div>
           <div class="dx"><input type="search" id="q-tit" placeholder="Cerca titolo o EAN"></div></div>
-        <div class="tw scroll"><table class="tbl"><thead><tr><th>#</th><th>Titolo</th><th>Marchio</th><th>Uscita</th><th class="r">Copie vendute</th><th class="r">Venduto</th><th class="r">vs ${Y - 1}</th><th class="r">Resa</th></tr></thead>
+        <div class="tw scroll"><table class="tbl"><thead><tr><th>#</th><th>Titolo</th><th>Genere</th><th>Uscita</th><th class="r">Copie vendute</th><th class="r">Venduto</th><th class="r">vs ${Y - 1}</th><th class="r">Resa</th></tr></thead>
         <tbody id="tb-tit">${righeTitoli(ord.slice(0, 200), ord)}</tbody></table></div>
         <p class="note">Sono mostrati i primi 200: la ricerca trova tutti i titoli.</p>
       </div>`;
@@ -889,63 +936,62 @@ function righeTitoli(L, ordine){
   return L.map(t => {
     const f = t.lf - t.lr, f1 = t.lf1 - t.lr1;
     return `<tr><td class="muted">${pos.get(t.ean)}</td><td><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">EAN ${esc(t.ean)}${t.collana ? ' · ' + esc(t.collana) : ''}${t.novita ? ' · <span class="pill info">Novità</span>' : ''}</div></td>
-      <td class="small">${esc(nomeM(t.marchio))}</td><td class="small">${t.uscita ? fData(pd(t.uscita)) : '—'}</td><td class="r">${num(t.cf - t.cr)}</td><td class="r">${eur(f)}</td>
+      <td class="small">${esc(genereDi(t.ean) || '—')}</td><td class="small">${t.uscita ? fData(pd(t.uscita)) : '—'}</td><td class="r">${num(t.cf - t.cr)}</td><td class="r">${eur(f)}</td>
       <td class="r">${f1 > 0 ? delta(f, f1) : '<span class="pill mut">nuovo</span>'}</td><td class="r">${t.cf ? pct(t.cr / t.cf) : '—'}</td></tr>`;
   }).join('');
 }
 
-/* ---------- Settori: marchi e collane ---------- */
+/* ---------- Settori: generi Messaggerie e collane ---------- */
+function aggPer(chiave){
+  const map = {};
+  TF().forEach(t => {
+    const k = chiave(t);
+    const x = map[k] ||= { n: k, f: 0, f1: 0, cf: 0, cr: 0, nt: 0 };
+    x.f += t.lf - t.lr; x.f1 += t.lf1 - t.lr1; x.cf += t.cf; x.cr += t.cr; if (t.cf > 0) x.nt++;
+  });
+  const righe = Object.values(map).sort((a, b) => b.f - a.f);
+  const tot = sum(righe.map(x => Math.max(0, x.f)));
+  righe.forEach(x => { x.quota = tot ? Math.max(0, x.f) / tot : 0; x.var = x.f1 > 0 ? varr(x.f, x.f1) : null; x.resa = x.cf ? x.cr / x.cf : 0; });
+  return righe;
+}
+const collaneAgg = () => aggPer(t => t.collana || 'Senza collana');
+function generiAgg(){
+  const rilevati = (R.meli.righe || []).some(m => m.genere);
+  return { rilevati, righe: rilevati ? aggPer(t => genereDi(t.ean) || 'Genere non rilevato') : [] };
+}
+function tabellaSettori(righe, nome, Y){
+  const maxQ = righe[0] ? righe[0].quota || 1 : 1;
+  return `<div class="tw scroll"><table class="tbl"><thead><tr><th>${nome}</th><th class="r">Titoli</th><th class="r">Venduto</th><th>Quota</th><th class="r">vs ${Y - 1}</th><th class="r">Resa</th></tr></thead>
+    <tbody>${righe.map(x => `<tr><td class="t-tit">${esc(x.n)}</td><td class="r">${x.nt}</td><td class="r">${eur(x.f)}</td>
+      <td><div style="display:flex;align-items:center;gap:8px"><div class="bar-in" style="flex:1"><i style="width:${x.quota / maxQ * 100}%"></i></div><span class="small num">${pct(x.quota)}</span></div></td>
+      <td class="r">${x.var == null ? '<span class="pill mut">nuovo</span>' : delta(x.f, x.f1)}</td><td class="r">${pct(x.resa)}</td></tr>`).join('')}</tbody></table></div>`;
+}
 S.settori = {
-  titolo: 'Analisi per settore', sub: () => `Marchi e collane · ${PER.etichetta}`,
+  titolo: 'Analisi per settore', sub: () => `Generi e collane · ${PER.etichetta}`,
   html(){
-    const L = TF(), Y = PER.Y;
-    const map = {};
-    L.forEach(t => {
-      const k = t.collana || 'Senza collana';
-      const x = map[k] ||= { n: k, f: 0, f1: 0, cf: 0, cr: 0, nt: 0 };
-      x.f += t.lf - t.lr; x.f1 += t.lf1 - t.lr1; x.cf += t.cf; x.cr += t.cr; if (t.cf > 0) x.nt++;
-    });
-    const col = Object.values(map).sort((a, b) => b.f - a.f);
-    const tot = sum(col.map(x => Math.max(0, x.f)));
-    col.forEach(x => { x.quota = tot ? Math.max(0, x.f) / tot : 0; x.var = x.f1 > 0 ? varr(x.f, x.f1) : null; x.resa = x.cf ? x.cr / x.cf : 0; });
-    const marchi = R.marchi.map(m => { const r = R.vendite.filter(v => v.marchio === m); return { m, f: totA(r, Y, fVen), f1: totA(r, Y - 1, fVen) }; }).filter(x => x.f > 0 || x.f1 > 0);
-    if (!R.marchi.includes(STATO.marchioTrend)) STATO.marchioTrend = STATO.marchio !== 'tutti' ? STATO.marchio : (marchi[0] || {}).m;
-    this._d = { col, marchi };
-    const maxQ = col[0] ? col[0].quota || 1 : 1;
+    const Y = PER.Y, gen = generiAgg(), col = collaneAgg();
+    const princ = gen.rilevati ? gen.righe : col;
+    this._d = { princ };
     return `
-      <p class="lead">I settori, per ora, sono i marchi e le collane di Messaggerie. Il genere di ogni titolo arriverà con il collegamento ai dati MeLi.</p>
-      <div class="grid g-kpi">${marchi.map((x, i) => kpi(esc(nomeM(x.m)), eurK(x.f), `${x.f1 > 0 ? delta(x.f, x.f1) : ''} <span>venduto ${PER.Y}</span>`, '--s' + (i + 1))).join('')}
-        ${kpi('Collane', col.filter(x => x.nt).length, '<span>con forniture nel periodo</span>', '--s7')}</div>
+      <p class="lead">${gen.rilevati ? 'Il settore è il genere con cui Messaggerie classifica ogni titolo (lo stesso che vedi in BookUp, Consultazione titoli).' : 'Il genere dei titoli arriva da Messaggerie con l\'aggiornamento di <a href="#stock">Stock MeLi</a>: finché non c\'è, i settori sono le collane.'}
+      Tutto è per codice editore.</p>
+      <div class="grid g-kpi">${princ.filter(x => x.f > 0).slice(0, 4).map((x, i) => kpi(esc(x.n), eurK(x.f), `${x.f1 > 0 ? delta(x.f, x.f1) : ''} <span>quota ${pct(x.quota)}</span>`, '--s' + (i + 1))).join('')}</div>
       <div class="grid g2e">
-        <div class="card"><h3>Venduto per marchio</h3><p class="h-sub">${PER.etichetta}</p><div class="ch"><canvas id="c-sm"></canvas></div></div>
-        <div class="card"><h3>Variazione per collana</h3><p class="h-sub">Venduto rispetto allo stesso periodo ${Y - 1}, collane principali</p><div class="ch"><canvas id="c-sv"></canvas></div></div>
+        <div class="card"><h3>Venduto per ${gen.rilevati ? 'genere' : 'collana'}</h3><p class="h-sub">${PER.etichetta}</p><div class="ch"><canvas id="c-sm"></canvas></div></div>
+        <div class="card"><h3>Variazione rispetto al ${Y - 1}</h3><p class="h-sub">Venduto nello stesso periodo, ${gen.rilevati ? 'generi' : 'collane'} principali</p><div class="ch"><canvas id="c-sv"></canvas></div></div>
       </div>
-      <div class="grid g2">
-        <div class="card"><h3>Collane</h3><p class="h-sub">Ordinate per venduto</p>
-          <div class="tw scroll"><table class="tbl"><thead><tr><th>Collana</th><th class="r">Titoli</th><th class="r">Venduto</th><th>Quota</th><th class="r">vs ${Y - 1}</th><th class="r">Resa</th></tr></thead>
-          <tbody>${col.map(x => `<tr><td class="t-tit">${esc(x.n)}</td><td class="r">${x.nt}</td><td class="r">${eur(x.f)}</td>
-            <td><div style="display:flex;align-items:center;gap:8px"><div class="bar-in" style="flex:1"><i style="width:${x.quota / maxQ * 100}%"></i></div><span class="small num">${pct(x.quota)}</span></div></td>
-            <td class="r">${x.var == null ? '<span class="pill mut">nuova</span>' : delta(x.f, x.f1)}</td><td class="r">${pct(x.resa)}</td></tr>`).join('')}</tbody></table></div></div>
-        <div class="card"><div class="card-head"><div><h3>Andamento per marchio</h3><p class="h-sub">Venduto mese per mese</p></div>
-          <div class="dx chips" id="ch-m">${marchi.map(x => `<button class="chip ${x.m === STATO.marchioTrend ? 'on' : ''}" data-m="${esc(x.m)}">${esc(nomeM(x.m))}</button>`).join('')}</div></div>
-          <div class="ch"><canvas id="c-st1"></canvas></div></div>
-      </div>`;
+      ${gen.rilevati ? `<div class="card" style="margin-bottom:16px"><h3>Generi</h3><p class="h-sub">Ordinati per venduto</p>${tabellaSettori(gen.righe, 'Genere', Y)}</div>` : ''}
+      <div class="card"><h3>Collane</h3><p class="h-sub">Ordinate per venduto</p>${tabellaSettori(col, 'Collana', Y)}</div>`;
   },
   init(){
-    const { col, marchi } = this._d, s = SER(), Y = PER.Y;
-    torta('c-sm', marchi.map(x => nomeM(x.m)), marchi.map(x => Math.max(0, Math.round(x.f))), { eur: true });
-    const v = col.filter(x => x.var != null && x.quota >= .01).slice(0, 12).sort((a, b) => b.var - a.var);
-    mk('c-sv', { type: 'bar', data: { labels: v.map(x => x.n), datasets: [barre('Variazione', v.map(x => +(x.var * 100).toFixed(1)), v.map(x => x.var >= 0 ? s[0] : s[1]))] },
-      options: { indexAxis: 'y', scales: { x: { ticks: { callback: x => (x > 0 ? '+' : '') + x + '%' } }, y: { grid: { display: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.parsed.x > 0 ? '+' : ''}${fDec.format(c.parsed.x)}% sul ${Y - 1}` } } } } });
-    const disegna = () => {
-      CHARTS.find(c => c.canvas.id === 'c-st1')?.destroy();
-      const r = R.vendite.filter(x => x.marchio === STATO.marchioTrend);
-      mk('c-st1', { type: 'line', data: { labels: MESI, datasets: [linea(String(Y), serieA(r, Y, fVen, PER.m), s[0], { pointRadius: 3 }), linea(String(Y - 1), serieA(r, Y - 1, fVen), css('--prev'), { borderDash: [5, 4] })] }, options: lineOpts(tickEur, ttEur) });
-    };
-    disegna();
-    document.querySelectorAll('#ch-m .chip').forEach(b => b.addEventListener('click', () => {
-      STATO.marchioTrend = b.dataset.m; document.querySelectorAll('#ch-m .chip').forEach(x => x.classList.toggle('on', x === b)); disegna();
-    }));
+    const { princ } = this._d, s = SER(), Y = PER.Y;
+    let top = princ.filter(x => x.f > 0).slice(0, 7);
+    const altri = sum(princ.filter(x => x.f > 0).slice(7).map(x => x.f));
+    if (altri > 0) top = [...top, { n: 'Altri', f: altri }];
+    torta('c-sm', top.map(x => x.n), top.map(x => Math.round(x.f)), { eur: true });
+    const v = princ.filter(x => x.var != null && x.quota >= .01).slice(0, 12).sort((a, b) => b.var - a.var);
+    mk('c-sv', { type: 'bar', data: { labels: v.map(x => x.n.length > 30 ? x.n.slice(0, 29) + '…' : x.n), datasets: [barre('Variazione', v.map(x => +(x.var * 100).toFixed(1)), v.map(x => x.var >= 0 ? s[0] : s[1]))] },
+      options: { indexAxis: 'y', scales: { x: { ticks: { callback: x => (x > 0 ? '+' : '') + x + '%' } }, y: { grid: { display: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => v[i[0].dataIndex].n, label: c => ` ${c.parsed.x > 0 ? '+' : ''}${fDec.format(c.parsed.x)}% sul ${Y - 1}` } } } } });
   },
 };
 
@@ -1001,53 +1047,83 @@ S.gfk = {
   },
 };
 
-/* ---------- Giri vendita ---------- */
+/* ---------- Giri vendita: unificati per numero, dal più recente; più giri si sommano ---------- */
 S.giri = {
-  titolo: 'Giri vendita', sub: () => 'I giri PDE con i titoli dell\'editore: prenotato, obiettivi e distribuzione',
+  titolo: 'Giri vendita', sub: () => 'Giri PDE con i titoli dell\'editore: prenotato, obiettivi e distribuzione',
+  async prepara(){
+    const G = R.giri;
+    if (!G.length) { this._D = null; return; }
+    STATO.giriSel = (STATO.giriSel || []).filter(k => G.find(g => g.chiave === k));
+    if (!STATO.giriSel.length) STATO.giriSel = [(G.find(g => g.stato === 'in corso') || G[0]).chiave];
+    this._D = await dettaglioGiri(STATO.giriSel);
+  },
   html(){
     const G = R.giri;
     if (!G.length) return vuoto('Nessun titolo dell\'editore nei giri registrati.');
-    if (!G.find(g => g.id === STATO.giro)) STATO.giro = (G.find(g => g.stato === 'in corso') || G[G.length - 1]).id;
-    const g = G.find(x => x.id === STATO.giro);
-    this._g = g;
+    const anni = [...new Set(G.map(g => g.anno))].sort((a, b) => b - a);
+    STATO.annoGiri ||= 'tutti';
+    const vis = G.filter(g => STATO.annoGiri === 'tutti' || g.anno === +STATO.annoGiri);
+    const sel = G.filter(g => STATO.giriSel.includes(g.chiave));
+    const D = this._D;
+    const tit = sel.flatMap(g => g.titoli.map(t => ({ ...t, giro: nomeGiro(g) }))).sort((a, b) => b.prenotato - a.prenotato);
+    const O = sum(sel.map(g => g.obiettivo)), P = sum(sel.map(g => g.prenotato));
+    const dir = (D.per_agente || []).find(a => a.agente === 'DIREZIONALE');
+    const nomeSel = sel.length === 1 ? nomeGiro(sel[0]) : `${sel.length} giri selezionati`;
+    const unico = sel.length === 1 ? sel[0] : null;
+    this._sel = sel;
     return `
-      <p class="lead">In ogni giro gli agenti PDE presentano le novità ai librai e raccolgono le prenotazioni. Scegli un giro per vedere titoli, obiettivi e da dove arriva il prenotato.</p>
-      <div class="giri">${G.map(x => `<button class="giro ${x.id === g.id ? 'on' : ''}" data-g="${x.id}">
+      <p class="lead">I giri sono unificati per numero (le cedole non si separano), dal più recente a sinistra al più vecchio a destra.
+      Clicca un giro per vederlo, oppure spunta il quadratino in basso per sommarne più di uno.</p>
+      <div class="card-head" style="margin-bottom:12px"><div class="chips" id="ch-anno">${['tutti', ...anni].map(a => `<button class="chip ${String(STATO.annoGiri) === String(a) ? 'on' : ''}" data-a="${a}">${a === 'tutti' ? 'Tutti gli anni' : a}</button>`).join('')}</div>
+        <div class="dx small muted">${sel.length > 1 ? `<button class="btn" id="b-giri-uno">Solo il più recente</button>` : ''}</div></div>
+      <div class="giri">${vis.map(x => { const on = STATO.giriSel.includes(x.chiave); return `<div class="giro ${on ? 'on' : ''}" data-g="${x.chiave}" role="button" tabindex="0">
         <div class="row" style="margin:0"><span class="n">${esc(nomeGiro(x))}</span>${pillGiro(x.stato)}</div>
         <div class="d">${x.inizio ? fDataL(x.inizio) + ' – ' + fData(x.fine) : 'date non disponibili'}${x.uscita ? ' · uscite ' + esc(x.uscita.toLowerCase()) : ''}</div>
         <div class="bar-in"><i style="width:${x.obiettivo ? Math.min(100, x.prenotato / x.obiettivo * 100) : 0}%"></i></div>
         <div class="row"><span class="muted">${num(x.prenotato)} copie · ${x.titoli.length} titoli</span><b class="num">${x.obiettivo ? pct(x.prenotato / x.obiettivo, 0) : '—'}</b></div>
-      </button>`).join('')}</div>
+        <label class="giro-ck" title="Somma questo giro agli altri selezionati"><input type="checkbox" data-ck="${x.chiave}" ${on ? 'checked' : ''}></label>
+      </div>`; }).join('')}</div>
       <div class="grid g-kpi">
-        ${kpi('Prenotato', num(g.prenotato), `<span>copie${g.obiettivo ? ' su obiettivo ' + num(g.obiettivo) : ''}</span>`, '--s1')}
-        ${kpi('Obiettivo raggiunto', g.obiettivo ? pct(g.prenotato / g.obiettivo, 0) : '—', g.stato === 'in corso' && g.inizio ? `<span>giorno ${diffGg(OGGI, g.inizio) + 1} di ${diffGg(g.fine, g.inizio) + 1}</span>` : `<span>${g.stato}</span>`, '--s3')}
-        ${kpi('Punti vendita', num(g.clienti || 0), '<span>che hanno prenotato</span>', '--s7')}
-        ${kpi('Titoli', num(g.titoli.length), `<span>${g.consegna ? 'materiali entro il ' + fData(g.consegna) : ''}</span>`, '--s4')}
+        ${kpi(sel.length > 1 ? 'Prenotato · somma' : 'Prenotato', num(P), `<span>copie${O ? ' su obiettivo ' + num(O) : ''}</span>`, '--s1')}
+        ${kpi('Obiettivo raggiunto', O ? pct(P / O, 0) : '—', unico && unico.stato === 'in corso' && unico.inizio ? `<span>giorno ${diffGg(OGGI, unico.inizio) + 1} di ${diffGg(unico.fine, unico.inizio) + 1}</span>` : `<span>${unico ? unico.stato : sel.map(nomeGiro).join(', ')}</span>`, '--s3')}
+        ${kpi('Punti vendita', num(D.clienti || 0), `<span>che hanno prenotato${sel.length > 1 ? ', contati una volta' : ''}</span>`, '--s7')}
+        ${kpi('Titoli', num(tit.length), `<span>${unico && unico.consegna ? 'materiali entro il ' + fData(unico.consegna) : ''}</span>`, '--s4')}
       </div>
       <div class="grid g2">
-        <div class="card"><h3>Titoli di ${esc(nomeGiro(g))}</h3><p class="h-sub">Ordinati per prenotato</p>
-          <div class="tw scroll"><table class="tbl"><thead><tr><th>Titolo</th><th>Uscita</th><th class="r">Prezzo</th><th class="r">Obiettivo</th><th class="r">Prenotato</th><th class="r">Raggiunto</th></tr></thead>
-          <tbody>${g.titoli.map(t => `<tr><td><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">${esc(titleCase(t.autore || ''))} · EAN ${esc(t.ean)}</div></td>
+        <div class="card"><h3>Titoli · ${esc(nomeSel)}</h3><p class="h-sub">Ordinati per prenotato</p>
+          <div class="tw scroll"><table class="tbl"><thead><tr><th>Titolo</th>${sel.length > 1 ? '<th>Giro</th>' : ''}<th>Uscita</th><th class="r">Prezzo</th><th class="r">Obiettivo</th><th class="r">Prenotato</th><th class="r">Raggiunto</th></tr></thead>
+          <tbody>${tit.map(t => `<tr><td><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">${esc(titleCase(t.autore || ''))} · EAN ${esc(t.ean)}</div></td>${sel.length > 1 ? `<td class="small">${esc(t.giro)}</td>` : ''}
             <td class="small">${esc(titleCase(t.uscita || ''))}</td><td class="r">${t.prezzo ? eur(+t.prezzo).replace(',00', '') : '—'}</td><td class="r">${num(+t.obiettivo)}</td><td class="r t-tit">${num(+t.prenotato)}</td>
             <td class="r">${+t.obiettivo ? pillPerc(t.prenotato / t.obiettivo) : '—'}</td></tr>`).join('')}</tbody></table></div></div>
-        <div class="card"><h3>Prenotato per canale</h3><p class="h-sub">Copie di ${esc(nomeGiro(g))}</p>${g.prenotato ? '<div class="ch"><canvas id="c-gc"></canvas></div>' : '<div class="empty">Nessuna prenotazione</div>'}</div>
+        <div class="card"><h3>Prenotato per canale</h3><p class="h-sub">Copie · ${esc(nomeSel)}</p>${P ? '<div class="ch"><canvas id="c-gc"></canvas></div>' : '<div class="empty">Nessuna prenotazione</div>'}</div>
       </div>
-      ${g.prenotato ? `<div class="grid g2">
-        <div class="card"><h3>Prenotato per agente</h3><p class="h-sub">Copie raccolte da ogni agente PDE</p><div class="ch" style="height:${Math.max(260, g.per_agente.length * 24 + 60)}px"><canvas id="c-ga"></canvas></div></div>
+      ${P ? `<div class="grid g2">
+        <div class="card"><h3>Prenotato per agente</h3><p class="h-sub">Copie raccolte dagli agenti PDE sul territorio${dir ? ` · i clienti direzionali hanno prenotato ${num(dir.copie)} copie in ${num(dir.clienti)} punti vendita` : ''}</p><div class="ch" style="height:${Math.max(260, (D.per_agente || []).length * 24 + 60)}px"><canvas id="c-ga"></canvas></div></div>
         <div class="card"><h3>Prenotato per zona</h3><p class="h-sub">Dove si trovano i punti vendita</p><div class="ch"><canvas id="c-gz"></canvas></div></div>
       </div>` : ''}`;
   },
   init(){
-    document.querySelectorAll('.giro').forEach(b => b.addEventListener('click', () => { STATO.giro = +b.dataset.g; render(); }));
-    const g = this._g, s = SER();
-    if (!g || !g.prenotato) return;
-    const gr = {}; g.per_canale.forEach(c => gr[nomeGruppo(c.gruppo)] = (gr[nomeGruppo(c.gruppo)] || 0) + +c.copie);
+    document.querySelectorAll('#ch-anno .chip').forEach(b => b.addEventListener('click', () => { STATO.annoGiri = b.dataset.a; render(); }));
+    document.querySelectorAll('.giro[data-g]').forEach(b => b.addEventListener('click', e => {
+      if (e.target.closest('.giro-ck')) return;
+      STATO.giriSel = [b.dataset.g]; render();
+    }));
+    document.querySelectorAll('[data-ck]').forEach(ck => ck.addEventListener('change', () => {
+      const k = ck.dataset.ck, L = new Set(STATO.giriSel);
+      if (ck.checked) L.add(k); else if (L.size > 1) L.delete(k); else { ck.checked = true; return; }
+      STATO.giriSel = [...L]; render();
+    }));
+    $('#b-giri-uno')?.addEventListener('click', () => { STATO.giriSel = [R.giri[0].chiave]; render(); });
+    const D = this._D, s = SER();
+    if (!D || !this._sel || !sum(this._sel.map(g => g.prenotato))) return;
+    const gr = {}; (D.per_canale || []).forEach(c => gr[nomeGruppo(c.gruppo)] = (gr[nomeGruppo(c.gruppo)] || 0) + +c.copie);
     const ge = Object.entries(gr).sort((a, b) => b[1] - a[1]);
     torta('c-gc', ge.map(x => x[0]), ge.map(x => x[1]), { centroSub: 'copie' });
-    const ag = [...g.per_agente].sort((a, b) => b.copie - a.copie);
-    mk('c-ga', { type: 'bar', data: { labels: ag.map(a => nomeAgente(a.agente)), datasets: [barre('Copie prenotate', ag.map(a => +a.copie), s[0], { maxBarThickness: 16 })] },
-      options: { indexAxis: 'y', scales: { x: { ticks: tickNum }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${num(c.parsed.x)} copie · ${num(ag[c.dataIndex].clienti)} punti vendita` } } } } });
-    const z = {}; g.per_regione.forEach(r => { const k = REG_ZONA[String(r.regione).toUpperCase()] || 'N.D.'; z[k] = (z[k] || 0) + +r.copie; });
+    const pa = {}; (D.per_agente || []).filter(a => a.agente !== 'DIREZIONALE').forEach(a => { const n = nomeAgente(a.agente); pa[n] ||= { copie: 0, clienti: 0 }; pa[n].copie += +a.copie; pa[n].clienti += +a.clienti; });
+    const ag = Object.entries(pa).sort((a, b) => b[1].copie - a[1].copie);
+    mk('c-ga', { type: 'bar', data: { labels: ag.map(a => a[0]), datasets: [barre('Copie prenotate', ag.map(a => a[1].copie), s[0], { maxBarThickness: 16 })] },
+      options: { indexAxis: 'y', scales: { x: { ticks: tickNum }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${num(c.parsed.x)} copie · ${num(ag[c.dataIndex][1].clienti)} punti vendita` } } } } });
+    const z = {}; (D.per_zona || []).forEach(r => { const k = zonaDi(r.provincia, r.regione); z[k] = (z[k] || 0) + +r.copie; });
     const zl = ZONE_ND.filter(k => z[k]);
     torta('c-gz', zl, zl.map(k => z[k]), { centroSub: 'copie' });
   },
@@ -1091,40 +1167,49 @@ S.finegiri = {
   },
 };
 
-/* ---------- Agenti e zone ---------- */
+/* ---------- Agenti e zone: solo agenti reali, esclusi i clienti direzionali ---------- */
 S.agenti = {
-  titolo: 'Agenti e zone', sub: () => `Gli agenti PDE che seguono i punti vendita dell'editore · ${etichettaPerCli()}`,
+  titolo: 'Agenti e zone', sub: () => `Gli agenti PDE sul territorio · ${etichettaPerCli()}`,
   async prepara(){ this._D = await clientiCorrenti(); },
   html(){
     const D = this._D;
     if (!D) return vuoto('Il dettaglio per cliente non è ancora disponibile.');
-    const cl = D.clienti;
+    const cl = D.clienti.filter(c => c.agente);
+    const dir = D.clienti.filter(c => c.direzionale), senza = D.clienti.filter(c => c.senzaAgente);
     const inCorso = R.giri.filter(g => g.stato === 'in corso');
-    const ag = (D.agenti || []).map(a => {
-      const miei = cl.filter(c => c.agente === a.codice);
+    const pren = {};
+    // agenti reali, uniti per nome (uno stesso agente può avere più codici)
+    const per = {};
+    (D.agenti || []).filter(a => a.reale).forEach(a => {
+      const n = titleCase(a.nome);
+      const x = per[n] ||= { nome: n, codici: [], clientiAss: 0 };
+      x.codici.push(a.codice); x.clientiAss += +a.clienti;
+    });
+    const ag = Object.values(per).map(a => {
+      const miei = cl.filter(c => a.codici.includes(c.agente));
       const zc = {}; miei.forEach(c => zc[c.zona] = (zc[c.zona] || 0) + 1);
       const zona = Object.entries(zc).sort((x, y) => y[1] - x[1])[0]?.[0] || 'N.D.';
       const lf = sum(miei.map(c => c.lf)), nf = sum(miei.map(c => c.nf));
-      return { ...a, nome: nomeAgente(a.codice), miei, zona, f: sum(miei.map(c => c.f)), f1: sum(miei.map(c => c.f1)), sconto: lf ? 1 - nf / lf : null,
-        pren: sum(inCorso.flatMap(g => g.per_agente.filter(x => x.agente === a.codice).map(x => +x.copie))) };
+      return { ...a, miei, zona, f: sum(miei.map(c => c.f)), sconto: lf ? 1 - nf / lf : null };
     }).sort((a, b) => b.f - a.f);
-    if (!ag.find(a => a.codice === STATO.agente)) STATO.agente = ag[0]?.codice;
-    const a = ag.find(x => x.codice === STATO.agente);
+    if (!ag.find(a => a.nome === STATO.agente)) STATO.agente = ag[0]?.nome;
+    const a = ag.find(x => x.nome === STATO.agente);
     const zone = ZONE_ND.map(z => ({ z, f: sum(cl.filter(c => c.zona === z).map(c => c.f)), n: cl.filter(c => c.zona === z && c.f > 0).length })).filter(x => x.n || x.f);
     this._d = { ag, zone };
     return `
-      <div class="card-head" style="margin-bottom:14px"><p class="lead" style="margin:0;flex:1">${ag.length} agenti PDE seguono i punti vendita dell'editore. Un punto vendita seguito da più agenti è attribuito all'agente di zona, non alla sede.</p><div class="dx">${selPerCli()}</div></div>
+      <div class="card-head" style="margin-bottom:14px"><p class="lead" style="margin:0;flex:1">${ag.length} agenti PDE seguono sul territorio i punti vendita dell'editore. Sono esclusi i clienti direzionali, seguiti dalla sede.</p><div class="dx">${selPerCli()}</div></div>
       <div class="grid g-kpi">${zone.map((z, i) => kpi(z.z, eurK(z.f), `<span>${num(z.n)} punti vendita attivi</span>`, '--s' + (i + 1))).join('')}</div>
       <div class="grid g2">
         <div class="card"><h3>Venduto per agente</h3><p class="h-sub">A prezzo di copertina · ${esc(etichettaPerCli())}</p><div class="ch" style="height:${Math.max(280, ag.length * 24 + 60)}px"><canvas id="c-ag"></canvas></div></div>
-        <div class="card"><h3>Venduto per zona</h3><p class="h-sub">${esc(etichettaPerCli())}</p><div class="ch"><canvas id="c-zo"></canvas></div></div>
+        <div class="card"><h3>Venduto per zona</h3><p class="h-sub">${esc(etichettaPerCli())}, esclusi i direzionali</p><div class="ch"><canvas id="c-zo"></canvas></div>
+          <p class="note">Fuori da questi conti: clienti direzionali ${eurK(sum(dir.map(c => c.f)))} (${num(dir.length)})${senza.length ? `, clienti senza agente assegnato ${eurK(sum(senza.map(c => c.f)))} (${num(senza.length)})` : ''}.</p></div>
       </div>
       <div class="grid g2">
         <div class="card"><h3>Agenti</h3><p class="h-sub">Clicca una riga per i suoi punti vendita</p>
-          <div class="tw scroll"><table class="tbl"><thead><tr><th>Agente</th><th>Zona</th><th class="r">Punti vendita</th><th class="r">Venduto</th><th class="r">Sconto medio</th><th class="r">Prenotato giro in corso</th></tr></thead>
-          <tbody>${ag.map(x => `<tr class="click ${a && x.codice === a.codice ? 'sel' : ''}" data-a="${esc(x.codice)}"><td><div class="t-tit">${esc(x.nome)}</div><div class="t-sub">${esc(x.codice)}</div></td><td>${esc(x.zona)}</td>
-            <td class="r">${num(x.clienti)}</td><td class="r">${eur(x.f)}</td><td class="r">${x.sconto != null ? pct(x.sconto) : '—'}</td><td class="r">${x.pren ? num(x.pren) : '—'}</td></tr>`).join('')}</tbody></table></div></div>
-        <div class="card">${a ? `<h3>${esc(a.nome)}</h3><p class="h-sub">${esc(a.zona)} · ${num(a.clienti)} punti vendita assegnati · ${num(a.miei.filter(c => c.f > 0).length)} con venduto nel periodo</p>
+          <div class="tw scroll"><table class="tbl"><thead><tr><th>Agente</th><th>Zona</th><th class="r">Punti vendita</th><th class="r">Venduto</th><th class="r">Sconto medio</th></tr></thead>
+          <tbody>${ag.map(x => `<tr class="click ${a && x.nome === a.nome ? 'sel' : ''}" data-a="${esc(x.nome)}"><td class="t-tit">${esc(x.nome)}</td><td>${esc(x.zona)}</td>
+            <td class="r">${num(x.clientiAss)}</td><td class="r">${eur(x.f)}</td><td class="r">${x.sconto != null ? pct(x.sconto) : '—'}</td></tr>`).join('')}</tbody></table></div></div>
+        <div class="card">${a ? `<h3>${esc(a.nome)}</h3><p class="h-sub">${esc(a.zona)} · ${num(a.clientiAss)} punti vendita assegnati · ${num(a.miei.filter(c => c.f > 0).length)} con venduto nel periodo</p>
           <div class="tw scroll"><table class="tbl"><thead><tr><th>Punto vendita</th><th>Canale</th><th class="r">Venduto</th><th class="r">Sconto</th></tr></thead>
           <tbody>${a.miei.sort((x, y) => y.f - x.f).slice(0, 60).map(c => `<tr><td><div class="t-tit">${esc(c.nome)}</div><div class="t-sub">${esc(c.citta || '')}${c.provincia ? ' (' + esc(c.provincia) + ')' : ''}</div></td><td class="small">${esc(c.canale || nomeGruppo(c.canale_gruppo))}</td><td class="r">${eur(c.f)}</td><td class="r">${c.sconto != null ? pct(c.sconto) : '—'}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">Nessun movimento nel periodo</td></tr>'}</tbody></table></div>` : '<div class="empty">Nessun agente</div>'}</div>
       </div>${notaCopertura()}`;
@@ -1141,7 +1226,7 @@ S.agenti = {
   },
 };
 
-/* ---------- Clienti e sconti ---------- */
+/* ---------- Sconto per cliente: mappa venduto / sconto ---------- */
 S.sconti = {
   titolo: 'Sconto per cliente', sub: () => `Lo sconto fatturato a ogni cliente e la media · ${etichettaPerCli()}`,
   async prepara(){ this._D = await clientiCorrenti(); },
@@ -1154,8 +1239,11 @@ S.sconti = {
     const signif = cl.filter(c => c.lf >= 300);
     const semplice = signif.length ? sum(signif.map(c => c.sconto)) / signif.length : 0;
     const perSc = [...signif].sort((a, b) => b.sconto - a.sconto);
-    const gruppi = Object.keys(GRUPPI).map(k => { const x = cl.filter(c => (c.canale_gruppo || 'ALTRO').toUpperCase() === k); const lf = sum(x.map(c => c.lf)); return { n: GRUPPI[k], cl: x.length, f: sum(x.map(c => c.f)), sc: lf ? 1 - sum(x.map(c => c.nf)) / lf : null }; }).filter(x => x.cl);
-    this._d = { cl, media, gruppi };
+    const gruppi = Object.keys(GRUPPI).map(k => { const x = cl.filter(c => (c.canale_gruppo || 'ALTRO').toUpperCase() === k); const lf = sum(x.map(c => c.lf)); return { k, n: GRUPPI[k], cl: x.length, f: sum(x.map(c => c.f)), sc: lf ? 1 - sum(x.map(c => c.nf)) / lf : null }; }).filter(x => x.cl);
+    const fasce = [['fino al 30%', 0, .30], ['30–35%', .30, .35], ['35–40%', .35, .40], ['40–45%', .40, .45], ['45–50%', .45, .50], ['oltre il 50%', .50, 2]]
+      .map(([n, a, b]) => { const x = signif.filter(c => c.sconto >= a && c.sconto < b); return { n, cl: x.length, f: sum(x.map(c => c.f)) }; });
+    const sopra = signif.filter(c => c.sconto > media + .02 && c.f >= (signif[Math.floor(signif.length * .1)]?.f || 0));
+    this._d = { signif, media, gruppi, fasce };
     return `
       <div class="card-head" style="margin-bottom:14px"><p class="lead" style="margin:0;flex:1">Lo sconto è la differenza tra prezzo di copertina e fatturato, sul fornito. La media ponderata pesa ogni cliente per quanto acquista: è quella che incide davvero sul margine.</p><div class="dx">${selPerCli()}</div></div>
       <div class="grid g-kpi">
@@ -1163,13 +1251,15 @@ S.sconti = {
         ${kpi('Sconto medio semplice', pct(semplice), '<span>clienti con almeno 300 € di fornito</span>', '--s3')}
         ${kpi('Sconto più alto', perSc[0] ? pct(perSc[0].sconto) : '—', `<span>${esc(perSc[0]?.nome || '')}</span>`, '--s2')}
         ${kpi('Sconto più basso', perSc.length ? pct(perSc[perSc.length - 1].sconto) : '—', `<span>${esc(perSc[perSc.length - 1]?.nome || '')}</span>`, '--s4')}
+        ${kpi('Grandi clienti sopra la media', num(sopra.length), '<span>tra i primi 10% per venduto, oltre 2 punti</span>', '--s8')}
       </div>
       <div class="grid g2">
-        <div class="card"><h3>Sconto dei primi 25 clienti</h3><p class="h-sub">Ordinati per venduto · la linea tratteggiata è la media</p><div class="ch" style="height:${Math.min(25, cl.length) * 22 + 70}px"><canvas id="c-sc"></canvas></div></div>
+        <div class="card"><h3>Mappa sconto e venduto</h3><p class="h-sub">Ogni punto è un cliente: più a destra vende di più, più in alto ha più sconto. La linea tratteggiata è la media ponderata.</p><div class="ch lg"><canvas id="c-sc"></canvas></div>
+          <p class="note">In alto a destra ci sono i clienti grandi con sconto sopra la media: sono quelli che pesano di più sul margine.</p></div>
         <div>
           <div class="card" style="margin-bottom:16px"><h3>Sconto medio per canale</h3><p class="h-sub">Ponderato sul fornito</p>
             <div class="tw"><table class="tbl"><tbody>${gruppi.map(k => `<tr><td class="t-tit">${esc(k.n)}<div class="t-sub">${num(k.cl)} clienti · ${eurK(k.f)}</div></td><td style="width:40%"><div class="bar-in"><i style="width:${(k.sc || 0) / .6 * 100}%"></i></div></td><td class="r t-tit">${k.sc != null ? pct(k.sc) : '—'}</td></tr>`).join('')}</tbody></table></div></div>
-          <div class="card"><h3>Venduto per canale</h3><p class="h-sub">${esc(etichettaPerCli())}</p><div class="ch sm"><canvas id="c-can"></canvas></div></div>
+          <div class="card"><h3>Venduto per fascia di sconto</h3><p class="h-sub">Quanto venduto passa da ogni fascia</p><div class="ch sm"><canvas id="c-fs"></canvas></div></div>
         </div>
       </div>
       <div class="card"><div class="card-head"><div><h3>Tutti i clienti</h3><p class="h-sub">Sconto, venduto e scostamento dalla media</p></div><div class="dx"><input type="search" id="q-cl" placeholder="Cerca cliente, città o codice"></div></div>
@@ -1179,12 +1269,19 @@ S.sconti = {
   init(){
     agganciaPerCli();
     if (!this._d) return;
-    const { cl, media, gruppi } = this._d, s = SER();
-    const top = cl.slice(0, 25);
-    mk('c-sc', { type: 'bar', data: { labels: top.map(c => c.nome.length > 30 ? c.nome.slice(0, 29) + '…' : c.nome), datasets: [barre('Sconto', top.map(c => +(c.sconto * 100).toFixed(1)), s[0], { maxBarThickness: 14 })] },
-      options: { indexAxis: 'y', scales: { x: { min: 0, ticks: { callback: v => v + '%' } }, y: { grid: { display: false }, ticks: { autoSkip: false, font: { size: 11.5 } } } },
-        plugins: { legend: { display: false }, lineaMedia: { valore: media * 100, etichetta: 'media ' + pct(media) }, tooltip: { callbacks: { title: i => top[i[0].dataIndex].nome, label: c => ` Sconto ${fDec.format(c.parsed.x)}% · venduto ${eur(top[c.dataIndex].f)}` } } } } });
-    torta('c-can', gruppi.map(g => g.n), gruppi.map(g => Math.max(0, Math.round(g.f))), { eur: true });
+    const { signif, media, gruppi, fasce } = this._d, s = SER();
+    const ds = gruppi.map((g, i) => ({
+      label: g.n, backgroundColor: s[i] + 'cc', borderColor: css('--card'), borderWidth: 1, pointRadius: 4.5, pointHoverRadius: 7,
+      data: signif.filter(c => (c.canale_gruppo || 'ALTRO').toUpperCase() === g.k && c.f > 0).map(c => ({ x: c.f, y: +(c.sconto * 100).toFixed(1), c })),
+    }));
+    mk('c-sc', { type: 'scatter', data: { datasets: ds },
+      options: { scales: { x: { type: 'logarithmic', title: { display: true, text: 'venduto a prezzo di copertina (scala logaritmica)' }, ticks: { callback: v => [100, 1000, 10000, 100000, 1000000].includes(v) ? eurK(v) : '' } },
+                           y: { title: { display: true, text: 'sconto' }, ticks: { callback: v => v + '%' } } },
+        plugins: { legend: { position: 'top', align: 'end' }, lineaY: { valore: media * 100, etichetta: 'media ' + pct(media) },
+          tooltip: { callbacks: { title: i => i[0].raw.c.nome, label: c => ` ${c.raw.c.citta || ''} · venduto ${eur(c.raw.x)} · sconto ${fDec.format(c.raw.y)}%` } } } } });
+    mk('c-fs', { type: 'bar', data: { labels: fasce.map(f => f.n), datasets: [barre('Venduto', fasce.map(f => f.f), s[0])] },
+      options: { scales: { y: { ticks: tickEur }, x: { grid: { display: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${eur(c.parsed.y)} · ${num(fasce[c.dataIndex].cl)} clienti` } } } } });
+    const cl = this._D.clienti.filter(c => c.lf > 0).sort((a, b) => b.f - a.f);
     $('#q-cl').addEventListener('input', e => {
       const q = e.target.value.toLowerCase().trim();
       $('#tb-cl').innerHTML = righeClienti(q ? cl.filter(c => (c.nome + ' ' + (c.citta || '') + ' ' + c.cc).toLowerCase().includes(q)).slice(0, 300) : cl.slice(0, 200), media);
@@ -1196,152 +1293,335 @@ function righeClienti(cl, media){
   return cl.map(c => {
     const d = c.sconto - media;
     return `<tr><td><div class="t-tit">${esc(c.nome)}</div><div class="t-sub">${esc(c.citta || '')}${c.provincia ? ' (' + esc(c.provincia) + ')' : ''} · cod. ${esc(c.cc)}</div></td><td class="small">${esc(c.canale || nomeGruppo(c.canale_gruppo))}</td>
-      <td class="small">${esc(nomeAgente(c.agente))}</td><td class="r">${num(c.cf - c.cr)}</td><td class="r">${eur(c.f)}</td><td class="r">${eur(c.n)}</td><td class="r t-tit">${pct(c.sconto)}</td>
+      <td class="small">${c.agente ? esc(nomeAgente(c.agente)) : c.direzionale ? '<span class="pill mut">Direzionale</span>' : '—'}</td><td class="r">${num(c.cf - c.cr)}</td><td class="r">${eur(c.f)}</td><td class="r">${eur(c.n)}</td><td class="r t-tit">${pct(c.sconto)}</td>
       <td class="r"><span class="pill ${d > .02 ? 'warn' : d < -.02 ? 'info' : 'mut'}">${d > 0 ? '+' : ''}${fDec.format(d * 100)} punti</span></td></tr>`;
   }).join('');
 }
 
-/* ---------- Investimenti ---------- */
+/* ---------- Investimenti sui clienti (registrati in ed_investimenti) ---------- */
+const TIPI_INVEST = ['Vetrine e visibilità', 'Eventi e presentazioni', 'Sconto extra promozionale', 'Materiale POP ed espositori', 'Co-marketing online', 'Contributo spazio a scaffale', 'Formazione librai', 'Altro'];
+const STATI_INV = ['Previsto', 'Confermato', 'Rendicontato', 'Annullato'];
+const ESEMPIO_INV = () => ({ chi: 'Editore', destinatario: 'Gruppo', gruppo: 'Giunti al Punto', canale: '', zona: '', codice_cliente: '', cliente_nome: '',
+  dal: `${OGGI.getFullYear()}-12-01`, al: `${OGGI.getFullYear()}-12-31`, tipologia: 'Vetrine e visibilità',
+  descrizione: 'Vetrina natalizia con le novità del giro in corso in 40 punti vendita, con espositore da banco', importo: 4000, sconto_extra: 2, copie: 1200,
+  titoli: 'Le novità del giro in corso (EAN o titoli separati da virgola)', giro: R.giri[0] ? nomeGiro(R.giri[0]) : '', stato: 'Previsto', referente: 'Nome Cognome · trade marketing',
+  note: 'Foto delle vetrine entro il 15 gennaio' });
 S.investimenti = {
-  titolo: 'Investimenti sui clienti', sub: () => 'Cosa investe l\'editore e cosa investe PDE, cliente per cliente',
+  titolo: 'Investimenti sui clienti', sub: () => 'Cosa investe l\'editore e cosa investe PDE: clienti, gruppi, periodo e risultati',
+  async prepara(){ await anagrafica(); },
   html(){
-    const cl = clientiConFatt();
-    const inv = DB.investimenti;
-    const E = sum(inv.filter(i => i.chi === 'Editore').map(i => i.importo)), P = sum(inv.filter(i => i.chi === 'PDE').map(i => i.importo));
-    const perCl = cl.map(c => { const x = inv.filter(i => i.cliente === c.id); return { ...c, e: sum(x.filter(i => i.chi === 'Editore').map(i => i.importo)), p: sum(x.filter(i => i.chi === 'PDE').map(i => i.importo)), voci: x }; })
-      .filter(c => c.e + c.p > 0).sort((a, b) => (b.e + b.p) - (a.e + a.p));
-    this._d = { perCl, E, P, inv };
-    const fattInv = sum(perCl.map(c => c.fatt));
+    const I = R.inv.filter(i => i.stato !== 'Annullato');
+    const E = sum(I.filter(i => i.chi === 'Editore').map(i => +i.importo)), P = sum(I.filter(i => i.chi === 'PDE').map(i => +i.importo));
+    const gruppi = [...new Set(R.anag.map(c => c.gruppo).filter(Boolean))].sort();
+    const canali = [...new Set(R.anag.map(c => c.canale).filter(Boolean))].sort();
+    const ed = STATO.invEdit ? R.inv.find(i => i.id === STATO.invEdit) : null;
+    const v = ed || STATO.invBozza || { chi: ADMIN() ? 'PDE' : 'Editore', destinatario: 'Cliente', stato: 'Previsto' };
+    const opt = (L, sel) => L.map(x => `<option ${String(x) === String(sel ?? '') ? 'selected' : ''}>${esc(x)}</option>`).join('');
+    this._I = I;
     return `
-      <p class="lead">Anche PDE investe sui tuoi clienti: vetrine, eventi, materiali e promozioni. Qui vedi le due quote affiancate.
-      <span class="pill info">In arrivo</span> un'app dedicata con il dettaglio degli investimenti PDE.</p>
+      <p class="lead">Qui si registrano gli investimenti sui clienti, sia dell'editore sia di PDE: per cliente, per gruppo (catena) o per canale, con periodo, importo e risultato atteso.
+      ${ADMIN() ? '' : 'Puoi registrare gli investimenti della tua casa editrice; quelli di PDE li inserisce PDE.'}</p>
       <div class="grid g-kpi">
-        ${kpi('Investimento editore', eurK(E), `<span>${pct(E / (E + P), 0)} del totale</span>`, '--s1')}
-        ${kpi('Investimento PDE', eurK(P), `<span>${pct(P / (E + P), 0)} del totale</span>`, '--s3')}
-        ${kpi('Totale investito', eurK(E + P), `<span>su ${perCl.length} clienti</span>`, '--s7')}
-        ${kpi('Investimento su fatturato', pct((E + P) / fattInv), '<span>dei clienti coinvolti</span>', '--s4')}
+        ${kpi('Investimento editore', eurK(E), `<span>${E + P ? pct(E / (E + P), 0) : '—'} del totale</span>`, '--s1')}
+        ${kpi('Investimento PDE', eurK(P), `<span>${E + P ? pct(P / (E + P), 0) : '—'} del totale</span>`, '--s3')}
+        ${kpi('Totale investito', eurK(E + P), `<span>${num(I.length)} iniziative</span>`, '--s7')}
+        ${kpi('Da confermare', num(I.filter(i => i.stato === 'Previsto').length), '<span>iniziative previste</span>', '--s4')}
       </div>
-      <div class="grid g3">
+      ${I.length ? `<div class="grid g3">
         <div class="card"><h3>Chi investe</h3><p class="h-sub">Editore e PDE</p><div class="ch sm"><canvas id="c-chi"></canvas></div></div>
         <div class="card"><h3>Per tipologia</h3><p class="h-sub">Editore + PDE</p><div class="ch sm"><canvas id="c-tipo"></canvas></div></div>
-        <div class="card"><h3>Per zona</h3><p class="h-sub">Editore + PDE</p><div class="ch sm"><canvas id="c-izo"></canvas></div></div>
-      </div>
-      <div class="card" style="margin-bottom:16px"><h3>Investimento per cliente</h3><p class="h-sub">Quota editore e quota PDE</p><div class="ch" style="height:${perCl.length * 24 + 70}px"><canvas id="c-icl"></canvas></div></div>
-      <div class="card"><h3>Dettaglio</h3><p class="h-sub">Clienti, investimento e ritorno in fatturato</p>
-        <div class="tw scroll"><table class="tbl"><thead><tr><th>Cliente</th><th class="r">Editore</th><th class="r">PDE</th><th class="r">Totale</th><th class="r">Fatturato cliente</th><th class="r">Inv./fatt.</th><th>Voci</th></tr></thead>
-        <tbody>${perCl.map(c => `<tr><td><div class="t-tit">${esc(c.nome)}</div><div class="t-sub">${esc(c.citta)} · ${esc(c.canale)}</div></td><td class="r">${eur(c.e)}</td><td class="r">${eur(c.p)}</td><td class="r t-tit">${eur(c.e + c.p)}</td>
-          <td class="r">${eur(c.fatt)}</td><td class="r">${pct((c.e + c.p) / c.fatt)}</td><td class="small muted">${[...new Set(c.voci.map(v => v.tipo))].map(esc).join(', ')}</td></tr>`).join('')}</tbody></table></div></div>`;
+        <div class="card"><h3>Per mese di inizio</h3><p class="h-sub">Editore e PDE</p><div class="ch sm"><canvas id="c-imese"></canvas></div></div>
+      </div>` : ''}
+      <div class="grid g2">
+        <div class="card"><div class="card-head"><div><h3>${ed ? 'Modifica investimento' : 'Nuovo investimento'}</h3><p class="h-sub">I campi con * sono obbligatori</p></div>
+          <div class="dx">${ed ? '' : '<button class="btn" type="button" id="b-inv-es">Compila con un esempio</button>'}</div></div>
+          <form class="form" id="f-inv" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+            <label>Chi investe *<select name="chi" ${ADMIN() ? '' : 'disabled'}>${opt(['Editore', 'PDE'], v.chi)}</select></label>
+            <label>Destinatario *<select name="destinatario" id="inv-dest">${opt(['Cliente', 'Gruppo', 'Canale', 'Tutti i clienti'], v.destinatario)}</select></label>
+            <label class="inv-cli" style="grid-column:1/-1">Cliente<input type="text" name="cliente" list="dl-cli" placeholder="Scrivi il nome o il codice del cliente" value="${esc(v.cliente_nome ? `${v.cliente_nome}${v.codice_cliente ? ' · ' + v.codice_cliente : ''}` : '')}"></label>
+            <label class="inv-gru">Gruppo / catena<input type="text" name="gruppo" list="dl-gru" value="${esc(v.gruppo || '')}"></label>
+            <label class="inv-can">Canale<input type="text" name="canale" list="dl-can" value="${esc(v.canale || '')}"></label>
+            <label>Zona<select name="zona"><option value="">Tutta Italia</option>${opt(ZONE, v.zona)}</select></label>
+            <label>Giro collegato<select name="giro"><option value="">—</option>${opt(R.giri.map(nomeGiro), v.giro)}</select></label>
+            <label>Dal *<input type="date" name="dal" required value="${esc(v.dal || '')}"></label>
+            <label>Al *<input type="date" name="al" required value="${esc(v.al || '')}"></label>
+            <label>Tipologia *<select name="tipologia" required>${opt(TIPI_INVEST, v.tipologia)}</select></label>
+            <label>Stato<select name="stato">${opt(STATI_INV, v.stato)}</select></label>
+            <label>Importo € *<input type="number" name="importo" min="0" step="0.01" required value="${esc(v.importo ?? '')}"></label>
+            <label>Sconto extra %<input type="number" name="sconto_extra" min="0" max="100" step="0.1" value="${esc(v.sconto_extra ?? '')}"></label>
+            <label>Copie coinvolte<input type="number" name="copie" min="0" step="1" value="${esc(v.copie ?? '')}"></label>
+            <label>Referente<input type="text" name="referente" value="${esc(v.referente || '')}"></label>
+            <label style="grid-column:1/-1">Descrizione<textarea name="descrizione" rows="2">${esc(v.descrizione || '')}</textarea></label>
+            <label style="grid-column:1/-1">Titoli coinvolti<input type="text" name="titoli" value="${esc(v.titoli || '')}" placeholder="EAN o titoli, separati da virgola"></label>
+            <label style="grid-column:1/-1">Note<textarea name="note" rows="2">${esc(v.note || '')}</textarea></label>
+            <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">${ed ? 'Salva le modifiche' : 'Registra investimento'}</button>${ed || STATO.invBozza ? '<button class="btn" type="button" id="b-inv-annulla">Annulla</button>' : ''}</div>
+          </form>
+          <datalist id="dl-cli">${R.anag.slice(0, 5000).map(c => `<option value="${esc(c.nome)} · ${esc(c.cc)}">${esc(c.citta || '')}${c.gruppo ? ' · ' + esc(c.gruppo) : ''}</option>`).join('')}</datalist>
+          <datalist id="dl-gru">${gruppi.map(g => `<option value="${esc(g)}">`).join('')}</datalist>
+          <datalist id="dl-can">${canali.map(g => `<option value="${esc(g)}">`).join('')}</datalist></div>
+        <div class="card"><h3>Investimenti registrati</h3><p class="h-sub">Dal più recente</p>
+          ${R.inv.length ? `<div class="tw scroll"><table class="tbl"><thead><tr><th>Iniziativa</th><th>Periodo</th><th class="r">Importo</th><th>Stato</th><th></th></tr></thead>
+          <tbody>${R.inv.map(i => { const dest = i.destinatario === 'Cliente' ? (i.cliente_nome || i.codice_cliente) : i.destinatario === 'Gruppo' ? i.gruppo : i.destinatario === 'Canale' ? i.canale : 'Tutti i clienti';
+            const mod = ADMIN() || i.chi === 'Editore';
+            return `<tr><td><div class="t-tit">${esc(i.tipologia)}</div><div class="t-sub"><span class="pill ${i.chi === 'PDE' ? 'info' : 'mut'}">${esc(i.chi)}</span> ${esc(dest || '')}${i.zona ? ' · ' + esc(i.zona) : ''}${i.giro ? ' · ' + esc(i.giro) : ''}</div>${i.descrizione ? `<div class="t-sub">${esc(i.descrizione)}</div>` : ''}</td>
+              <td class="small">${i.dal ? fData(pd(i.dal)) : '—'}<br>${i.al ? fData(pd(i.al)) : ''}</td><td class="r t-tit">${eur(+i.importo)}${i.sconto_extra ? `<div class="t-sub">+${fDec.format(+i.sconto_extra)}% sconto</div>` : ''}</td>
+              <td><span class="pill ${i.stato === 'Rendicontato' ? 'ok' : i.stato === 'Confermato' ? 'info' : i.stato === 'Annullato' ? 'mut' : 'warn'}">${esc(i.stato)}</span></td>
+              <td style="white-space:nowrap">${mod ? `<button class="btn" data-ie="${i.id}">Modifica</button> <button class="btn" data-id="${i.id}">Elimina</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Nessun investimento registrato. Usa il modulo a sinistra: "Compila con un esempio" mostra come si compila.</div>'}</div>
+      </div>`;
   },
   init(){
-    const { perCl, E, P, inv } = this._d, s = SER();
+    const f = $('#f-inv'); if (!f) return;
+    const vis = () => { const d = $('#inv-dest').value;
+      f.querySelector('.inv-cli').hidden = d !== 'Cliente'; f.querySelector('.inv-gru').hidden = d !== 'Gruppo'; f.querySelector('.inv-can').hidden = d !== 'Canale'; };
+    vis(); $('#inv-dest').addEventListener('change', vis);
+    $('#b-inv-es')?.addEventListener('click', () => { STATO.invBozza = ESEMPIO_INV(); render(); });
+    $('#b-inv-annulla')?.addEventListener('click', () => { STATO.invEdit = null; STATO.invBozza = null; render(); });
+    f.addEventListener('submit', ev => {
+      ev.preventDefault();
+      const d = fdata(f);
+      if (!ADMIN()) d.chi = 'Editore';
+      const m = /·\s*(\S+)\s*$/.exec(d.cliente || '');
+      d.codice_cliente = m ? m[1] : ''; d.cliente_nome = (d.cliente || '').replace(/\s*·\s*\S+\s*$/, '').trim();
+      delete d.cliente;
+      if (d.destinatario !== 'Cliente') { d.codice_cliente = ''; d.cliente_nome = ''; }
+      if (d.destinatario !== 'Gruppo') d.gruppo = '';
+      if (d.destinatario !== 'Canale') d.canale = '';
+      if (d.destinatario === 'Cliente' && !d.cliente_nome) { alert('Indica il cliente'); return; }
+      if (STATO.invEdit) d.id = STATO.invEdit;
+      salvaCon(ev.submitter || f.querySelector('[type=submit]'), async () => {
+        await rpc('ed_investimento_salva', { p_editore: ED.codice_editore, p: d });
+        await ricarica('inv', 'ed_investimenti_lista');
+        STATO.invEdit = null; STATO.invBozza = null; render();
+      });
+    });
+    document.querySelectorAll('[data-ie]').forEach(b => b.addEventListener('click', () => { STATO.invEdit = b.dataset.ie; STATO.invBozza = null; render(); window.scrollTo(0, 0); }));
+    document.querySelectorAll('[data-id]').forEach(b => b.addEventListener('click', () => {
+      if (!confirm('Eliminare questo investimento?')) return;
+      salvaCon(b, async () => { await rpc('ed_investimento_elimina', { p_editore: ED.codice_editore, p_id: b.dataset.id }); await ricarica('inv', 'ed_investimenti_lista'); render(); });
+    }));
+    const I = this._I; if (!I.length) return;
+    const s = SER();
+    const E = sum(I.filter(i => i.chi === 'Editore').map(i => +i.importo)), P = sum(I.filter(i => i.chi === 'PDE').map(i => +i.importo));
     torta('c-chi', ['Editore', 'PDE'], [E, P], { eur: true, legenda: 'bottom', colori: [s[0], s[2]] });
-    torta('c-tipo', DB.TIPI_INV, DB.TIPI_INV.map(t => sum(inv.filter(i => i.tipo === t).map(i => i.importo))), { eur: true, legenda: 'bottom' });
-    torta('c-izo', ZONE, ZONE.map(z => sum(perCl.filter(c => c.zona === z).map(c => c.e + c.p))), { eur: true, legenda: 'bottom' });
-    mk('c-icl', { type: 'bar', data: { labels: perCl.map(c => c.nome), datasets: [barre('Editore', perCl.map(c => c.e), s[0], { maxBarThickness: 16 }), barre('PDE', perCl.map(c => c.p), s[2], { maxBarThickness: 16 })] },
-      options: { indexAxis: 'y', interaction: { mode: 'index', intersect: false }, scales: { x: { stacked: true, ticks: tickEur }, y: { stacked: true, grid: { display: false }, ticks: { autoSkip: false, font: { size: 11.5 } } } },
-        plugins: { legend: { position: 'top', align: 'end' }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${eur(c.parsed.x)}` } } } } });
+    const tp = TIPI_INVEST.filter(t => I.some(i => i.tipologia === t));
+    torta('c-tipo', tp, tp.map(t => sum(I.filter(i => i.tipologia === t).map(i => +i.importo))), { eur: true, legenda: 'bottom' });
+    const mesi = [...new Set(I.filter(i => i.dal).map(i => i.dal.slice(0, 7)))].sort();
+    const lab = mesi.map(m => MESI[+m.slice(5, 7) - 1] + ' ' + m.slice(2, 4));
+    mk('c-imese', { type: 'bar', data: { labels: lab, datasets: ['Editore', 'PDE'].map((c, k) => barre(c, mesi.map(m => sum(I.filter(i => i.chi === c && i.dal && i.dal.startsWith(m)).map(i => +i.importo))), s[k === 0 ? 0 : 2], { stack: 'x' })) },
+      options: { interaction: { mode: 'index', intersect: false }, scales: { y: { stacked: true, ticks: tickEur }, x: { stacked: true, grid: { display: false } } }, plugins: { tooltip: ttEur, legend: { position: 'top', align: 'end' } } } });
   },
 };
 
-/* ---------- Fatturazione a PDE ---------- */
+/* ---------- Fatturazione PDE: compenso del 5% sul venduto a copertina netto rese ---------- */
+const STATI_FATT = ['Da emettere', 'Emessa', 'Pagata', 'Scaduta', 'Annullata'];
+function maturatoMesi(anno, fino = 11){ const p = +R.fatt.perc || .05; return serieA(VF(), anno, v => (v.lf - v.lr) * p, fino); }
+function fatturatoMesi(anno){
+  // ogni fattura si divide in parti uguali sui mesi di competenza
+  const out = MESI.map(() => 0);
+  (R.fatt.fatture || []).filter(f => f.stato !== 'Annullata').forEach(f => {
+    const a = pd(f.mese_dal), b = pd(f.mese_al || f.mese_dal);
+    const mesi = []; for (let d = new Date(a); d <= b; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) mesi.push(new Date(d));
+    mesi.forEach(d => { if (d.getFullYear() === anno) out[d.getMonth()] += +f.imponibile / mesi.length; });
+  });
+  return out;
+}
 S.fatturazione = {
-  titolo: 'Fatturazione a PDE', sub: () => 'Fatture e note di credito 2026, scadenze e stato degli incassi',
+  titolo: 'Fatturazione PDE', sub: () => `Compenso PDE del ${pct(+R.fatt.perc || .05, 0)} sul venduto a prezzo di copertina, netto rese · ${PER.etichetta}`,
   html(){
-    const F = fatture();
-    this._F = F;
-    const fat = F.filter(f => f.tipo === 'Fattura'), nc = F.filter(f => f.tipo === 'Nota di credito');
-    const tF = sum(fat.map(f => f.imp)), tN = -sum(nc.map(f => f.imp));
-    const daInc = sum(fat.filter(f => f.stato === 'Da incassare').map(f => f.imp));
-    const scad = fat.filter(f => f.stato === 'Scaduta');
-    STATO.filtroF ||= 'Tutti';
+    const p = +R.fatt.perc || .05, Y = PER.Y;
+    const m0 = maturatoMesi(Y, PER.m), m1 = maturatoMesi(Y - 1);
+    const fa = fatturatoMesi(Y);
+    const M = sum(m0), M1 = sum(m1.slice(0, PER.m + 1)), FA = sum(fa.slice(0, PER.m + 1));
+    const F = R.fatt.fatture || [];
+    const daIncassare = sum(F.filter(f => f.stato === 'Emessa').map(f => +f.imponibile));
+    const scadute = F.filter(f => f.stato === 'Scaduta');
+    const parziale = sum(VF().filter(v => v.d.getFullYear() === PER.ultimo.getFullYear() && v.d.getMonth() === PER.ultimo.getMonth()).map(fVen)) * p;
+    const ed = STATO.fattEdit ? F.find(f => f.id === STATO.fattEdit) : null;
+    const v = ed || STATO.fattBozza || { stato: 'Emessa', iva_pct: 22 };
+    const opt = (L, sel) => L.map(x => `<option ${String(x) === String(sel ?? '') ? 'selected' : ''}>${esc(x)}</option>`).join('');
+    const mm = d => d ? String(d).slice(0, 7) : '';
+    this._d = { m0, m1, fa };
     return `
-      <p class="lead">Le fatture sono le forniture del mese, le note di credito le rese. Il saldo netto è la differenza.</p>
+      <p class="lead">Il compenso di PDE è il ${pct(p, 0)} del venduto a prezzo di copertina al netto delle rese, mese per mese (dati Messaggerie).
+      Accanto al maturato ci sono le fatture registrate: la differenza è quello che resta da fatturare.</p>
       <div class="grid g-kpi">
-        ${kpi('Fatturato a PDE', eurK(tF), `<span>${fat.length} fatture</span>`, '--s1')}
-        ${kpi('Note di credito', eurK(tN), `<span>${pct(tN / tF)} del fatturato</span>`, '--s2')}
-        ${kpi('Saldo netto', eurK(tF - tN), '<span>fatture meno note di credito</span>', '--s3')}
-        ${kpi('Da incassare', eurK(daInc), '<span>non ancora scadute</span>', '--s4')}
-        ${kpi('Scadute', scad.length ? eurK(sum(scad.map(f => f.imp))) : '—', scad.length ? `<span class="pill ko">${scad.length} fattura da verificare</span>` : '<span>nessuna</span>', '--s8')}
+        ${kpi('Compenso maturato', eurK(M), `${delta(M, M1)} <span>${PER.etichetta}</span>`, '--s1')}
+        ${kpi('Media mensile', eurK(M / (PER.m + 1)), `<span>era ${eurK(M1 / (PER.m + 1))} nel ${Y - 1}</span>`, '--s3')}
+        ${kpi('Fatturato registrato', eurK(FA), `<span>${F.length ? 'competenza ' + PER.etichetta : 'nessuna fattura registrata'}</span>`, '--s7')}
+        ${kpi('Da fatturare', F.length ? eurK(Math.max(0, M - FA)) : '—', `<span>maturato meno fatturato</span>`, '--s4')}
+        ${kpi(`${titleCase(MESI_L[PER.ultimo.getMonth()])} in corso`, eurK(parziale), `<span>maturato fino al ${fData(PER.ultimo)}</span>`, '--s2')}
+        ${kpi('Da incassare', F.length ? eurK(daIncassare) : '—', scadute.length ? `<span class="pill ko">${scadute.length} scadute</span>` : '<span>fatture emesse non pagate</span>', '--s8')}
       </div>
       <div class="grid g2">
-        <div class="card"><h3>Fatture e note di credito per mese</h3><p class="h-sub">Importi 2026</p><div class="ch"><canvas id="c-fm"></canvas></div></div>
-        <div class="card"><h3>Stato delle fatture</h3><p class="h-sub">Importi per stato</p><div class="ch"><canvas id="c-fst"></canvas></div></div>
+        <div class="card"><h3>Andamento mensile del compenso</h3><p class="h-sub">Maturato ${Y} e ${Y - 1}, con le fatture registrate</p><div class="ch lg"><canvas id="c-fm"></canvas></div></div>
+        <div class="card"><h3>Mese per mese</h3><p class="h-sub">${Y}</p>
+          <div class="tw scroll"><table class="tbl"><thead><tr><th>Mese</th><th class="r">Venduto netto rese</th><th class="r">Compenso ${pct(p, 0)}</th><th class="r">Fatturato</th><th class="r">Differenza</th></tr></thead>
+          <tbody>${MESI.slice(0, PER.m + 1).map((n, i) => { const ven = m0[i] / p, dif = m0[i] - fa[i];
+            return `<tr><td class="t-tit">${titleCase(MESI_L[i])}</td><td class="r">${eur(ven)}</td><td class="r t-tit">${eur(m0[i])}</td><td class="r">${fa[i] ? eur(fa[i]) : '—'}</td>
+              <td class="r">${fa[i] ? `<span class="pill ${Math.abs(dif) < 1 ? 'ok' : dif > 0 ? 'warn' : 'info'}">${eur(dif)}</span>` : '<span class="pill mut">da fatturare</span>'}</td></tr>`; }).join('')}
+            <tr><td class="t-tit">Totale</td><td class="r t-tit">${eur(M / p)}</td><td class="r t-tit">${eur(M)}</td><td class="r t-tit">${eur(FA)}</td><td class="r t-tit">${eur(M - FA)}</td></tr></tbody></table></div></div>
       </div>
-      <div class="card"><div class="card-head"><div><h3>Documenti</h3><p class="h-sub">Dal più recente</p></div>
-        <div class="dx chips" id="ch-f">${['Tutti', 'Fattura', 'Nota di credito', 'Da incassare', 'Scaduta'].map(x => `<button class="chip ${STATO.filtroF === x ? 'on' : ''}" data-f="${x}">${x}</button>`).join('')}</div></div>
-        <div class="tw scroll"><table class="tbl"><thead><tr><th>Numero</th><th>Tipo</th><th>Descrizione</th><th>Data</th><th>Scadenza</th><th class="r">Importo</th><th>Stato</th></tr></thead><tbody id="tb-f"></tbody></table></div></div>`;
+      <div class="grid g2">
+        ${ADMIN() ? `<div class="card"><div class="card-head"><div><h3>${ed ? 'Modifica fattura' : 'Registra una fattura'}</h3><p class="h-sub">Competenza: i mesi a cui si riferisce</p></div>
+          <div class="dx">${ed ? '' : '<button class="btn" type="button" id="b-fatt-es">Compila con un esempio</button>'}</div></div>
+          <form class="form" id="f-fatt" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+            <label>Numero *<input type="text" name="numero" required value="${esc(v.numero || '')}"></label>
+            <label>Data *<input type="date" name="data" required value="${esc(v.data || '')}"></label>
+            <label>Competenza dal mese *<input type="month" name="mese_dal" required value="${esc(mm(v.mese_dal))}"></label>
+            <label>al mese<input type="month" name="mese_al" value="${esc(mm(v.mese_al))}"></label>
+            <label>Imponibile € *<input type="number" name="imponibile" step="0.01" required value="${esc(v.imponibile ?? '')}"></label>
+            <label>IVA %<input type="number" name="iva_pct" step="0.1" value="${esc(v.iva_pct ?? 22)}"></label>
+            <label>Scadenza<input type="date" name="scadenza" value="${esc(v.scadenza || '')}"></label>
+            <label>Stato<select name="stato">${opt(STATI_FATT, v.stato)}</select></label>
+            <label style="grid-column:1/-1">Note<textarea name="note" rows="2">${esc(v.note || '')}</textarea></label>
+            <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="b-fatt-calc">Imponibile = compenso maturato</button><button class="btn pri" type="submit">${ed ? 'Salva le modifiche' : 'Registra fattura'}</button>${ed || STATO.fattBozza ? '<button class="btn" type="button" id="b-fatt-annulla">Annulla</button>' : ''}</div>
+          </form></div>` : ''}
+        <div class="card" ${ADMIN() ? '' : 'style="grid-column:1/-1"'}><h3>Fatture registrate</h3><p class="h-sub">Dalla più recente</p>
+          ${F.length ? `<div class="tw scroll"><table class="tbl"><thead><tr><th>Numero</th><th>Data</th><th>Competenza</th><th class="r">Imponibile</th><th class="r">Totale</th><th>Stato</th>${ADMIN() ? '<th></th>' : ''}</tr></thead>
+          <tbody>${F.map(f => { const a = pd(f.mese_dal), b = pd(f.mese_al || f.mese_dal); const comp = a.getTime() === b.getTime() ? `${MESI_L[a.getMonth()]} ${a.getFullYear()}` : `${MESI_L[a.getMonth()]}–${MESI_L[b.getMonth()]} ${b.getFullYear()}`;
+            return `<tr><td class="t-tit">${esc(f.numero)}</td><td>${fData(pd(f.data))}</td><td class="small">${comp}</td><td class="r">${eur(+f.imponibile)}</td><td class="r">${eur(+f.imponibile * (1 + (+f.iva_pct || 0) / 100))}</td>
+              <td><span class="pill ${f.stato === 'Pagata' ? 'ok' : f.stato === 'Scaduta' ? 'ko' : f.stato === 'Annullata' ? 'mut' : f.stato === 'Emessa' ? 'warn' : 'info'}">${esc(f.stato)}</span>${f.scadenza ? `<div class="t-sub">scade il ${fData(pd(f.scadenza))}</div>` : ''}</td>
+              ${ADMIN() ? `<td style="white-space:nowrap"><button class="btn" data-fe="${f.id}">Modifica</button> <button class="btn" data-fd="${f.id}">Elimina</button></td>` : ''}</tr>`; }).join('')}</tbody></table></div>` : `<div class="empty">Nessuna fattura registrata.${ADMIN() ? ' Usa il modulo: "Compila con un esempio" mostra come si compila.' : ''}</div>`}</div>
+      </div>`;
   },
   init(){
-    const F = this._F, s = SER();
-    const n = ULTIMO_MESE + 1;
-    mk('c-fm', { type: 'bar', data: { labels: MESI.slice(0, n), datasets: [
-      barre('Fatture', MESI.slice(0, n).map((_, m) => sum(F.filter(f => f.tipo === 'Fattura' && f.data.getMonth() === m).map(f => f.imp))), s[0]),
-      barre('Note di credito', MESI.slice(0, n).map((_, m) => -sum(F.filter(f => f.tipo === 'Nota di credito' && f.data.getMonth() === m).map(f => f.imp))), s[1]),
-    ] }, options: { interaction: { mode: 'index', intersect: false }, scales: { y: { ticks: tickEur }, x: { grid: { display: false } } }, plugins: { tooltip: ttEur, legend: { position: 'top', align: 'end' } } } });
-    const fat = F.filter(f => f.tipo === 'Fattura');
-    const st = ['Pagata', 'Da incassare', 'Scaduta'];
-    torta('c-fst', st, st.map(x => sum(fat.filter(f => f.stato === x).map(f => f.imp))), { eur: true, colori: [s[2], s[3], s[7]] });
-    const pillSt = x => ({ 'Pagata': 'ok', 'Compensata': 'ok', 'Da incassare': 'warn', 'Da compensare': 'warn', 'Scaduta': 'ko' }[x] || 'mut');
-    const draw = () => {
-      const k = STATO.filtroF;
-      const rows = F.filter(f => k === 'Tutti' || f.tipo === k || f.stato === k);
-      $('#tb-f').innerHTML = rows.map(f => `<tr><td class="t-tit">${f.num}</td><td>${f.tipo}</td><td class="small">${esc(f.desc)}</td><td>${fData(f.data)}</td><td>${fData(f.scad)}</td>
-        <td class="r t-tit" style="${f.imp < 0 ? 'color:var(--ko)' : ''}">${eur(f.imp)}</td><td><span class="pill ${pillSt(f.stato)}">${f.stato}</span></td></tr>`).join('') || '<tr><td colspan="7" class="empty">Nessun documento</td></tr>';
-    };
-    draw();
-    document.querySelectorAll('#ch-f .chip').forEach(b => b.addEventListener('click', () => { STATO.filtroF = b.dataset.f; document.querySelectorAll('#ch-f .chip').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
+    const { m0, m1, fa } = this._d, s = SER();
+    mk('c-fm', { type: 'bar', data: { labels: MESI, datasets: [
+      { type: 'line', ...linea(`Maturato ${PER.Y}`, m0, s[0], { pointRadius: 3 }), order: 0 },
+      { type: 'line', ...linea(`Maturato ${PER.Y - 1}`, m1, css('--prev'), { borderDash: [5, 4] }), order: 1 },
+      { ...barre('Fatturato registrato', fa.map((x, i) => i <= PER.m && x ? x : null), s[2] + '99'), order: 2 },
+    ] }, options: lineOpts(tickEur, ttEur) });
+    const f = $('#f-fatt'); if (!f) return;
+    $('#b-fatt-es')?.addEventListener('click', () => {
+      const m = PER.m, Y = PER.Y, a = `${Y}-${String(m + 1).padStart(2, '0')}-01`;
+      STATO.fattBozza = { numero: `PDE-${Y}/${String(m + 1).padStart(3, '0')}`, data: iso(new Date(Y, m + 1, 5)), mese_dal: a, mese_al: a,
+        imponibile: Math.round(m0[m] * 100) / 100, iva_pct: 22, scadenza: iso(new Date(Y, m + 3, 0)), stato: 'Emessa', note: `Compenso ${pct(+R.fatt.perc || .05, 0)} su venduto ${MESI_L[m]} ${Y}` };
+      render();
+    });
+    $('#b-fatt-annulla')?.addEventListener('click', () => { STATO.fattEdit = null; STATO.fattBozza = null; render(); });
+    $('#b-fatt-calc').addEventListener('click', () => {
+      const a = f.mese_dal.value, b = f.mese_al.value || a;
+      if (!a) { alert('Indica prima i mesi di competenza'); return; }
+      const p = +R.fatt.perc || .05;
+      const tot = sum(VF().filter(v => v.mese.slice(0, 7) >= a && v.mese.slice(0, 7) <= b).map(fVen)) * p;
+      f.imponibile.value = (Math.round(tot * 100) / 100).toFixed(2);
+    });
+    f.addEventListener('submit', ev => {
+      ev.preventDefault();
+      const d = fdata(f);
+      d.mese_dal = d.mese_dal + '-01'; d.mese_al = (d.mese_al || f.mese_dal.value) + '-01';
+      if (STATO.fattEdit) d.id = STATO.fattEdit;
+      salvaCon(ev.submitter || f.querySelector('[type=submit]'), async () => {
+        await rpc('ed_fattura_salva', { p_editore: ED.codice_editore, p: d });
+        await ricarica('fatt', 'ed_fatture_lista');
+        STATO.fattEdit = null; STATO.fattBozza = null; render();
+      });
+    });
+    document.querySelectorAll('[data-fe]').forEach(b => b.addEventListener('click', () => { STATO.fattEdit = b.dataset.fe; STATO.fattBozza = null; render(); }));
+    document.querySelectorAll('[data-fd]').forEach(b => b.addEventListener('click', () => {
+      if (!confirm('Eliminare questa fattura?')) return;
+      salvaCon(b, async () => { await rpc('ed_fattura_elimina', { p_editore: ED.codice_editore, p_id: b.dataset.fd }); await ricarica('fatt', 'ed_fatture_lista'); render(); });
+    }));
   },
 };
 
-/* ---------- Stock MeLi ---------- */
-const STATI = { '1-1': ['Attivo', 'ok'], '1-2': ['In ristampa', 'warn'], '4-1': ['Fuori catalogo', 'mut'] };
+/* ---------- Stock MeLi: fotografia presa da BookUp (edge function ou-titoli) ---------- */
+const attivo11 = m => m.stato_articolo_cod === '1' && m.stato_vendita_cod === '1';
+const statoMeli = m => `${m.stato_articolo_cod || '?'}-${m.stato_vendita_cod || '?'}`;
+function coperturaSett(m){ const t = R.titoliMap.get(m.ean); const w = t ? Math.max(0, t.v_ult) / 4.35 : 0; return m.disponibilita <= 0 ? 0 : w ? m.disponibilita / w : Infinity; }
+let AGG_MELI = null;   // aggiornamento in corso { fatti, totale, errori }
+async function aggiornaMeli(){
+  if (AGG_MELI) return;
+  const eans = [...new Set([...R.titoli.map(t => t.ean), ...R.giri.flatMap(g => g.titoli.map(t => t.ean))].filter(e => /^\d{10,13}$/.test(e)))];
+  AGG_MELI = { fatti: 0, totale: eans.length, errori: 0, trovati: 0 };
+  render();
+  const { data: { session } } = await sb.auth.getSession();
+  const buf = []; let i = 0;
+  const salva = async () => { if (!buf.length) return; const righe = buf.splice(0); await rpc('ed_meli_salva', { p_editore: ED.codice_editore, p_righe: righe }); };
+  async function worker(){
+    while (i < eans.length){
+      const ean = eans[i++];
+      try {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/ou-titoli`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query: ean, limit: 1 }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || res.status);
+        const t = (d.titles || []).find(x => String(x.ean) === ean);
+        if (t){
+          AGG_MELI.trovati++;
+          buf.push({ ean, titolo: t.title, autore: t.author, prezzo: t.price ?? null, disponibilita: t.availability, m11: t.availability11, m21: t.availability21,
+            stato_articolo: t.articleStatus, stato_articolo_cod: t.articleStatusCode, stato_vendita: t.saleStatus, stato_vendita_cod: t.saleStatusCode,
+            risposta_editore: t.publisherResponse, genere: t.genre });
+          if (buf.length >= 50) await salva();
+        }
+      } catch (_e) { AGG_MELI.errori++; }
+      AGG_MELI.fatti++;
+      const el = $('#meli-prog'); if (el) el.innerHTML = progMeli();
+    }
+  }
+  try { await Promise.all(Array.from({ length: 6 }, worker)); await salva(); await ricarica('meli', 'ed_meli_lista'); R.meliMap = new Map((R.meli.righe || []).map(m => [m.ean, m])); }
+  catch (e) { alert('Aggiornamento interrotto: ' + e.message); }
+  finally { AGG_MELI = null; render(); }
+}
+const progMeli = () => AGG_MELI ? `<div class="bar-in" style="height:10px"><i style="width:${AGG_MELI.fatti / AGG_MELI.totale * 100}%"></i></div><p class="note">Letti ${num(AGG_MELI.fatti)} titoli su ${num(AGG_MELI.totale)} · trovati ${num(AGG_MELI.trovati)}${AGG_MELI.errori ? ' · ' + num(AGG_MELI.errori) + ' non letti' : ''}. Puoi restare su questa pagina: i dati si salvano man mano.</p>` : '';
+function boxAggiornaMeli(){
+  const agg = R.meli.aggiornato_il ? new Date(R.meli.aggiornato_il) : null;
+  return `<div class="card" style="margin-bottom:16px"><div class="card-head" style="margin:0"><div><h3>Dati Messaggerie da BookUp</h3>
+    <p class="h-sub" style="margin:0">${agg ? `Ultimo aggiornamento ${agg.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : 'Nessun aggiornamento ancora fatto'} · disponibilità dei magazzini 11 e 21, stati e genere come in BookUp, Consultazione titoli.</p></div>
+    <div class="dx">${ADMIN() ? `<button class="btn pri" id="b-meli" ${AGG_MELI ? 'disabled' : ''}>${AGG_MELI ? 'Aggiornamento in corso…' : 'Aggiorna da Messaggerie'}</button>` : ''}</div></div>
+    <div id="meli-prog" style="margin-top:10px">${progMeli()}</div></div>`;
+}
 S.stock = {
-  titolo: 'Stock MeLi', sub: () => 'Giacenze dei titoli nel magazzino Messaggerie Libri e copertura in settimane',
+  titolo: 'Stock MeLi', sub: () => 'Disponibilità dei titoli nei magazzini Messaggerie, come in BookUp',
   html(){
-    const L = titoliF();
-    this._L = L;
-    const g = sum(L.map(t => t.giacenza)), val = sum(L.map(t => t.giacenza * t.prezzo));
-    const cop = t => { const w = (t.v26[ULTIMO_MESE] + t.v26[ULTIMO_MESE - 1]) / 2 / 4.35; return w ? t.giacenza / w : Infinity; };
-    L.forEach(t => t._cop = cop(t));
-    const bassi = L.filter(t => t.stato === '1-1' && t.giacenza > 0 && t._cop < 4).length;
+    const M = R.meli.righe || [];
+    if (!M.length) return boxAggiornaMeli() + vuoto(ADMIN() ? 'Premi "Aggiorna da Messaggerie": BookUp legge disponibilità e stato di tutti i titoli dell\'editore (qualche minuto).' : 'I dati di magazzino non sono ancora stati caricati da PDE.');
     STATO.filtroS ||= 'Tutti';
-    return `
-      <p class="lead">La copertura dice per quante settimane basta la giacenza al ritmo di vendita attuale. Sotto le 4 settimane conviene valutare una ristampa.</p>
+    M.forEach(m => m._cop = coperturaSett(m));
+    const att = M.filter(attivo11);
+    const disp = sum(M.map(m => Math.max(0, m.disponibilita || 0)));
+    const val = sum(M.map(m => Math.max(0, m.disponibilita || 0) * (+m.prezzo || +(R.titoliMap.get(m.ean) || {}).prezzo || 0)));
+    const bassi = att.filter(m => m.disponibilita > 0 && m._cop < 4);
+    const zero = att.filter(m => m.disponibilita <= 0);
+    this._M = M;
+    return `${boxAggiornaMeli()}
+      <p class="lead">La copertura dice per quante settimane basta la disponibilità al ritmo di vendita dell'ultimo mese. Sotto le 4 settimane conviene valutare un riassortimento o una ristampa.
+      Lo stato è <b>stato articolo – stato vendita</b> di Messaggerie: 1-1 vuol dire titolo attivo e in vendita.</p>
       <div class="grid g-kpi">
-        ${kpi('Titoli a catalogo', L.length, `<span>${L.filter(t => t.stato === '1-1').length} attivi (stato 1-1)</span>`, '--s1')}
-        ${kpi('Copie in giacenza', numK(g), `<span>${numK(sum(L.map(t => t.impegnato)))} già impegnate</span>`, '--s3')}
-        ${kpi('Valore giacenza', eurK(val), '<span>a prezzo di copertina</span>', '--s7')}
-        ${kpi('Copertura bassa', bassi, '<span>titoli attivi sotto 4 settimane</span>', '--s4')}
-        ${kpi('A giacenza zero', L.filter(t => t.stato === '1-1' && t.giacenza === 0).length, '<span>vedi la sezione alert</span>', '--s8')}
+        ${kpi('Titoli letti', num(M.length), `<span>${num(att.length)} in stato 1-1</span>`, '--s1')}
+        ${kpi('Copie disponibili', numK(disp), '<span>magazzini 11 e 21</span>', '--s3')}
+        ${kpi('Valore a copertina', eurK(val), '<span>della disponibilità</span>', '--s7')}
+        ${kpi('Copertura bassa', num(bassi.length), '<span>titoli 1-1 sotto 4 settimane</span>', '--s4')}
+        ${kpi('A giacenza zero', num(zero.length), '<span><a href="#alert">titoli 1-1: vedi gli alert</a></span>', '--s8')}
       </div>
       <div class="grid g2e">
-        <div class="card"><h3>Giacenza per settore</h3><p class="h-sub">Copie in magazzino</p><div class="ch"><canvas id="c-gs"></canvas></div></div>
-        <div class="card"><h3>Titoli con più giacenza</h3><p class="h-sub">Prime 10 posizioni, copie</p><div class="ch"><canvas id="c-gt"></canvas></div></div>
+        <div class="card"><h3>Stato dei titoli</h3><p class="h-sub">Stato articolo – stato vendita Messaggerie</p><div class="ch"><canvas id="c-sst"></canvas></div></div>
+        <div class="card"><h3>Disponibilità per genere</h3><p class="h-sub">Copie nei magazzini 11 e 21</p><div class="ch"><canvas id="c-gs"></canvas></div></div>
       </div>
-      <div class="card"><div class="card-head"><div><h3>Giacenze per titolo</h3><p class="h-sub">Stato, giacenza, impegnato e copertura</p></div>
-        <div class="dx"><div class="chips" id="ch-s">${['Tutti', 'Attivo', 'In ristampa', 'Fuori catalogo', 'Copertura bassa'].map(x => `<button class="chip ${STATO.filtroS === x ? 'on' : ''}" data-f="${x}">${x}</button>`).join('')}</div>
+      <div class="card"><div class="card-head"><div><h3>Disponibilità per titolo</h3><p class="h-sub">Ordinati per copertura, dai più scoperti</p></div>
+        <div class="dx"><div class="chips" id="ch-s">${['Tutti', 'Stato 1-1', 'Altri stati', 'Copertura bassa', 'Esauriti'].map(x => `<button class="chip ${STATO.filtroS === x ? 'on' : ''}" data-f="${x}">${x}</button>`).join('')}</div>
         <input type="search" id="q-st" placeholder="Cerca titolo o EAN"></div></div>
-        <div class="tw scroll"><table class="tbl"><thead><tr><th>Titolo</th><th>EAN</th><th>Stato</th><th class="r">Giacenza</th><th class="r">Impegnato</th><th class="r">Disponibile</th><th class="r">Venduto ${MESI[ULTIMO_MESE].toLowerCase()}</th><th class="r">Copertura</th></tr></thead><tbody id="tb-st"></tbody></table></div>
-        <p class="note">Stato 1-1 = titolo attivo e ordinabile. Codici stato da confermare con la codifica Messaggerie.</p></div>`;
+        <div class="tw scroll"><table class="tbl"><thead><tr><th>Titolo</th><th>Genere</th><th>Stato</th><th class="r">Mag. 11</th><th class="r">Mag. 21</th><th class="r">Disponibile</th><th class="r">Venduto ${MESI_L[PER.m]}</th><th class="r">Copertura</th></tr></thead><tbody id="tb-st"></tbody></table></div></div>`;
   },
   init(){
-    const L = this._L, s = SER();
-    const sett = [...new Set(L.map(t => t.settore))];
-    torta('c-gs', sett, sett.map(x => sum(L.filter(t => t.settore === x).map(t => t.giacenza))), { centroSub: 'copie' });
-    const top = [...L].sort((a, b) => b.giacenza - a.giacenza).slice(0, 10);
-    mk('c-gt', { type: 'bar', data: { labels: top.map(t => t.titolo.length > 26 ? t.titolo.slice(0, 25) + '…' : t.titolo), datasets: [barre('Giacenza', top.map(t => t.giacenza), s[0], { maxBarThickness: 16 })] },
-      options: { indexAxis: 'y', scales: { x: { ticks: tickNum }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => top[i[0].dataIndex].titolo, label: c => ` ${num(c.parsed.x)} copie` } } } } });
+    $('#b-meli')?.addEventListener('click', aggiornaMeli);
+    const M = this._M; if (!M) return;
+    const st = {}; M.forEach(m => { const k = attivo11(m) ? '1-1 · attivo e in vendita' : `${statoMeli(m)} · ${titleCase(m.stato_articolo || '')}${m.stato_vendita ? ' / ' + titleCase(m.stato_vendita) : ''}`; st[k] = (st[k] || 0) + 1; });
+    let se = Object.entries(st).sort((a, b) => b[1] - a[1]); if (se.length > 7) se = [...se.slice(0, 6), ['Altri stati', sum(se.slice(6).map(x => x[1]))]];
+    torta('c-sst', se.map(x => x[0]), se.map(x => x[1]), { centroSub: 'titoli', legenda: 'bottom' });
+    const g = {}; M.forEach(m => { const k = titleCase(m.genere || 'Non indicato'); g[k] = (g[k] || 0) + Math.max(0, m.disponibilita || 0); });
+    let ge = Object.entries(g).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]); if (ge.length > 7) ge = [...ge.slice(0, 6), ['Altri generi', sum(ge.slice(6).map(x => x[1]))]];
+    torta('c-gs', ge.map(x => x[0]), ge.map(x => x[1]), { centroSub: 'copie', legenda: 'bottom' });
     const draw = () => {
       const q = ($('#q-st').value || '').toLowerCase(), k = STATO.filtroS;
-      const rows = L.filter(t => (t.titolo + ' ' + t.ean).toLowerCase().includes(q))
-        .filter(t => k === 'Tutti' || (k === 'Copertura bassa' ? t.stato === '1-1' && t.giacenza > 0 && t._cop < 4 : STATI[t.stato][0] === k))
-        .sort((a, b) => a._cop - b._cop);
-      $('#tb-st').innerHTML = rows.map(t => {
-        const c = t._cop;
-        const cp = t.giacenza === 0 ? '<span class="pill ko">esaurito</span>' : c === Infinity ? '<span class="pill mut">—</span>' : `<span class="pill ${c < 4 ? 'warn' : c > 20 ? 'info' : 'ok'}">${fDec.format(c)} sett.</span>`;
-        return `<tr><td><div class="t-tit">${esc(t.titolo)}</div><div class="t-sub">${esc(t.autore)} · ${esc(nomeMarchio(t.marchio))}</div></td><td class="small num">${t.ean}</td>
-          <td><span class="pill ${STATI[t.stato][1]}">${t.stato} · ${STATI[t.stato][0]}</span></td><td class="r t-tit">${num(t.giacenza)}</td><td class="r">${num(t.impegnato)}</td><td class="r">${num(t.giacenza - t.impegnato)}</td>
-          <td class="r">${num(t.v26[ULTIMO_MESE])}</td><td class="r">${cp}</td></tr>`;
+      const rows = M.filter(m => ((m.titolo || '') + ' ' + m.ean).toLowerCase().includes(q))
+        .filter(m => k === 'Tutti' || (k === 'Stato 1-1' ? attivo11(m) : k === 'Altri stati' ? !attivo11(m) : k === 'Copertura bassa' ? attivo11(m) && m.disponibilita > 0 && m._cop < 4 : m.disponibilita <= 0))
+        .sort((a, b) => a._cop - b._cop).slice(0, 400);
+      $('#tb-st').innerHTML = rows.map(m => {
+        const c = m._cop, t = R.titoliMap.get(m.ean);
+        const cp = m.disponibilita <= 0 ? '<span class="pill ko">esaurito</span>' : c === Infinity ? '<span class="pill mut">nessuna vendita</span>' : `<span class="pill ${c < 4 ? 'warn' : c > 26 ? 'info' : 'ok'}">${fDec.format(c)} sett.</span>`;
+        return `<tr><td><div class="t-tit">${esc(titleCase(m.titolo || (t || {}).titolo || ''))}</div><div class="t-sub">${esc(titleCase(m.autore || ''))} · EAN ${esc(m.ean)}${m.risposta_editore ? ' · ' + esc(m.risposta_editore) : ''}</div></td>
+          <td class="small">${esc(titleCase(m.genere || ''))}</td><td><span class="pill ${attivo11(m) ? 'ok' : 'mut'}" title="${esc((m.stato_articolo || '') + ' / ' + (m.stato_vendita || ''))}">${statoMeli(m)}</span><div class="t-sub">${esc(titleCase(m.stato_articolo || ''))}</div></td>
+          <td class="r">${m.m11 ?? '—'}</td><td class="r">${m.m21 ?? '—'}</td><td class="r t-tit">${num(m.disponibilita ?? 0)}</td><td class="r">${t ? num(t.v_ult) : '—'}</td><td class="r">${cp}</td></tr>`;
       }).join('') || '<tr><td colspan="8" class="empty">Nessun titolo</td></tr>';
     };
     draw();
@@ -1350,42 +1630,52 @@ S.stock = {
   },
 };
 
-/* ---------- Alert giacenza zero ---------- */
+/* ---------- Alert giacenza zero: titoli 1-1 con disponibilità a zero ---------- */
 S.alert = {
-  titolo: 'Alert giacenza zero', sub: () => 'Titoli attivi (stato 1-1) senza copie in magazzino MeLi',
+  titolo: 'Alert giacenza zero', sub: () => 'Titoli in stato 1-1 (attivi e in vendita) senza copie disponibili in Messaggerie',
   html(){
-    const A = titoliF().filter(t => t.stato === '1-1' && t.giacenza === 0).sort((a, b) => b.giorniZero - a.giorniZero);
+    const M = R.meli.righe || [];
+    if (!M.length) return boxAggiornaMeli() + vuoto('Per gli alert servono i dati di magazzino: aggiornali dalla sezione Stock MeLi.');
+    const dal = pd(R.meli.monitorato_dal);
+    const A = M.filter(m => attivo11(m) && m.disponibilita <= 0).map(m => {
+      const t = R.titoliMap.get(m.ean);
+      const zd = pd(m.zero_dal);
+      const gg = zd ? diffGg(OGGI, zd) : 0;
+      return { ...m, t, gg, almeno: zd && dal && zd.getTime() <= dal.getTime(), ritmo: t ? Math.max(0, t.v_ult) : 0, prezzoT: +m.prezzo || (t ? +t.prezzo : 0) };
+    }).sort((a, b) => b.gg - a.gg || b.ritmo - a.ritmo);
     this._A = A;
-    if (!A.length) return `<div class="card empty">Nessun titolo attivo a giacenza zero per il marchio selezionato. Ottimo così.</div>`;
-    A.forEach(t => t.ritmo = Math.round((t.v26[6] + t.v26[7] + t.v26[8]) / 3));   // copie al mese prima dell'esaurimento
-    const perse = t => Math.round(t.ritmo / 30 * t.giorniZero * .6);
-    const tot = sum(A.map(t => perse(t) * t.prezzo));
-    const sev = g => g > 30 ? ['alta', 'Critico'] : g >= 15 ? ['media', 'Attenzione'] : ['bassa', 'Recente'];
-    return `
-      <p class="lead">Un titolo attivo a giacenza zero non può essere spedito: le richieste dei librai restano inevase.
-      Le vendite perse sono stimate sul ritmo di vendita prima dell'esaurimento.</p>
+    if (!A.length) return boxAggiornaMeli() + vuoto('Nessun titolo in stato 1-1 a giacenza zero. Ottimo così.');
+    const perse = x => Math.round(x.ritmo / 30 * Math.max(1, x.gg) * .6);
+    const tot = sum(A.map(x => perse(x) * x.prezzoT));
+    const sev = g => g > 30 ? ['alta', 'Critico', 'ko'] : g >= 15 ? ['media', 'Attenzione', 'warn'] : ['bassa', 'Recente', 'info'];
+    return `${boxAggiornaMeli()}
+      <p class="lead">Un titolo attivo e in vendita (stato 1-1) senza disponibilità non può essere spedito: gli ordini dei librai restano inevasi.
+      I giorni a zero si contano dai controlli giornalieri${dal ? `, iniziati il ${fData(dal)}: per i titoli già a zero quel giorno il dato è "almeno"` : ''}.
+      Le vendite perse sono stimate sul venduto dell'ultimo mese.</p>
       <div class="grid g-kpi">
-        ${kpi('Titoli a giacenza zero', A.length, '<span>attivi e ordinabili</span>', '--s8')}
-        ${kpi('Critici', A.filter(t => t.giorniZero > 30).length, '<span>a zero da oltre 30 giorni</span>', '--s2')}
-        ${kpi('Il più vecchio', A[0].giorniZero + ' giorni', `<span>${esc(A[0].titolo)}</span>`, '--s4')}
+        ${kpi('Titoli a giacenza zero', num(A.length), '<span>in stato 1-1</span>', '--s8')}
+        ${kpi('Critici', num(A.filter(x => x.gg > 30).length), '<span>a zero da oltre 30 giorni</span>', '--s2')}
+        ${kpi('Con vendite recenti', num(A.filter(x => x.ritmo > 0).length), `<span>venduti a ${MESI_L[PER.m]}</span>`, '--s4')}
         ${kpi('Vendite perse stimate', eurK(tot), `<span>${num(sum(A.map(perse)))} copie</span>`, '--s7')}
       </div>
       <div class="grid g2">
         <div class="card"><h3>Titoli da riassortire</h3><p class="h-sub">Dal più vecchio al più recente</p>
-          <div class="list-ev">${A.map(t => { const [k, l] = sev(t.giorniZero); return `<div class="alert-card">
-            <div class="gg sev-${k}"><b>${t.giorniZero}</b><span>giorni</span></div>
-            <div><div class="t-tit">${esc(t.titolo)}</div><div class="t-sub">${esc(t.autore)} · ${esc(nomeMarchio(t.marchio))} · EAN ${t.ean}</div>
-              <div class="t-sub">A zero dal ${fData(addDays(OGGI, -t.giorniZero))} · vendeva ${num(t.ritmo)} copie al mese · ${t.ristampa ? 'ristampa prevista il ' + t.ristampa : '<b style="color:var(--ko)">nessuna ristampa comunicata</b>'}</div></div>
-            <span class="pill ${k === 'alta' ? 'ko' : k === 'media' ? 'warn' : 'info'}">${l}</span></div>`; }).join('')}</div></div>
-        <div class="card"><h3>Giorni a giacenza zero</h3><p class="h-sub">Per titolo</p><div class="ch"><canvas id="c-al"></canvas></div>
+          <div class="list-ev">${A.slice(0, 80).map(x => { const [k, l, p] = sev(x.gg); return `<div class="alert-card">
+            <div class="gg sev-${k}"><b>${x.almeno ? '≥' : ''}${x.gg}</b><span>giorni</span></div>
+            <div><div class="t-tit">${esc(titleCase(x.titolo || (x.t || {}).titolo || ''))}</div><div class="t-sub">${esc(titleCase(x.autore || ''))} · EAN ${esc(x.ean)}${x.genere ? ' · ' + esc(titleCase(x.genere)) : ''}</div>
+              <div class="t-sub">${x.zero_dal ? 'A zero dal ' + fData(pd(x.zero_dal)) : ''}${x.ultima_fornitura ? ' · ultima fornitura Messaggerie il ' + fData(pd(x.ultima_fornitura)) : ''} · ${x.ritmo ? `vendeva ${num(x.ritmo)} copie al mese` : 'nessuna vendita nell\'ultimo mese'}${x.risposta_editore ? ' · ' + esc(x.risposta_editore) : ''}</div></div>
+            <span class="pill ${p}">${l}</span></div>`; }).join('')}</div>
+          ${A.length > 80 ? `<p class="note">Sono mostrati i primi 80 di ${num(A.length)}.</p>` : ''}</div>
+        <div class="card"><h3>Giorni a giacenza zero</h3><p class="h-sub">I 20 titoli da più tempo a zero</p><div class="ch" style="height:${Math.min(20, A.length) * 24 + 70}px"><canvas id="c-al"></canvas></div>
           <p class="note"><span class="pill ko">Critico</span> oltre 30 giorni · <span class="pill warn">Attenzione</span> 15–30 · <span class="pill info">Recente</span> meno di 15</p></div>
       </div>`;
   },
   init(){
-    const A = this._A; if (!A.length) return;
+    $('#b-meli')?.addEventListener('click', aggiornaMeli);
+    const A = (this._A || []).slice(0, 20); if (!A.length) return;
     const s = SER();
-    mk('c-al', { type: 'bar', data: { labels: A.map(t => t.titolo.length > 24 ? t.titolo.slice(0, 23) + '…' : t.titolo), datasets: [barre('Giorni a zero', A.map(t => t.giorniZero), A.map(t => t.giorniZero > 30 ? css('--ko') : t.giorniZero >= 15 ? s[3] : s[0]), { maxBarThickness: 18 })] },
-      options: { indexAxis: 'y', scales: { x: { beginAtZero: true, title: { display: true, text: 'giorni' } }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => A[i[0].dataIndex].titolo, label: c => ` a zero da ${c.parsed.x} giorni` } } } } });
+    mk('c-al', { type: 'bar', data: { labels: A.map(x => { const n = titleCase(x.titolo || ''); return n.length > 24 ? n.slice(0, 23) + '…' : n; }), datasets: [barre('Giorni a zero', A.map(x => x.gg), A.map(x => x.gg > 30 ? css('--ko') : x.gg >= 15 ? s[3] : s[0]), { maxBarThickness: 18 })] },
+      options: { indexAxis: 'y', scales: { x: { beginAtZero: true, title: { display: true, text: 'giorni' } }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => titleCase(A[i[0].dataIndex].titolo || ''), label: c => ` a zero da ${A[c.dataIndex].almeno ? 'almeno ' : ''}${c.parsed.x} giorni` } } } } });
   },
 };
 
@@ -1467,7 +1757,7 @@ S.materiali = {
           <tbody>${M.map(m => `<tr><td class="t-tit">${esc(m.nome_file)}</td><td class="small">${esc(titleCase(m.cartella || ''))}</td><td class="r small">${m.dimensione ? fDec.format(m.dimensione / 1048576) + ' MB' : '—'}</td><td class="small">${m.caricato_il ? fData(new Date(m.caricato_il)) : '—'}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">Nessun materiale ancora consegnato</td></tr>'}</tbody></table></div></div>
         <div class="card"><h3>Prepara nuovi materiali</h3><p class="h-sub">Scegli giro e tipo, poi trascina i file</p>
           <div class="form" style="margin-bottom:12px">
-            <label>Giro<select id="m-giro">${(aperti.length ? aperti : R.giri).map(g => `<option value="${g.id}">${esc(nomeGiro(g))}</option>`).join('')}</select></label>
+            <label>Giro<select id="m-giro">${(aperti.length ? aperti : R.giri).map(g => `<option value="${g.chiave}">${esc(nomeGiro(g))}</option>`).join('')}</select></label>
             <label>Tipo di materiale<select id="m-tipo">${TIPI_MAT.map(t => `<option>${t}</option>`).join('')}</select></label></div>
           <div class="drop" id="drop"><b>Trascina qui i file</b>oppure clicca per sceglierli · PDF, immagini, Excel, Word<input type="file" id="m-file" multiple hidden></div>
           <div class="tw" style="margin-top:14px"><table class="tbl"><tbody>${loc.length ? loc.map(m => `<tr><td class="t-tit">${FILE_SESSIONE[m.id] ? `<a href="${FILE_SESSIONE[m.id]}" target="_blank" rel="noopener">${esc(m.nome)}</a>` : esc(m.nome)}</td><td><span class="pill info">${esc(m.tipo)}</span></td><td class="small">${esc(m.giro || '')}</td>
@@ -1497,7 +1787,7 @@ S.materiali = {
 };
 
 // Sezioni ancora senza fonte dati: restano con dati di esempio, segnalati
-['investimenti', 'fatturazione', 'stock', 'alert', 'eventi'].forEach(k => S[k].demo = true);
+S.eventi.demo = true;   // eventi: ancora di esempio
 
 /* =====================================================================
    MENU, ACCESSO E NAVIGAZIONE
@@ -1516,7 +1806,7 @@ const MENU = [
   { id: 'sconti', l: 'Sconto per cliente', ic: 'perc', a: ['#ec6ca0', '#c23d74'] },
   { g: 'Economico' },
   { id: 'investimenti', l: 'Investimenti', ic: 'coins', a: ['#2bb673', '#127a48'] },
-  { id: 'fatturazione', l: 'Fatturazione a PDE', ic: 'rec', a: ['#5b7cfa', '#3a4fc4'] },
+  { id: 'fatturazione', l: 'Fatturazione PDE', ic: 'rec', a: ['#5b7cfa', '#3a4fc4'] },
   { g: 'Magazzino' },
   { id: 'stock', l: 'Stock MeLi', ic: 'box', a: ['#8a94a6', '#56607a'] },
   { id: 'alert', l: 'Alert giacenza zero', ic: 'alert', a: ['#f06b6b', '#c62828'] },
@@ -1596,14 +1886,13 @@ async function entra(){
 }
 async function apriEditore(){
   R = null;
-  STATO = { marchio: 'tutti', giro: null, agente: null, settore: null };
+  STATO = { giriSel: [], annoGiri: 'tutti', agente: null };
   $('#ed-nome').textContent = ED.nome;
   $('#ed-marchi').textContent = 'Caricamento…';
   $('#content').innerHTML = '<div class="card empty">Caricamento dei dati…</div>';
   try { await caricaEditore(ED.codice_editore); }
   catch (e) { $('#content').innerHTML = `<div class="card empty">Non è stato possibile caricare i dati: ${esc(e.message)}</div>`; return; }
-  $('#ed-marchi').textContent = 'Cod. ' + ED.codice_editore + ' · ' + R.marchi.map(nomeM).join(', ');
-  $('#f-marchio').innerHTML = '<option value="tutti">Tutti i marchi</option>' + R.marchi.map(m => `<option value="${esc(m)}">${esc(nomeM(m))}</option>`).join('');
+  $('#ed-marchi').textContent = 'Codice editore ' + ED.codice_editore;
   render();
 }
 async function avvio(){
@@ -1618,7 +1907,6 @@ async function avvio(){
     entra();
   });
   $('#b-esci').addEventListener('click', esci);
-  $('#f-marchio').addEventListener('change', e => { STATO.marchio = e.target.value; render(); });
   $('#f-editore').addEventListener('change', e => {
     ED = (SESS.editori || []).find(x => x.codice_editore === e.target.value);
     try { localStorage.setItem('pde-editori-scelto', ED.codice_editore); } catch {}
