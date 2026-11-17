@@ -1345,64 +1345,72 @@ S.finegiri = {
   },
 };
 
-/* ---------- Agenti e zone: solo agenti reali, esclusi i clienti direzionali ---------- */
+/* ---------- Agenti e zone: solo chi segue chi, nessun dato di vendita ---------- */
 S.agenti = {
-  titolo: 'Agenti e zone', sub: () => `Gli agenti PDE sul territorio · ${etichettaPerCli()}`,
-  async prepara(){ this._D = await clientiCorrenti(); },
+  titolo: 'Agenti e zone', sub: () => 'Gli agenti PDE sul territorio, le zone e i punti vendita che possono seguire',
+  async prepara(){
+    if (!R.copertura) R.copertura = await rpc('ed_agenti_copertura', { p_editore: ED.codice_editore });
+  },
   html(){
-    const D = this._D;
-    if (!D) return vuoto('Il dettaglio per cliente non è ancora disponibile.');
-    const cl = D.clienti.filter(c => c.agente);
-    const dir = D.clienti.filter(c => c.direzionale), senza = D.clienti.filter(c => c.senzaAgente);
-    const inCorso = R.giri.filter(g => g.stato === 'in corso');
-    const pren = {};
-    // agenti reali, uniti per nome (uno stesso agente può avere più codici)
+    // agenti uniti per nome (uno stesso agente può avere più codici); punti vendita senza doppioni
     const per = {};
-    (D.agenti || []).filter(a => a.reale).forEach(a => {
+    (R.copertura || []).forEach(a => {
       const n = titleCase(a.nome);
-      const x = per[n] ||= { nome: n, codici: [], clientiAss: 0 };
-      x.codici.push(a.codice); x.clientiAss += +a.clienti;
+      const x = per[n] ||= { nome: n, codici: [], clienti: new Map() };
+      x.codici.push(a.codice);
+      (a.clienti || []).forEach(c => x.clienti.set(c.cc, { ...c, nome: titleCase(c.nome), citta: titleCase(c.citta), zona: zonaDi(c.provincia, c.regione) }));
     });
     const ag = Object.values(per).map(a => {
-      const miei = cl.filter(c => a.codici.includes(c.agente));
-      const zc = {}; miei.forEach(c => zc[c.zona] = (zc[c.zona] || 0) + 1);
-      const zona = Object.entries(zc).sort((x, y) => y[1] - x[1])[0]?.[0] || 'N.D.';
-      const lf = sum(miei.map(c => c.lf)), nf = sum(miei.map(c => c.nf));
-      return { ...a, miei, zona, f: sum(miei.map(c => c.f)), sconto: lf ? 1 - nf / lf : null };
-    }).sort((a, b) => b.f - a.f);
+      const cl = [...a.clienti.values()].sort((x, y) => (x.provincia || '').localeCompare(y.provincia || '') || x.nome.localeCompare(y.nome));
+      const zc = {}; cl.forEach(c => zc[c.zona] = (zc[c.zona] || 0) + 1);
+      const zone = Object.entries(zc).sort((x, y) => y[1] - x[1]);
+      const prov = [...new Set(cl.map(c => c.provincia).filter(Boolean))].sort();
+      const reg = [...new Set(cl.map(c => titleCase(c.regione)).filter(Boolean))].sort();
+      return { ...a, cl, zona: zone[0]?.[0] || 'N.D.', zone, prov, reg, attivi: cl.filter(c => c.stato !== 'S').length };
+    }).sort((a, b) => ZONE_ND.indexOf(a.zona) - ZONE_ND.indexOf(b.zona) || b.cl.length - a.cl.length);
     if (!ag.find(a => a.nome === STATO.agente)) STATO.agente = ag[0]?.nome;
     const a = ag.find(x => x.nome === STATO.agente);
-    const zone = ZONE_ND.map(z => ({ z, f: sum(cl.filter(c => c.zona === z).map(c => c.f)), n: cl.filter(c => c.zona === z && c.f > 0).length })).filter(x => x.n || x.f);
+    const tutti = new Map(); ag.forEach(x => x.cl.forEach(c => tutti.set(c.cc, c)));
+    const zone = ZONE_ND.map(z => ({ z, ag: ag.filter(x => x.zona === z), pv: [...tutti.values()].filter(c => c.zona === z).length })).filter(x => x.ag.length || x.pv);
     this._d = { ag, zone };
+    if (!ag.length) return vuoto('Nessun agente PDE sul territorio risulta assegnato ai punti vendita dell\'editore.');
     return `
-      <div class="card-head" style="margin-bottom:14px"><p class="lead" style="margin:0;flex:1">${ag.length} agenti PDE seguono sul territorio i punti vendita dell'editore. Sono esclusi i clienti direzionali, seguiti dalla sede.</p><div class="dx">${selPerCli()}</div></div>
-      <div class="grid g-kpi">${zone.map((z, i) => kpi(z.z, eurK(z.f), `<span>${num(z.n)} punti vendita attivi</span>`, '--s' + (i + 1))).join('')}</div>
+      <p class="lead">Gli agenti PDE sul territorio e i punti vendita che possono seguire per ${esc(ED.nome)}, zona per zona.
+      Non compaiono i clienti direzionali, seguiti dalla sede. Clicca un agente per vedere i suoi punti vendita.</p>
+      <div class="grid g-kpi">${zone.map((z, i) => kpi(z.z, `${num(z.ag.length)} ${z.ag.length === 1 ? 'agente' : 'agenti'}`, `<span>${num(z.pv)} punti vendita</span>`, '--s' + (i + 1))).join('')}</div>
       <div class="grid g2">
-        <div class="card"><h3>Venduto per agente</h3><p class="h-sub">A prezzo di copertina · ${esc(etichettaPerCli())}</p><div class="ch" style="height:${Math.max(280, ag.length * 24 + 60)}px"><canvas id="c-ag"></canvas></div></div>
-        <div class="card"><h3>Venduto per zona</h3><p class="h-sub">${esc(etichettaPerCli())}, esclusi i direzionali</p><div class="ch"><canvas id="c-zo"></canvas></div>
-          <p class="note">Fuori da questi conti: clienti direzionali ${eurK(sum(dir.map(c => c.f)))} (${num(dir.length)})${senza.length ? `, clienti senza agente assegnato ${eurK(sum(senza.map(c => c.f)))} (${num(senza.length)})` : ''}.</p></div>
+        <div class="card"><h3>Agenti per zona</h3><p class="h-sub">${num(ag.length)} agenti · ${num(tutti.size)} punti vendita</p>
+          <div class="tw scroll"><table class="tbl"><thead><tr><th>Agente</th><th>Zona</th><th>Regioni e province</th><th class="r">Punti vendita</th></tr></thead>
+          <tbody>${ag.map(x => `<tr class="click ${a && x.nome === a.nome ? 'sel' : ''}" data-a="${esc(x.nome)}"><td class="t-tit">${esc(x.nome)}</td>
+            <td>${esc(x.zona)}${x.zone.length > 1 ? `<div class="t-sub">anche ${x.zone.slice(1).map(z => esc(z[0])).join(', ')}</div>` : ''}</td>
+            <td class="small">${esc(x.reg.join(', ') || '—')}<div class="t-sub">${esc(x.prov.join(' · '))}</div></td>
+            <td class="r t-tit">${num(x.cl.length)}${x.attivi < x.cl.length ? `<div class="t-sub">${num(x.cl.length - x.attivi)} sospesi</div>` : ''}</td></tr>`).join('')}</tbody></table></div></div>
+        <div class="card"><h3>Punti vendita per zona</h3><p class="h-sub">Quanti punti vendita seguono gli agenti in ogni zona</p><div class="ch"><canvas id="c-zo"></canvas></div></div>
       </div>
-      <div class="grid g2">
-        <div class="card"><h3>Agenti</h3><p class="h-sub">Clicca una riga per i suoi punti vendita</p>
-          <div class="tw scroll"><table class="tbl"><thead><tr><th>Agente</th><th>Zona</th><th class="r">Punti vendita</th><th class="r">Venduto</th><th class="r">Sconto medio</th></tr></thead>
-          <tbody>${ag.map(x => `<tr class="click ${a && x.nome === a.nome ? 'sel' : ''}" data-a="${esc(x.nome)}"><td class="t-tit">${esc(x.nome)}</td><td>${esc(x.zona)}</td>
-            <td class="r">${num(x.clientiAss)}</td><td class="r">${eur(x.f)}</td><td class="r">${x.sconto != null ? pct(x.sconto) : '—'}</td></tr>`).join('')}</tbody></table></div></div>
-        <div class="card">${a ? `<h3>${esc(a.nome)}</h3><p class="h-sub">${esc(a.zona)} · ${num(a.clientiAss)} punti vendita assegnati · ${num(a.miei.filter(c => c.f > 0).length)} con venduto nel periodo</p>
-          <div class="tw scroll"><table class="tbl"><thead><tr><th>Punto vendita</th><th>Canale</th><th class="r">Venduto</th><th class="r">Sconto</th></tr></thead>
-          <tbody>${a.miei.sort((x, y) => y.f - x.f).slice(0, 60).map(c => `<tr><td><div class="t-tit">${esc(c.nome)}</div><div class="t-sub">${esc(c.citta || '')}${c.provincia ? ' (' + esc(c.provincia) + ')' : ''}</div></td><td class="small">${esc(c.canale || nomeGruppo(c.canale_gruppo))}</td><td class="r">${eur(c.f)}</td><td class="r">${c.sconto != null ? pct(c.sconto) : '—'}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">Nessun movimento nel periodo</td></tr>'}</tbody></table></div>` : '<div class="empty">Nessun agente</div>'}</div>
-      </div>${notaCopertura()}`;
+      ${a ? `<div class="card"><div class="card-head"><div><h3>${esc(a.nome)}</h3><p class="h-sub">${esc(a.zona)} · ${num(a.cl.length)} punti vendita · ${esc(a.reg.join(', '))}</p></div>
+          <div class="dx"><input type="search" id="q-pv" placeholder="Cerca punto vendita, città o provincia"></div></div>
+        <div class="tw scroll"><table class="tbl"><thead><tr><th>Punto vendita</th><th>Città</th><th>Provincia</th><th>Zona</th><th>Canale</th><th>Gruppo</th><th>Stato</th></tr></thead>
+        <tbody id="tb-pv">${righePv(a.cl)}</tbody></table></div></div>` : ''}`;
   },
   init(){
-    agganciaPerCli();
-    if (!this._d) return;
+    if (!this._d || !this._d.ag.length) return;
     const { ag, zone } = this._d, s = SER();
     const col = z => ZONE.includes(z) ? s[ZONE.indexOf(z)] : css('--prev');
-    mk('c-ag', { type: 'bar', data: { labels: ag.map(a => a.nome), datasets: [barre('Venduto', ag.map(a => a.f), ag.map(a => col(a.zona)), { maxBarThickness: 16 })] },
-      options: { indexAxis: 'y', scales: { x: { ticks: tickEur }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${eur(c.parsed.x)} · ${ag[c.dataIndex].zona}` } } } } });
-    torta('c-zo', zone.map(z => z.z), zone.map(z => Math.max(0, Math.round(z.f))), { eur: true, colori: zone.map(z => col(z.z)) });
+    torta('c-zo', zone.map(z => z.z), zone.map(z => z.pv), { centroSub: 'punti vendita', colori: zone.map(z => col(z.z)) });
     document.querySelectorAll('tr[data-a]').forEach(tr => tr.addEventListener('click', () => { STATO.agente = tr.dataset.a; render(); }));
+    const a = ag.find(x => x.nome === STATO.agente);
+    $('#q-pv')?.addEventListener('input', e => {
+      const q = e.target.value.toLowerCase().trim();
+      $('#tb-pv').innerHTML = righePv(q ? a.cl.filter(c => `${c.nome} ${c.citta || ''} ${c.provincia || ''} ${c.cc}`.toLowerCase().includes(q)) : a.cl);
+    });
   },
 };
+function righePv(L){
+  if (!L.length) return '<tr><td colspan="7" class="empty">Nessun punto vendita</td></tr>';
+  return L.map(c => `<tr><td><div class="t-tit">${esc(c.nome)}</div><div class="t-sub">cod. ${esc(c.cc)}</div></td><td class="small">${esc(c.citta || '—')}</td><td class="small">${esc(c.provincia || '—')}</td>
+    <td class="small">${esc(c.zona)}</td><td class="small">${esc(c.canale || nomeGruppo(c.canale_gruppo))}</td><td class="small">${esc(c.gruppo || '—')}</td>
+    <td>${c.stato === 'S' ? '<span class="pill warn">sospeso</span>' : '<span class="pill ok">attivo</span>'}</td></tr>`).join('');
+}
 
 /* ---------- Sconto per cliente: mappa venduto / sconto ---------- */
 S.sconti = {
