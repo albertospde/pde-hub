@@ -160,6 +160,16 @@
   .num{font-variant-numeric:tabular-nums}
 
   [hidden]{display:none !important}
+  .periodo-wrap{position:relative}
+  .per-btn{font-weight:700;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pan-per{position:absolute;left:0;top:calc(100% + 8px);z-index:30;width:min(640px,92vw);box-shadow:0 18px 40px -12px rgba(20,45,90,.35)}
+  .pan-per .pp-sez{margin-bottom:12px} .pan-per .pp-sez b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);margin-bottom:6px}
+  .pp-griglia{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .pp-griglia label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:700;color:var(--text-dim);padding:6px;border-radius:10px}
+  .pp-griglia label.pp-on{background:var(--cyan-dim);color:var(--info)}
+  .pp-piede{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px}
+  .pp-piede span{margin-right:auto}
+  @media (max-width:700px){ .pp-griglia{grid-template-columns:minmax(0,1fr)} .pan-per{position:fixed;left:8px;right:8px;top:70px;width:auto} }
   .tag-demo{margin-left:auto;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:6px;background:var(--warn-bg);color:var(--warn)}
   .nav a.active .tag-demo{background:rgba(255,255,255,.25);color:#fff}
   .banner-demo{margin:0 0 16px;padding:12px 16px;border-radius:14px;background:var(--warn-bg);color:var(--warn);font-size:14px;line-height:1.45;border:1px solid color-mix(in srgb,var(--warn) 30%,transparent)}
@@ -218,6 +228,8 @@
         <div class="sub" id="sub"></div>
       </div>
       <div class="dx">
+        <div class="periodo-wrap"><button class="btn per-btn" type="button" id="b-periodo" title="Cambia il periodo">📅 <span id="per-lab"></span> ▾</button>
+          <div class="pan-per card" id="pan-per" hidden></div></div>
         <label class="sel" id="sel-editore" hidden>Editore
           <select id="f-editore"></select>
         </label>
@@ -626,6 +638,7 @@ const IC = {
   alert: '<path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18h.01"/>',
   cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   up: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/>',
+  book: '<path d="M4 4h10a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"/><path d="M8 4v16M11 9h4"/>',
 };
 
 /* =====================================================================
@@ -667,14 +680,96 @@ const REG_ZONA = { 'PIEMONTE': 'Nord-Ovest', "VALLE D'AOSTA": 'Nord-Ovest', 'LOM
 const zonaDi = (prov, reg) => REG_ZONA[String(reg || '').toUpperCase()] || PROV_ZONA[String(prov || '').toUpperCase()] || 'N.D.';
 const ZONE_ND = [...ZONE, 'N.D.'];
 
-function periodi(ultimo){
-  const u = pd(ultimo);
-  const fine = new Date(u.getFullYear(), u.getMonth() + 1, 0);
-  const chiuso = u.getDate() === fine.getDate() ? new Date(u.getFullYear(), u.getMonth(), 1) : new Date(u.getFullYear(), u.getMonth() - 1, 1);
-  const Y = chiuso.getFullYear(), m = chiuso.getMonth();
-  return { ultimo: u, Y, m, dal: iso(new Date(Y, 0, 1)), al: iso(chiuso), dal1: iso(new Date(Y - 1, 0, 1)), al1: iso(new Date(Y - 1, m, 1)),
-    etichetta: m === 0 ? `gennaio ${Y}` : `gennaio–${MESI_L[m]} ${Y}` };
+/* ---- periodo scelto (come PDE Analisi): rapido, mese, settimana, giorno singolo o dal/al; confronto con le stesse date dell'anno prima ---- */
+const RAPIDI = [['ultimo', 'Ultimo giorno'], ['7', 'Ultimi 7 giorni'], ['30', 'Ultimi 30 giorni'], ['mese', 'Mese in corso'], ['anno', 'Da inizio anno'], ['annoprec', 'Anno precedente']];
+const GRANE = [['giorno', 'Giorno'], ['settimana', 'Settimana'], ['mese', 'Mese']];
+let SCELTA = { tipo: 'rapido', rapido: 'anno', grana: null };
+const piuGg = (s, n) => { const d = pd(s); d.setDate(d.getDate() + n); return iso(d); };
+const lunedi = s => { const d = pd(s); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return iso(d); };
+const granaAuto = (dal, al) => { const n = diffGg(pd(al), pd(dal)) + 1; return n <= 45 ? 'giorno' : n <= 200 ? 'settimana' : 'mese'; };
+const annoPrimaIso = s => { const d = pd(s); const x = new Date(d.getFullYear() - 1, d.getMonth(), d.getDate()); if (x.getMonth() !== d.getMonth()) x.setDate(0); return iso(x); };
+function periodi(){
+  const u = SESS.ultimo_giorno, y = +u.slice(0, 4), sc = SCELTA;
+  let dal, al, nome;
+  if (sc.tipo === 'rapido'){
+    [dal, al] = { ultimo: [u, u], '7': [piuGg(u, -6), u], '30': [piuGg(u, -29), u], mese: [u.slice(0, 8) + '01', u], anno: [`${y}-01-01`, u], annoprec: [`${y - 1}-01-01`, `${y - 1}-12-31`] }[sc.rapido];
+    nome = sc.rapido === 'anno' ? `Da inizio anno ${y}` : sc.rapido === 'annoprec' ? `Anno ${y - 1}` : RAPIDI.find(x => x[0] === sc.rapido)[1];
+  } else if (sc.tipo === 'mese'){
+    dal = sc.mese + '-01'; const fine = iso(new Date(+sc.mese.slice(0, 4), +sc.mese.slice(5, 7), 0)); al = fine < u ? fine : u;
+    nome = `${titleCase(MESI_L[+sc.mese.slice(5, 7) - 1])} ${sc.mese.slice(0, 4)}`;
+  } else if (sc.tipo === 'settimana'){
+    dal = sc.settimana; al = piuGg(dal, 6); if (al > u) al = u; nome = 'Settimana';
+  } else if (sc.tipo === 'giorno'){
+    dal = al = sc.giorno; nome = 'Giorno';
+  } else { dal = sc.dal; al = sc.al; nome = 'Periodo'; }
+  const grana = sc.grana || (sc.tipo === 'rapido' && ['anno', 'annoprec'].includes(sc.rapido) ? 'mese' : granaAuto(dal, al));
+  const date = dal === al ? fData(pd(dal)) : `${fData(pd(dal))} – ${fData(pd(al))}`;
+  const chiavi = []; let k = grana === 'mese' ? dal.slice(0, 8) + '01' : grana === 'settimana' ? lunedi(dal) : dal;
+  while (k <= al) { chiavi.push(k); k = grana === 'mese' ? iso(new Date(+k.slice(0, 4), +k.slice(5, 7), 1)) : piuGg(k, grana === 'settimana' ? 7 : 1); }
+  const unAnno = dal.slice(0, 4) === al.slice(0, 4);
+  const labels = chiavi.map(c => { const d = pd(c); return grana === 'mese' ? MESI[d.getMonth()] + (unAnno ? '' : ' ' + String(d.getFullYear()).slice(2)) : (grana === 'settimana' ? 'sett. ' : '') + d.getDate() + '/' + (d.getMonth() + 1); });
+  const Y = +al.slice(0, 4);
+  const prima = `${fData(pd(annoPrimaIso(dal)))}${dal === al ? '' : ' – ' + fData(pd(annoPrimaIso(al)))}`;
+  return { dal, al, grana, chiavi, labels, Y, ultimo: pd(u), nome, date, etichetta: `${nome} (${date})`, prima,
+    granaNome: { giorno: 'giorno', settimana: 'settimana', mese: 'mese' }[grana] };
 }
+const etichettaConfronto = () => `stesse date del ${PER.Y - 1} (${PER.prima})`;
+async function caricaPeriodo(){
+  const p = { p_editore: ED.codice_editore };
+  const [v, t] = await Promise.all([rpc('ed_vendite_periodo', { ...p, p_dal: PER.dal, p_al: PER.al, p_grana: PER.grana }), rpc('ed_titoli_periodo', { ...p, p_dal: PER.dal, p_al: PER.al })]);
+  v.forEach(x => x.d = pd(x.periodo));
+  R.vendite = v; R.titoli = t; R.titoliMap = new Map(t.map(x => [x.ean, x]));
+}
+function disegnaPeriodo(){
+  $('#per-lab').textContent = PER ? PER.etichetta : '';
+  const pan = $('#pan-per'); if (!pan || pan.hidden || !SESS) return;
+  const g = SESS.giorni || [], u = SESS.ultimo_giorno;
+  const mesi = [...new Set(g.map(x => x.slice(0, 7)))].reverse();
+  const sett = [...new Set(g.map(lunedi))].reverse();
+  const b = PAN;
+  pan.innerHTML = `
+    <div class="pp-sez"><b>Periodo rapido</b><div class="chips">${RAPIDI.map(([k, l]) => `<button class="chip ${b.tipo === 'rapido' && b.rapido === k ? 'on' : ''}" data-r="${k}">${l}</button>`).join('')}</div></div>
+    <div class="pp-griglia">
+      <label class="${b.tipo === 'mese' ? 'pp-on' : ''}">Mese<select id="pp-mese"><option value="">—</option>${mesi.map(m => `<option value="${m}" ${b.tipo === 'mese' && b.mese === m ? 'selected' : ''}>${titleCase(MESI_L[+m.slice(5, 7) - 1])} ${m.slice(0, 4)}</option>`).join('')}</select></label>
+      <label class="${b.tipo === 'settimana' ? 'pp-on' : ''}">Settimana<select id="pp-sett"><option value="">—</option>${sett.map(s => `<option value="${s}" ${b.tipo === 'settimana' && b.settimana === s ? 'selected' : ''}>dal ${fData(pd(s))} al ${fData(pd(piuGg(s, 6)))}</option>`).join('')}</select></label>
+      <label class="${b.tipo === 'giorno' ? 'pp-on' : ''}">Giorno singolo<input type="date" id="pp-giorno" min="${g[0] || ''}" max="${u}" value="${b.tipo === 'giorno' ? b.giorno : ''}"></label>
+      <label class="${b.tipo === 'intervallo' ? 'pp-on' : ''}">Dal<input type="date" id="pp-dal" min="${g[0] || ''}" max="${u}" value="${b.tipo === 'intervallo' ? b.dal : ''}"></label>
+      <label class="${b.tipo === 'intervallo' ? 'pp-on' : ''}">Al<input type="date" id="pp-al" min="${g[0] || ''}" max="${u}" value="${b.tipo === 'intervallo' ? b.al : ''}"></label>
+      <label>Raggruppa per<select id="pp-grana"><option value="">Automatico</option>${GRANE.map(([k, l]) => `<option value="${k}" ${b.grana === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    </div>
+    <p class="note" style="margin:6px 0 0">Il confronto è sempre con le stesse date dell'anno prima. Dati Messaggerie fino al ${fData(pd(u))}.</p>
+    <div class="pp-piede"><span class="small" id="pp-err" style="color:var(--ko)"></span><button class="btn" id="pp-annulla" type="button">Annulla</button><button class="btn pri" id="pp-applica" type="button">Applica</button></div>`;
+  pan.querySelectorAll('[data-r]').forEach(x => x.addEventListener('click', () => { PAN = { ...PAN, tipo: 'rapido', rapido: x.dataset.r }; disegnaPeriodo(); }));
+  $('#pp-mese').addEventListener('change', e => { if (e.target.value) { PAN = { ...PAN, tipo: 'mese', mese: e.target.value }; disegnaPeriodo(); } });
+  $('#pp-sett').addEventListener('change', e => { if (e.target.value) { PAN = { ...PAN, tipo: 'settimana', settimana: e.target.value }; disegnaPeriodo(); } });
+  $('#pp-giorno').addEventListener('change', e => { if (e.target.value) { PAN = { ...PAN, tipo: 'giorno', giorno: e.target.value }; disegnaPeriodo(); } });
+  ['#pp-dal', '#pp-al'].forEach(s => $(s).addEventListener('change', () => { const d = $('#pp-dal').value, a = $('#pp-al').value; PAN = { ...PAN, tipo: 'intervallo', dal: d || a, al: a || d }; disegnaPeriodo(); }));
+  $('#pp-grana').addEventListener('change', e => PAN.grana = e.target.value || null);
+  $('#pp-annulla').addEventListener('click', () => { pan.hidden = true; });
+  $('#pp-applica').addEventListener('click', async () => {
+    if (PAN.tipo === 'intervallo' && (!PAN.dal || !PAN.al || PAN.dal > PAN.al)) { $('#pp-err').textContent = 'Controlla le date Dal e Al.'; return; }
+    if (PAN.tipo === 'intervallo' && diffGg(pd(PAN.al), pd(PAN.dal)) > 366) { $('#pp-err').textContent = 'Al massimo un anno, per confrontarlo con l\'anno prima.'; return; }
+    SCELTA = { ...PAN }; pan.hidden = true;
+    await applicaPeriodo();
+  });
+}
+let PAN = null;
+async function applicaPeriodo(){
+  PER = periodi();
+  // le sezioni per cliente seguono il mese scelto, se il dettaglio di quel mese c'è
+  if (SCELTA.tipo === 'mese' && R && opzioniPeriodoCli().find(o => o.v === `${SCELTA.mese}-01|${SCELTA.mese}-01`)) STATO.perCli = `${SCELTA.mese}-01|${SCELTA.mese}-01`;
+  disegnaPeriodo();
+  if (!R) return;
+  $('#content').innerHTML = '<div class="card empty">Caricamento del periodo…</div>';
+  try { await caricaPeriodo(); } catch (e) { $('#content').innerHTML = `<div class="card empty">Non è stato possibile caricare il periodo: ${esc(e.message)}</div>`; return; }
+  render();
+}
+function apriPannelloPeriodo(){
+  const pan = $('#pan-per');
+  if (!pan.hidden) { pan.hidden = true; return; }
+  PAN = { ...SCELTA }; pan.hidden = false; disegnaPeriodo();
+}
+
 async function rpc(nome, args){
   const { data, error } = await sb.rpc(nome, args || {});
   if (error) throw new Error(error.message);
@@ -682,13 +777,14 @@ async function rpc(nome, args){
 }
 async function caricaEditore(codice){
   const p = { p_editore: codice };
-  const [vendite, titoli, giri, gfk, materiali, mesiCli, meli, inv, fatt] = await Promise.all([
-    rpc('ed_vendite_mese', p),
-    rpc('ed_titoli', { ...p, p_dal: PER.dal, p_al: PER.al, p_dal_prima: PER.dal1, p_al_prima: PER.al1 }),
+  const [vendite, titoli, giri, gfk, materiali, mesiCli, meli, inv, fatt, mensili] = await Promise.all([
+    rpc('ed_vendite_periodo', { ...p, p_dal: PER.dal, p_al: PER.al, p_grana: PER.grana }),
+    rpc('ed_titoli_periodo', { ...p, p_dal: PER.dal, p_al: PER.al }),
     rpc('ed_giri', p), rpc('ed_gfk', p), rpc('ed_materiali', p), rpc('ed_clienti_mesi', p),
-    rpc('ed_meli_lista', p), rpc('ed_investimenti_lista', p), rpc('ed_fatture_lista', p),
+    rpc('ed_meli_lista', p), rpc('ed_investimenti_lista', p), rpc('ed_fatture_lista', p), rpc('ed_vendite_mese', p),
   ]);
-  vendite.forEach(v => v.d = pd(v.mese));
+  vendite.forEach(v => v.d = pd(v.periodo));
+  mensili.forEach(v => v.d = pd(v.mese));
   giri.forEach(g => {
     g.inizio = pd(g.inizio); g.fine = pd(g.fine); g.consegna = pd(g.consegna); g.titoli ||= [];
     g.obiettivo = sum(g.titoli.map(t => +t.obiettivo)); g.prenotato = sum(g.titoli.map(t => +t.prenotato));
@@ -696,7 +792,7 @@ async function caricaEditore(codice){
     g.stato = !g.inizio || !g.fine ? 'senza date' : g.fine < OGGI ? 'chiuso' : g.inizio <= OGGI ? 'in corso' : 'programmato';
   });
   R = { vendite, titoli, giri, gfk: gfk || { righe: [] }, materiali: materiali || [], mesiCli: mesiCli || [], clienti: {}, agenti: {}, giriDett: {},
-        meli: meli || { righe: [] }, inv: inv || [], fatt: fatt || { perc: .05, fatture: [] }, anag: null };
+        meli: meli || { righe: [] }, inv: inv || [], fatt: fatt || { perc: .05, fatture: [] }, anag: null, mensili };
   R.titoliMap = new Map(titoli.map(t => [t.ean, t]));
   R.meliMap = new Map((R.meli.righe || []).map(m => [m.ean, m]));
   const opz = opzioniPeriodoCli();
@@ -708,8 +804,8 @@ async function ricarica(chiave, nome){ R[chiave] = await rpc(nome, { p_editore: 
 const VF = () => R.vendite;
 const TF = () => R.titoli;
 const fVen = v => v.lf - v.lr, fNet = v => v.nf - v.nr, fCop = v => v.cf - v.cr;
-const totA = (rows, anno, f) => sum(rows.filter(v => v.d.getFullYear() === anno && v.d.getMonth() <= PER.m).map(f));
-const serieA = (rows, anno, f, fino = 11) => MESI.map((_, m) => m > fino ? null : sum(rows.filter(v => v.d.getFullYear() === anno && v.d.getMonth() === m).map(f)));
+const totP = (rows, prima, f) => sum(rows.filter(v => !!v.prima === prima).map(f));
+const serieP = (rows, prima, f) => { const m = new Map(); rows.filter(v => !!v.prima === prima).forEach(v => m.set(v.periodo, (m.get(v.periodo) || 0) + f(v))); return PER.chiavi.map(k => m.has(k) ? m.get(k) : (prima ? null : 0)); };
 const genereDi = ean => (R.meliMap.get(ean) || {}).genere ? titleCase(R.meliMap.get(ean).genere) : null;
 
 /* ---- clienti (ed_cliente_mese): solo i mesi con il dettaglio completo ---- */
@@ -810,20 +906,20 @@ async function salvaCon(btn, fn){
 
 /* ---------- Panoramica ---------- */
 S.dashboard = {
-  titolo: 'Panoramica', sub: () => `${PER.etichetta} a confronto con lo stesso periodo del ${PER.Y - 1} · dati Messaggerie al ${fData(PER.ultimo)}`,
+  titolo: 'Panoramica', sub: () => `${PER.etichetta} a confronto con le ${etichettaConfronto()}`,
   html(){
     const V = VF(), Y = PER.Y;
-    const f = totA(V, Y, fVen), f1 = totA(V, Y - 1, fVen);
-    const n = totA(V, Y, fNet), n1 = totA(V, Y - 1, fNet);
-    const c = totA(V, Y, fCop), c1 = totA(V, Y - 1, fCop);
-    const cf = totA(V, Y, v => v.cf), cr = totA(V, Y, v => v.cr), cf1 = totA(V, Y - 1, v => v.cf), cr1 = totA(V, Y - 1, v => v.cr);
+    const f = totP(V, false, fVen), f1 = totP(V, true, fVen);
+    const n = totP(V, false, fNet), n1 = totP(V, true, fNet);
+    const c = totP(V, false, fCop), c1 = totP(V, true, fCop);
+    const cf = totP(V, false, v => v.cf), cr = totP(V, false, v => v.cr), cf1 = totP(V, true, v => v.cf), cr1 = totP(V, true, v => v.cr);
     const rp = cf ? cr / cf : 0, rp1 = cf1 ? cr1 / cf1 : 0;
-    const lf = totA(V, Y, v => v.lf), nf = totA(V, Y, v => v.nf), lf1 = totA(V, Y - 1, v => v.lf), nf1 = totA(V, Y - 1, v => v.nf);
+    const lf = totP(V, false, v => v.lf), nf = totP(V, false, v => v.nf), lf1 = totP(V, true, v => v.lf), nf1 = totP(V, true, v => v.nf);
     const sc = lf ? 1 - nf / lf : 0, sc1 = lf1 ? 1 - nf1 / lf1 : 0;
-    const s0 = serieA(V, Y, fVen, PER.m), s1 = serieA(V, Y - 1, fVen);
+    const s0 = serieP(V, false, fVen), s1 = serieP(V, true, fVen);
     const mb = s0.reduce((b, v, i) => v != null && v > (s0[b] ?? -Infinity) ? i : b, 0);
     const gen = generiAgg();
-    const tipi = Object.keys(TIPI).map(k => ({ k, f: totA(V.filter(v => v.tipo === k), Y, fVen) }));
+    const tipi = Object.keys(TIPI).map(k => ({ k, f: totP(V.filter(v => v.tipo === k), false, fVen) }));
     const inCorso = R.giri.filter(g => g.stato === 'in corso');
     const pc = sum(inCorso.map(g => g.prenotato)), oc = sum(inCorso.map(g => g.obiettivo));
     const week = (R.gfk.righe || []).filter(r => r.tipo === 'WEEK');
@@ -832,8 +928,8 @@ S.dashboard = {
     const prossimi = R.giri.filter(g => g.stato !== 'chiuso');
     this._d = { s0, s1, gen, tipi };
     const li = [];
-    li.push(`Da inizio anno il venduto a prezzo di copertina è <b>${eurK(f)}</b>, ${f >= f1 ? 'in crescita' : 'in calo'} del <b>${pct(Math.abs(varr(f, f1)))}</b> sul ${Y - 1}.`);
-    li.push(`Il mese migliore è stato <b>${MESI_L[mb]}</b> con ${eurK(s0[mb])}.`);
+    li.push(`Nel periodo il venduto a prezzo di copertina è <b>${eurK(f)}</b>${f1 ? `, ${f >= f1 ? 'in crescita' : 'in calo'} del <b>${pct(Math.abs(varr(f, f1)))}</b> sulle stesse date del ${Y - 1}` : ''}.`);
+    if (PER.chiavi.length > 1) li.push(`${{ giorno: 'Il giorno migliore è stato il', settimana: 'La settimana migliore è stata quella del', mese: 'Il mese migliore è stato' }[PER.grana]} <b>${PER.grana === 'mese' ? MESI_L[pd(PER.chiavi[mb]).getMonth()] + ' ' + PER.chiavi[mb].slice(0, 4) : fData(pd(PER.chiavi[mb]))}</b> con ${eurK(s0[mb])}.`);
     const gg = gen.rilevati ? gen.righe.filter(x => x.f1 > 0 && x.quota >= .03).sort((a, b) => varr(b.f, b.f1) - varr(a.f, a.f1))[0] : null;
     if (gg) li.push(`Il genere che cresce di più è <b>${esc(gg.n)}</b> (${pctS(varr(gg.f, gg.f1))}).`);
     if (inCorso.length) li.push(`${inCorso.length > 1 ? 'Sono in corso' : 'È in corso il'} <b>${inCorso.map(g => esc(nomeGiro(g))).join(', ')}</b>: prenotate <b>${num(pc)}</b> copie${oc ? `, il ${pct(pc / oc, 0)} dell'obiettivo` : ''}.`);
@@ -852,7 +948,7 @@ S.dashboard = {
         ${kpi('Giri in corso', inCorso.length ? numK(pc) : '—', inCorso.length ? `<span>copie prenotate${oc ? ' · ' + pct(pc / oc, 0) + ' dell\'obiettivo' : ''}</span>` : '<span>nessun giro aperto</span>', '--s8')}
       </div>
       <div class="grid g2">
-        <div class="card"><h3>Andamento del venduto</h3><p class="h-sub">Mese per mese a prezzo di copertina, ${Y} a confronto con ${Y - 1}</p><div class="ch lg"><canvas id="c-trend"></canvas></div></div>
+        <div class="card"><h3>Andamento del venduto</h3><p class="h-sub">Per ${PER.granaNome}, a prezzo di copertina, a confronto con le stesse date del ${Y - 1}</p><div class="ch lg"><canvas id="c-trend"></canvas></div></div>
         <div class="card insight"><h3>In sintesi</h3><ul>${li.map((x, i) => `<li data-i="${i + 1}">${x}</li>`).join('')}</ul></div>
       </div>
       <div class="grid g3">
@@ -865,7 +961,7 @@ S.dashboard = {
   },
   init(){
     const { s0, s1, gen, tipi } = this._d, s = SER();
-    mk('c-trend', { type: 'line', data: { labels: MESI, datasets: [
+    mk('c-trend', { type: PER.chiavi.length > 1 ? 'line' : 'bar', data: { labels: PER.labels, datasets: [
       linea(String(PER.Y), s0, s[0], { fill: { target: 'origin', above: s[0] + '14' }, pointRadius: 3 }),
       linea(String(PER.Y - 1), s1, css('--prev'), { borderDash: [5, 4] }),
     ] }, options: lineOpts(tickEur, ttEur) });
@@ -883,9 +979,9 @@ S.analisi = {
   titolo: 'Analisi dati', sub: () => `Fornito, reso e venduto dei titoli · ${PER.etichetta}`,
   html(){
     const V = VF(), L = TF(), Y = PER.Y;
-    const cf = totA(V, Y, v => v.cf), cr = totA(V, Y, v => v.cr), cf1 = totA(V, Y - 1, v => v.cf), cr1 = totA(V, Y - 1, v => v.cr);
-    const tot = totA(V, Y, fVen), nov = totA(V.filter(v => v.tipo === 'novita'), Y, fVen);
-    const ord = [...L].sort((a, b) => (b.lf - b.lr) - (a.lf - a.lr));
+    const cf = totP(V, false, v => v.cf), cr = totP(V, false, v => v.cr), cf1 = totP(V, true, v => v.cf), cr1 = totP(V, true, v => v.cr);
+    const tot = totP(V, false, fVen), nov = totP(V.filter(v => v.tipo === 'novita'), false, fVen);
+    const ord = [...L].filter(t => t.cf || t.cr || t.cf1 || t.cr1).sort((a, b) => (b.lf - b.lr) - (a.lf - a.lr));
     this._d = { V, ord };
     return `
       <p class="lead">Il venduto è il fornito meno le rese. La resa si legge al contrario: se scende è una buona notizia.</p>
@@ -894,18 +990,18 @@ S.analisi = {
         ${kpi('Reso', numK(cr), `${delta(cr, cr1, true)} <span>${pct(cf ? cr / cf : 0)} del fornito</span>`, '--s2')}
         ${kpi('Venduto', numK(cf - cr), `${delta(cf - cr, cf1 - cr1)} <span>copie</span>`, '--s3')}
         ${kpi('Peso delle novità', pct(tot ? nov / tot : 0), '<span>sul venduto a copertina</span>', '--s7')}
-        ${kpi('Titoli movimentati', num(L.filter(t => t.cf > 0).length), `<span>con forniture nel ${Y}</span>`, '--s4')}
+        ${kpi('Titoli movimentati', num(L.filter(t => t.cf > 0).length), '<span>con forniture nel periodo</span>', '--s4')}
       </div>
       <div class="grid g2">
-        <div class="card"><h3>Fornito e reso per mese</h3><p class="h-sub">Copie ${Y}</p><div class="ch"><canvas id="c-vr"></canvas></div></div>
+        <div class="card"><h3>Fornito e reso</h3><p class="h-sub">Copie per ${PER.granaNome}</p><div class="ch"><canvas id="c-vr"></canvas></div></div>
         <div class="card"><h3>I 10 titoli più venduti</h3><p class="h-sub">Venduto a prezzo di copertina</p><div class="ch"><canvas id="c-top"></canvas></div></div>
       </div>
       <div class="grid g2e">
-        <div class="card"><h3>Andamento della resa</h3><p class="h-sub">Reso sul fornito, mese per mese</p><div class="ch sm"><canvas id="c-resa"></canvas></div></div>
-        <div class="card"><h3>Catalogo, novità e lanci</h3><p class="h-sub">Venduto per mese ${Y}</p><div class="ch sm"><canvas id="c-tipom"></canvas></div></div>
+        <div class="card"><h3>Andamento della resa</h3><p class="h-sub">Reso sul fornito per ${PER.granaNome}, a confronto con il ${Y - 1}</p><div class="ch sm"><canvas id="c-resa"></canvas></div></div>
+        <div class="card"><h3>Catalogo, novità e lanci</h3><p class="h-sub">Venduto per ${PER.granaNome}</p><div class="ch sm"><canvas id="c-tipom"></canvas></div></div>
       </div>
       <div class="card">
-        <div class="card-head"><div><h3>Classifica titoli</h3><p class="h-sub">${num(ord.length)} titoli, ordinati per venduto · ${PER.etichetta}</p></div>
+        <div class="card-head"><div><h3>Classifica titoli</h3><p class="h-sub">${num(ord.length)} titoli movimentati, ordinati per venduto · ${PER.etichetta}</p></div>
           <div class="dx"><input type="search" id="q-tit" placeholder="Cerca titolo o EAN"></div></div>
         <div class="tw scroll"><table class="tbl"><thead><tr><th>#</th><th>Titolo</th><th>Genere</th><th>Uscita</th><th class="r">Copie vendute</th><th class="r">Venduto</th><th class="r">vs ${Y - 1}</th><th class="r">Resa</th></tr></thead>
         <tbody id="tb-tit">${righeTitoli(ord.slice(0, 200), ord)}</tbody></table></div>
@@ -913,16 +1009,16 @@ S.analisi = {
       </div>`;
   },
   init(){
-    const { V, ord } = this._d, s = SER(), Y = PER.Y, n = PER.m + 1;
-    const cf = serieA(V, Y, v => v.cf, PER.m).slice(0, n), cr = serieA(V, Y, v => v.cr, PER.m).slice(0, n);
-    mk('c-vr', { type: 'bar', data: { labels: MESI.slice(0, n), datasets: [barre('Fornito', cf, s[0]), barre('Reso', cr, s[1])] }, options: lineOpts(tickNum, ttNum) });
+    const { V, ord } = this._d, s = SER(), Y = PER.Y;
+    const cf = serieP(V, false, v => v.cf), cr = serieP(V, false, v => v.cr);
+    mk('c-vr', { type: 'bar', data: { labels: PER.labels, datasets: [barre('Fornito', cf, s[0]), barre('Reso', cr, s[1])] }, options: lineOpts(tickNum, ttNum) });
     const top = ord.slice(0, 10);
     mk('c-top', { type: 'bar', data: { labels: top.map(t => { const x = titleCase(t.titolo); return x.length > 28 ? x.slice(0, 27) + '…' : x; }), datasets: [barre('Venduto', top.map(t => t.lf - t.lr), s[0], { maxBarThickness: 16 })] },
       options: { indexAxis: 'y', scales: { x: { ticks: tickEur }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => titleCase(top[i[0].dataIndex].titolo), label: c => ` ${eur(c.parsed.x)}` } } } } });
-    const rp = (anno, fino) => { const a = serieA(V, anno, v => v.cr, fino), b = serieA(V, anno, v => v.cf, fino); return a.map((x, i) => x == null || !b[i] ? null : x / b[i] * 100); };
-    mk('c-resa', { type: 'line', data: { labels: MESI, datasets: [linea(String(Y), rp(Y, PER.m), s[1], { pointRadius: 3 }), linea(String(Y - 1), rp(Y - 1, 11), css('--prev'), { borderDash: [5, 4] })] },
+    const rp = prima => { const a = serieP(V, prima, v => v.cr), b = serieP(V, prima, v => v.cf); return a.map((x, i) => x == null || !b[i] ? null : x / b[i] * 100); };
+    mk('c-resa', { type: 'line', data: { labels: PER.labels, datasets: [linea(String(Y), rp(false), s[1], { pointRadius: 3 }), linea(String(Y - 1), rp(true), css('--prev'), { borderDash: [5, 4] })] },
       options: { ...lineOpts({ callback: x => x + '%' }, { callbacks: { label: c => ` ${c.dataset.label}: ${fDec.format(c.parsed.y)}%` } }) } });
-    mk('c-tipom', { type: 'bar', data: { labels: MESI.slice(0, n), datasets: Object.keys(TIPI).map((k, i) => barre(TIPI[k], serieA(V.filter(v => v.tipo === k), Y, fVen, PER.m).slice(0, n), s[i], { stack: 't' })) },
+    mk('c-tipom', { type: 'bar', data: { labels: PER.labels, datasets: Object.keys(TIPI).map((k, i) => barre(TIPI[k], serieP(V.filter(v => v.tipo === k), false, fVen), s[i], { stack: 't' })) },
       options: { interaction: { mode: 'index', intersect: false }, scales: { y: { stacked: true, ticks: tickEur }, x: { stacked: true, grid: { display: false } } }, plugins: { tooltip: ttEur, legend: { position: 'top', align: 'end' } } } });
     $('#q-tit').addEventListener('input', e => {
       const q = e.target.value.toLowerCase().trim();
@@ -1412,52 +1508,53 @@ S.investimenti = {
   },
 };
 
-/* ---------- Fatturazione PDE: compenso del 5% sul venduto a copertina netto rese ---------- */
+/* ---------- Fatturazione PDE: compenso del 5% sul venduto a copertina netto rese, nel periodo scelto ---------- */
 const STATI_FATT = ['Da emettere', 'Emessa', 'Pagata', 'Scaduta', 'Annullata'];
-function maturatoMesi(anno, fino = 11){ const p = +R.fatt.perc || .05; return serieA(VF(), anno, v => (v.lf - v.lr) * p, fino); }
-function fatturatoMesi(anno){
-  // ogni fattura si divide in parti uguali sui mesi di competenza
-  const out = MESI.map(() => 0);
+const percPde = () => +R.fatt.perc || .05;
+const chiaveDi = d => PER.grana === 'mese' ? d.slice(0, 8) + '01' : PER.grana === 'settimana' ? lunedi(d) : d;
+// fatture registrate nel periodo: ogni fattura si divide in parti uguali sui giorni dei mesi di competenza
+function fatturatoSerie(){
+  const out = PER.chiavi.map(() => 0), pos = new Map(PER.chiavi.map((k, i) => [k, i]));
   (R.fatt.fatture || []).filter(f => f.stato !== 'Annullata').forEach(f => {
-    const a = pd(f.mese_dal), b = pd(f.mese_al || f.mese_dal);
-    const mesi = []; for (let d = new Date(a); d <= b; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) mesi.push(new Date(d));
-    mesi.forEach(d => { if (d.getFullYear() === anno) out[d.getMonth()] += +f.imponibile / mesi.length; });
+    const a = String(f.mese_dal).slice(0, 10), bm = pd(f.mese_al || f.mese_dal), b = iso(new Date(bm.getFullYear(), bm.getMonth() + 1, 0));
+    const n = diffGg(pd(b), pd(a)) + 1, quota = +f.imponibile / n;
+    for (let d = a > PER.dal ? a : PER.dal; d <= (b < PER.al ? b : PER.al); d = piuGg(d, 1)) { const i = pos.get(chiaveDi(d)); if (i != null) out[i] += quota; }
   });
   return out;
 }
+const ultimoMeseChiuso = () => { const u = PER.ultimo; const fine = new Date(u.getFullYear(), u.getMonth() + 1, 0); return u.getDate() === fine.getDate() ? new Date(u.getFullYear(), u.getMonth(), 1) : new Date(u.getFullYear(), u.getMonth() - 1, 1); };
 S.fatturazione = {
-  titolo: 'Fatturazione PDE', sub: () => `Compenso PDE del ${pct(+R.fatt.perc || .05, 0)} sul venduto a prezzo di copertina, netto rese · ${PER.etichetta}`,
+  titolo: 'Fatturazione PDE', sub: () => `Compenso PDE del ${pct(percPde(), 0)} sul venduto a prezzo di copertina, netto rese · ${PER.etichetta}`,
   html(){
-    const p = +R.fatt.perc || .05, Y = PER.Y;
-    const m0 = maturatoMesi(Y, PER.m), m1 = maturatoMesi(Y - 1);
-    const fa = fatturatoMesi(Y);
-    const M = sum(m0), M1 = sum(m1.slice(0, PER.m + 1)), FA = sum(fa.slice(0, PER.m + 1));
+    const p = percPde(), Y = PER.Y;
+    const m0 = serieP(VF(), false, v => (v.lf - v.lr) * p), m1 = serieP(VF(), true, v => (v.lf - v.lr) * p);
+    const fa = fatturatoSerie();
+    const M = sum(m0), M1 = sum(m1), FA = sum(fa);
     const F = R.fatt.fatture || [];
     const daIncassare = sum(F.filter(f => f.stato === 'Emessa').map(f => +f.imponibile));
     const scadute = F.filter(f => f.stato === 'Scaduta');
-    const parziale = sum(VF().filter(v => v.d.getFullYear() === PER.ultimo.getFullYear() && v.d.getMonth() === PER.ultimo.getMonth()).map(fVen)) * p;
     const ed = STATO.fattEdit ? F.find(f => f.id === STATO.fattEdit) : null;
     const v = ed || STATO.fattBozza || { stato: 'Emessa', iva_pct: 22 };
     const opt = (L, sel) => L.map(x => `<option ${String(x) === String(sel ?? '') ? 'selected' : ''}>${esc(x)}</option>`).join('');
     const mm = d => d ? String(d).slice(0, 7) : '';
+    const etiChiave = (k, i) => PER.grana === 'mese' ? `${titleCase(MESI_L[pd(k).getMonth()])} ${k.slice(0, 4)}` : PER.grana === 'settimana' ? `Settimana dal ${fData(pd(k))}` : fData(pd(k));
     this._d = { m0, m1, fa };
     return `
-      <p class="lead">Il compenso di PDE è il ${pct(p, 0)} del venduto a prezzo di copertina al netto delle rese, mese per mese (dati Messaggerie).
+      <p class="lead">Il compenso di PDE è il ${pct(p, 0)} del venduto a prezzo di copertina al netto delle rese (dati Messaggerie), nel periodo scelto in alto.
       Accanto al maturato ci sono le fatture registrate: la differenza è quello che resta da fatturare.</p>
       <div class="grid g-kpi">
-        ${kpi('Compenso maturato', eurK(M), `${delta(M, M1)} <span>${PER.etichetta}</span>`, '--s1')}
-        ${kpi('Media mensile', eurK(M / (PER.m + 1)), `<span>era ${eurK(M1 / (PER.m + 1))} nel ${Y - 1}</span>`, '--s3')}
-        ${kpi('Fatturato registrato', eurK(FA), `<span>${F.length ? 'competenza ' + PER.etichetta : 'nessuna fattura registrata'}</span>`, '--s7')}
-        ${kpi('Da fatturare', F.length ? eurK(Math.max(0, M - FA)) : '—', `<span>maturato meno fatturato</span>`, '--s4')}
-        ${kpi(`${titleCase(MESI_L[PER.ultimo.getMonth()])} in corso`, eurK(parziale), `<span>maturato fino al ${fData(PER.ultimo)}</span>`, '--s2')}
+        ${kpi('Compenso maturato', eurK(M), `${M1 ? delta(M, M1) : ''} <span>${esc(PER.nome)}</span>`, '--s1')}
+        ${kpi(`Media per ${PER.granaNome}`, eurK(M / Math.max(1, PER.chiavi.length)), `<span>${M1 ? 'era ' + eurK(M1 / Math.max(1, PER.chiavi.length)) + ' nel ' + (Y - 1) : 'nessun confronto'}</span>`, '--s3')}
+        ${kpi('Fatturato registrato', eurK(FA), `<span>${F.length ? 'quota di competenza del periodo' : 'nessuna fattura registrata'}</span>`, '--s7')}
+        ${kpi('Da fatturare', F.length ? eurK(Math.max(0, M - FA)) : '—', '<span>maturato meno fatturato</span>', '--s4')}
         ${kpi('Da incassare', F.length ? eurK(daIncassare) : '—', scadute.length ? `<span class="pill ko">${scadute.length} scadute</span>` : '<span>fatture emesse non pagate</span>', '--s8')}
       </div>
       <div class="grid g2">
-        <div class="card"><h3>Andamento mensile del compenso</h3><p class="h-sub">Maturato ${Y} e ${Y - 1}, con le fatture registrate</p><div class="ch lg"><canvas id="c-fm"></canvas></div></div>
-        <div class="card"><h3>Mese per mese</h3><p class="h-sub">${Y}</p>
-          <div class="tw scroll"><table class="tbl"><thead><tr><th>Mese</th><th class="r">Venduto netto rese</th><th class="r">Compenso ${pct(p, 0)}</th><th class="r">Fatturato</th><th class="r">Differenza</th></tr></thead>
-          <tbody>${MESI.slice(0, PER.m + 1).map((n, i) => { const ven = m0[i] / p, dif = m0[i] - fa[i];
-            return `<tr><td class="t-tit">${titleCase(MESI_L[i])}</td><td class="r">${eur(ven)}</td><td class="r t-tit">${eur(m0[i])}</td><td class="r">${fa[i] ? eur(fa[i]) : '—'}</td>
+        <div class="card"><h3>Andamento del compenso</h3><p class="h-sub">Maturato per ${PER.granaNome}, a confronto con le stesse date del ${Y - 1}, e fatture registrate</p><div class="ch lg"><canvas id="c-fm"></canvas></div></div>
+        <div class="card"><h3>Dettaglio per ${PER.granaNome}</h3><p class="h-sub">${esc(PER.etichetta)}</p>
+          <div class="tw scroll"><table class="tbl"><thead><tr><th>${titleCase(PER.granaNome)}</th><th class="r">Venduto netto rese</th><th class="r">Compenso ${pct(p, 0)}</th><th class="r">Fatturato</th><th class="r">Differenza</th></tr></thead>
+          <tbody>${PER.chiavi.map((k, i) => { const dif = m0[i] - fa[i];
+            return `<tr><td class="t-tit">${etiChiave(k, i)}</td><td class="r">${eur(m0[i] / p)}</td><td class="r t-tit">${eur(m0[i])}</td><td class="r">${fa[i] ? eur(fa[i]) : '—'}</td>
               <td class="r">${fa[i] ? `<span class="pill ${Math.abs(dif) < 1 ? 'ok' : dif > 0 ? 'warn' : 'info'}">${eur(dif)}</span>` : '<span class="pill mut">da fatturare</span>'}</td></tr>`; }).join('')}
             <tr><td class="t-tit">Totale</td><td class="r t-tit">${eur(M / p)}</td><td class="r t-tit">${eur(M)}</td><td class="r t-tit">${eur(FA)}</td><td class="r t-tit">${eur(M - FA)}</td></tr></tbody></table></div></div>
       </div>
@@ -1476,7 +1573,7 @@ S.fatturazione = {
             <label style="grid-column:1/-1">Note<textarea name="note" rows="2">${esc(v.note || '')}</textarea></label>
             <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="b-fatt-calc">Imponibile = compenso maturato</button><button class="btn pri" type="submit">${ed ? 'Salva le modifiche' : 'Registra fattura'}</button>${ed || STATO.fattBozza ? '<button class="btn" type="button" id="b-fatt-annulla">Annulla</button>' : ''}</div>
           </form></div>` : ''}
-        <div class="card" ${ADMIN() ? '' : 'style="grid-column:1/-1"'}><h3>Fatture registrate</h3><p class="h-sub">Dalla più recente</p>
+        <div class="card" ${ADMIN() ? '' : 'style="grid-column:1/-1"'}><h3>Fatture registrate</h3><p class="h-sub">Tutte, dalla più recente</p>
           ${F.length ? `<div class="tw scroll"><table class="tbl"><thead><tr><th>Numero</th><th>Data</th><th>Competenza</th><th class="r">Imponibile</th><th class="r">Totale</th><th>Stato</th>${ADMIN() ? '<th></th>' : ''}</tr></thead>
           <tbody>${F.map(f => { const a = pd(f.mese_dal), b = pd(f.mese_al || f.mese_dal); const comp = a.getTime() === b.getTime() ? `${MESI_L[a.getMonth()]} ${a.getFullYear()}` : `${MESI_L[a.getMonth()]}–${MESI_L[b.getMonth()]} ${b.getFullYear()}`;
             return `<tr><td class="t-tit">${esc(f.numero)}</td><td>${fData(pd(f.data))}</td><td class="small">${comp}</td><td class="r">${eur(+f.imponibile)}</td><td class="r">${eur(+f.imponibile * (1 + (+f.iva_pct || 0) / 100))}</td>
@@ -1486,25 +1583,25 @@ S.fatturazione = {
   },
   init(){
     const { m0, m1, fa } = this._d, s = SER();
-    mk('c-fm', { type: 'bar', data: { labels: MESI, datasets: [
+    mk('c-fm', { type: 'bar', data: { labels: PER.labels, datasets: [
       { type: 'line', ...linea(`Maturato ${PER.Y}`, m0, s[0], { pointRadius: 3 }), order: 0 },
       { type: 'line', ...linea(`Maturato ${PER.Y - 1}`, m1, css('--prev'), { borderDash: [5, 4] }), order: 1 },
-      { ...barre('Fatturato registrato', fa.map((x, i) => i <= PER.m && x ? x : null), s[2] + '99'), order: 2 },
+      { ...barre('Fatturato registrato', fa.map(x => x || null), s[2] + '99'), order: 2 },
     ] }, options: lineOpts(tickEur, ttEur) });
     const f = $('#f-fatt'); if (!f) return;
+    // il compenso dei mesi di competenza si calcola sui dati mensili, indipendenti dal periodo scelto
+    const maturatoMesi = (a, b) => sum(R.mensili.filter(v => v.mese.slice(0, 7) >= a && v.mese.slice(0, 7) <= b).map(fVen)) * percPde();
     $('#b-fatt-es')?.addEventListener('click', () => {
-      const m = PER.m, Y = PER.Y, a = `${Y}-${String(m + 1).padStart(2, '0')}-01`;
-      STATO.fattBozza = { numero: `PDE-${Y}/${String(m + 1).padStart(3, '0')}`, data: iso(new Date(Y, m + 1, 5)), mese_dal: a, mese_al: a,
-        imponibile: Math.round(m0[m] * 100) / 100, iva_pct: 22, scadenza: iso(new Date(Y, m + 3, 0)), stato: 'Emessa', note: `Compenso ${pct(+R.fatt.perc || .05, 0)} su venduto ${MESI_L[m]} ${Y}` };
+      const c = ultimoMeseChiuso(), Y = c.getFullYear(), m = c.getMonth(), a = `${Y}-${String(m + 1).padStart(2, '0')}`;
+      STATO.fattBozza = { numero: `PDE-${Y}/${String(m + 1).padStart(3, '0')}`, data: iso(new Date(Y, m + 1, 5)), mese_dal: a + '-01', mese_al: a + '-01',
+        imponibile: Math.round(maturatoMesi(a, a) * 100) / 100, iva_pct: 22, scadenza: iso(new Date(Y, m + 3, 0)), stato: 'Emessa', note: `Compenso ${pct(percPde(), 0)} su venduto ${MESI_L[m]} ${Y}` };
       render();
     });
     $('#b-fatt-annulla')?.addEventListener('click', () => { STATO.fattEdit = null; STATO.fattBozza = null; render(); });
     $('#b-fatt-calc').addEventListener('click', () => {
       const a = f.mese_dal.value, b = f.mese_al.value || a;
       if (!a) { alert('Indica prima i mesi di competenza'); return; }
-      const p = +R.fatt.perc || .05;
-      const tot = sum(VF().filter(v => v.mese.slice(0, 7) >= a && v.mese.slice(0, 7) <= b).map(fVen)) * p;
-      f.imponibile.value = (Math.round(tot * 100) / 100).toFixed(2);
+      f.imponibile.value = (Math.round(maturatoMesi(a, b) * 100) / 100).toFixed(2);
     });
     f.addEventListener('submit', ev => {
       ev.preventDefault();
@@ -1532,7 +1629,8 @@ function coperturaSett(m){ const t = R.titoliMap.get(m.ean); const w = t ? Math.
 let AGG_MELI = null;   // aggiornamento in corso { fatti, totale, errori }
 async function aggiornaMeli(){
   if (AGG_MELI) return;
-  const eans = [...new Set([...R.titoli.map(t => t.ean), ...R.giri.flatMap(g => g.titoli.map(t => t.ean))].filter(e => /^\d{10,13}$/.test(e)))];
+  const tutti = await rpc('ed_titoli_periodo', { p_editore: ED.codice_editore, p_dal: (SESS.giorni || [])[0] || '2025-01-01', p_al: SESS.ultimo_giorno });
+  const eans = [...new Set([...tutti.map(t => t.ean), ...R.giri.flatMap(g => g.titoli.map(t => t.ean))].filter(e => /^\d{10,13}$/.test(e)))];
   AGG_MELI = { fatti: 0, totale: eans.length, errori: 0, trovati: 0 };
   render();
   const { data: { session } } = await sb.auth.getSession();
@@ -1584,7 +1682,7 @@ S.stock = {
     const zero = att.filter(m => m.disponibilita <= 0);
     this._M = M;
     return `${boxAggiornaMeli()}
-      <p class="lead">La copertura dice per quante settimane basta la disponibilità al ritmo di vendita dell'ultimo mese. Sotto le 4 settimane conviene valutare un riassortimento o una ristampa.
+      <p class="lead">La copertura dice per quante settimane basta la disponibilità al ritmo di vendita degli ultimi 30 giorni. Sotto le 4 settimane conviene valutare un riassortimento o una ristampa.
       Lo stato è <b>stato articolo – stato vendita</b> di Messaggerie: 1-1 vuol dire titolo attivo e in vendita.</p>
       <div class="grid g-kpi">
         ${kpi('Titoli letti', num(M.length), `<span>${num(att.length)} in stato 1-1</span>`, '--s1')}
@@ -1600,7 +1698,7 @@ S.stock = {
       <div class="card"><div class="card-head"><div><h3>Disponibilità per titolo</h3><p class="h-sub">Ordinati per copertura, dai più scoperti</p></div>
         <div class="dx"><div class="chips" id="ch-s">${['Tutti', 'Stato 1-1', 'Altri stati', 'Copertura bassa', 'Esauriti'].map(x => `<button class="chip ${STATO.filtroS === x ? 'on' : ''}" data-f="${x}">${x}</button>`).join('')}</div>
         <input type="search" id="q-st" placeholder="Cerca titolo o EAN"></div></div>
-        <div class="tw scroll"><table class="tbl"><thead><tr><th>Titolo</th><th>Genere</th><th>Stato</th><th class="r">Mag. 11</th><th class="r">Mag. 21</th><th class="r">Disponibile</th><th class="r">Venduto ${MESI_L[PER.m]}</th><th class="r">Copertura</th></tr></thead><tbody id="tb-st"></tbody></table></div></div>`;
+        <div class="tw scroll"><table class="tbl"><thead><tr><th>Titolo</th><th>Genere</th><th>Stato</th><th class="r">Mag. 11</th><th class="r">Mag. 21</th><th class="r">Disponibile</th><th class="r">Venduto 30 gg</th><th class="r">Copertura</th></tr></thead><tbody id="tb-st"></tbody></table></div></div>`;
   },
   init(){
     $('#b-meli')?.addEventListener('click', aggiornaMeli);
@@ -1651,11 +1749,11 @@ S.alert = {
     return `${boxAggiornaMeli()}
       <p class="lead">Un titolo attivo e in vendita (stato 1-1) senza disponibilità non può essere spedito: gli ordini dei librai restano inevasi.
       I giorni a zero si contano dai controlli giornalieri${dal ? `, iniziati il ${fData(dal)}: per i titoli già a zero quel giorno il dato è "almeno"` : ''}.
-      Le vendite perse sono stimate sul venduto dell'ultimo mese.</p>
+      Le vendite perse sono stimate sul venduto degli ultimi 30 giorni.</p>
       <div class="grid g-kpi">
         ${kpi('Titoli a giacenza zero', num(A.length), '<span>in stato 1-1</span>', '--s8')}
         ${kpi('Critici', num(A.filter(x => x.gg > 30).length), '<span>a zero da oltre 30 giorni</span>', '--s2')}
-        ${kpi('Con vendite recenti', num(A.filter(x => x.ritmo > 0).length), `<span>venduti a ${MESI_L[PER.m]}</span>`, '--s4')}
+        ${kpi('Con vendite recenti', num(A.filter(x => x.ritmo > 0).length), '<span>venduti negli ultimi 30 giorni</span>', '--s4')}
         ${kpi('Vendite perse stimate', eurK(tot), `<span>${num(sum(A.map(perse)))} copie</span>`, '--s7')}
       </div>
       <div class="grid g2">
@@ -1663,7 +1761,7 @@ S.alert = {
           <div class="list-ev">${A.slice(0, 80).map(x => { const [k, l, p] = sev(x.gg); return `<div class="alert-card">
             <div class="gg sev-${k}"><b>${x.almeno ? '≥' : ''}${x.gg}</b><span>giorni</span></div>
             <div><div class="t-tit">${esc(titleCase(x.titolo || (x.t || {}).titolo || ''))}</div><div class="t-sub">${esc(titleCase(x.autore || ''))} · EAN ${esc(x.ean)}${x.genere ? ' · ' + esc(titleCase(x.genere)) : ''}</div>
-              <div class="t-sub">${x.zero_dal ? 'A zero dal ' + fData(pd(x.zero_dal)) : ''}${x.ultima_fornitura ? ' · ultima fornitura Messaggerie il ' + fData(pd(x.ultima_fornitura)) : ''} · ${x.ritmo ? `vendeva ${num(x.ritmo)} copie al mese` : 'nessuna vendita nell\'ultimo mese'}${x.risposta_editore ? ' · ' + esc(x.risposta_editore) : ''}</div></div>
+              <div class="t-sub">${x.zero_dal ? 'A zero dal ' + fData(pd(x.zero_dal)) : ''}${x.ultima_fornitura ? ' · ultima fornitura Messaggerie il ' + fData(pd(x.ultima_fornitura)) : ''} · ${x.ritmo ? `${num(x.ritmo)} copie vendute negli ultimi 30 giorni` : 'nessuna vendita negli ultimi 30 giorni'}${x.risposta_editore ? ' · ' + esc(x.risposta_editore) : ''}</div></div>
             <span class="pill ${p}">${l}</span></div>`; }).join('')}</div>
           ${A.length > 80 ? `<p class="note">Sono mostrati i primi 80 di ${num(A.length)}.</p>` : ''}</div>
         <div class="card"><h3>Giorni a giacenza zero</h3><p class="h-sub">I 20 titoli da più tempo a zero</p><div class="ch" style="height:${Math.min(20, A.length) * 24 + 70}px"><canvas id="c-al"></canvas></div>
@@ -1678,6 +1776,209 @@ S.alert = {
       options: { indexAxis: 'y', scales: { x: { beginAtZero: true, title: { display: true, text: 'giorni' } }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => titleCase(A[i[0].dataIndex].titolo || ''), label: c => ` a zero da ${A[c.dataIndex].almeno ? 'almeno ' : ''}${c.parsed.x} giorni` } } } } });
   },
 };
+
+/* ---------- Anagrafiche titoli: come in BookUp (edge function anagrafiche-titoli), solo per l'editore scelto ---------- */
+const atCod = c => String(c ?? '').replace(/^0+(?=\w)/, '');
+const atUtenza = a => a === 'pde_service' ? 'Service' : 'PDE';
+async function atCall(body){
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/anagrafiche-titoli`, { method: 'POST',
+    headers: { Authorization: `Bearer ${session ? session.access_token : SUPABASE_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || (data.risposta ? atTesto(data.risposta) : `Errore ${res.status}`));
+  return data;
+}
+function atTesto(r){
+  if (r == null) return '';
+  if (typeof r === 'string') return r;
+  return (Array.isArray(r) ? r : [r]).map(x => typeof x === 'object' ? [x.ean, x.errorCode, x.errorMessage || x.message || x.description || x.title].filter(Boolean).join(' · ') || JSON.stringify(x).slice(0, 200) : String(x)).join('\n');
+}
+const AT = { utenze: null, opzioni: {}, lista: [], titoli: [], pagina: 1, totali: {}, modifica: null, tab: 'cons' };
+const AT_CAMPI = [['longTitle', 'Titolo completo', 'span2'], ['shortTitle', 'Titolo breve (max 30)', ''], ['author', 'Autore', ''], ['editorialSeriesCode', 'Collana', 'sel'], ['genre', 'Genere', 'sel'],
+  ['price', 'Prezzo €', ''], ['publicationDate', 'Data pubblicazione', 'date'], ['pageCount', 'Pagine', ''], ['volumeNumber', 'N. volume', ''], ['titleVendorCode', 'Cod. titolo presso editore', ''],
+  ['designer', 'Disegnatore', ''], ['screenwriter', 'Sceneggiatore', '']];
+async function atOpzioni(u){
+  const k = `${u.account}|${u.code}`;
+  if (!AT.opzioni[k]) AT.opzioni[k] = atCall({ azione: 'opzioni', account: u.account, vendorCode: u.code }).catch(e => { delete AT.opzioni[k]; throw e; });
+  return AT.opzioni[k];
+}
+const atOpt = (L, val, lab, sel) => L.map(x => `<option value="${esc(x[val])}"${String(x[val]) === String(sel ?? '') ? ' selected' : ''}>${esc(lab(x))}</option>`).join('');
+async function atTendine(box, u, v = {}){
+  const o = await atOpzioni(u);
+  const s = box.querySelector('[data-t="collana"]'), g = box.querySelector('[data-t="genere"]'), iva = box.querySelector('[data-t="iva"]'), l = box.querySelector('[data-t="lingua"]');
+  if (s) s.innerHTML = '<option value="">— Collana —</option>' + atOpt(o.series || [], 'code', x => `${x.code} – ${x.description || ''}`, v.collana);
+  if (g) g.innerHTML = '<option value="">— Genere —</option>' + atOpt(o.genre || [], 'code', x => `${x.code}${x.description ? ' – ' + x.description : ''}`, v.genere);
+  if (iva) iva.innerHTML = atOpt(o.vat || [], 'code', x => `${x.code} – ${x.description || ''}`, v.iva || 'L');
+  if (l) l.innerHTML = atOpt(Array.isArray(o.lingue) && o.lingue.length ? o.lingue : [{ languageCode: 'IT', languageDefinition: 'Italiano' }], 'languageCode', x => x.languageDefinition || x.languageCode, v.lingua || 'IT');
+  if (s && g) s.addEventListener('change', () => { const c = (o.series || []).find(x => x.code === s.value); if (c && c.genre) g.value = c.genre; });
+}
+async function atCerca(pagina = 1){
+  const st = $('#at-st'); if (st) st.textContent = 'Cerco su Messaggerie (utenze PDE e Service)…';
+  const eans = [...new Set(($('#at-q-ean')?.value || '').split(/[\s,;]+/).map(x => x.replace(/\D/g, '')).filter(Boolean))];
+  const filtri = { search: ($('#at-q-testo')?.value || '').trim(), vendor: ED.codice_editore };
+  if (eans.length) filtri.ean = eans;
+  try {
+    const d = await atCall({ azione: 'cerca', filtri, pagina });
+    // solo i titoli di questo editore
+    AT.titoli = (d.titoli || []).filter(t => atCod(t.vendor?.code) === atCod(ED.codice_editore));
+    AT.pagina = pagina; AT.totali = d.totali || {}; AT.errori = d.errori || [];
+  } catch (e) { AT.titoli = []; AT.errore = e.message; }
+  AT.cercato = true; AT.modifica = null; render();
+}
+function atCardDaTitolo(t){
+  return { editorialSeriesCode: t.editorialSeries?.code || '', ean: t.ean, publisher: t.publisher || '', price: t.price, longTitle: t.title || '', shortTitle: t.shortTitle || '', author: t.author || '',
+    articleSaleStatusCode: t.articleSaleStatus?.code || '', articleStatusCode: t.articleStatus?.code || '', genre: t.genre || '',
+    publicationDate: t.publicationDate ? String(t.publicationDate).slice(0, 10) : null, outOfCatalogueDate: null, vatCode: t.vat?.code || '', language: t.language || 'IT',
+    vendorCode: t.vendor?.code || '', vendorDescription: t.vendor?.description || '', vatDescription: t.vat?.description || '', titleVendorCode: t.titleVendorCode || '',
+    designer: t.designer || '', screenwriter: t.screenwriter || '', originalPublisher: t.originalPublisher || '', workingState: t.workingState || '',
+    launchNumber: t.launchNumber ?? null, launchYear: t.launchYear ?? null, volumeNumber: t.volumeNumber || '', registrationLimit: t.registrationLimit || null,
+    commodityType: t.commodityType || null, pageCount: t.pageCount ?? '', reprintDate: t.reprintDate ? String(t.reprintDate).slice(0, 10) : null };
+}
+S.anagrafiche = {
+  titolo: 'Anagrafiche titoli', sub: () => `Consulta, modifica e inserisci le anagrafiche Messaggerie di ${ED.nome}`,
+  async prepara(){
+    if (!ADMIN()) return;
+    if (!AT.utenze || AT.ed !== ED.codice_editore){
+      AT.ed = ED.codice_editore; AT.titoli = []; AT.lista = []; AT.cercato = false; AT.modifica = null;
+      const d = await atCall({ azione: 'editori' });
+      AT.utenze = (d.editori || []).filter(e => atCod(e.code) === atCod(ED.codice_editore));
+    }
+    if (!AT.cercato) { const st = null; try { const d = await atCall({ azione: 'cerca', filtri: { vendor: ED.codice_editore }, pagina: 1 });
+      AT.titoli = (d.titoli || []).filter(t => atCod(t.vendor?.code) === atCod(ED.codice_editore)); AT.totali = d.totali || {}; AT.errori = d.errori || []; AT.pagina = 1; } catch (e) { AT.errore = e.message; } AT.cercato = true; }
+  },
+  html(){
+    if (!ADMIN()) return vuoto('Le anagrafiche titoli si gestiscono con PDE: scrivi al tuo referente per inserimenti e modifiche.');
+    if (!AT.utenze.length) return vuoto(`Su Messaggerie non risulta l'editore ${esc(ED.codice_editore)} nelle utenze PDE e Service.`);
+    const tot = Object.values(AT.totali || {}).reduce((a, b) => a + (+b || 0), 0);
+    const m = AT.modifica;
+    return `
+      <p class="lead">Come in BookUp: le anagrafiche si leggono e si scrivono direttamente su Messaggerie, con l'utenza dell'editore (${AT.utenze.map(u => atUtenza(u.account)).join(' e ')}).
+      Qui compaiono solo i titoli di ${esc(ED.nome)} (codice ${esc(ED.codice_editore)}).</p>
+      <div class="chips" style="margin-bottom:14px" id="at-tabs">${[['cons', 'Consulta e modifica'], ['ins', `Inserisci titoli${AT.lista.length ? ' (' + AT.lista.length + ')' : ''}`]].map(([k, l]) => `<button class="chip ${AT.tab === k ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+      ${AT.tab === 'cons' ? `
+      <div class="card" style="margin-bottom:16px"><div class="form" style="grid-template-columns:2fr 2fr auto">
+        <label>Titolo o autore<input type="search" id="at-q-testo" value="${esc(AT.qTesto || '')}"></label>
+        <label>EAN (anche più di uno)<input type="text" id="at-q-ean" value="${esc(AT.qEan || '')}"></label>
+        <button class="btn pri" id="at-cerca" type="button">Cerca</button></div>
+        <p class="note" id="at-st">${AT.errore ? `<span style="color:var(--ko)">${esc(AT.errore)}</span>` : `${num(AT.titoli.length)} titoli in questa pagina${tot ? ' · ' + num(tot) + ' in tutto' : ''}${(AT.errori || []).length ? ' · ' + esc(AT.errori.join(' · ')) : ''}`}</p></div>
+      ${m ? `<div class="card" style="margin-bottom:16px" id="at-mod"><div class="card-head"><div><h3>Modifica ${esc(m.t.ean)} · ${esc(titleCase(m.t.title || ''))}</h3>
+          <p class="h-sub">Utenza ${atUtenza(m.t.account)} · IVA ${esc(m.card.vatCode)} · lingua ${esc(m.card.language)} · stato vendita ${esc(m.card.articleSaleStatusCode)} · stato articolo ${esc(m.card.articleStatusCode)}. I campi cambiati diventano gialli.</p></div></div>
+        <div class="form" style="grid-template-columns:repeat(3,minmax(0,1fr))">${AT_CAMPI.map(([k, lab, tipo]) => `<label ${tipo === 'span2' ? 'style="grid-column:span 2"' : ''}>${lab}
+          ${tipo === 'sel' ? `<select data-k="${k}" data-t="${k === 'genre' ? 'genere' : 'collana'}"><option>Caricamento…</option></select>` : `<input type="${tipo === 'date' ? 'date' : 'text'}" data-k="${k}" value="${esc(m.card[k] ?? '')}"${k === 'shortTitle' ? ' maxlength="30"' : ''}>`}</label>`).join('')}</div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center"><button class="btn pri" id="at-salva" type="button">Salva le modifiche su Messaggerie</button><button class="btn" id="at-annulla" type="button">Annulla</button><span class="small" id="at-m-msg"></span></div></div>` : ''}
+      <div class="card"><div class="tw scroll"><table class="tbl"><thead><tr><th>EAN</th><th>Titolo</th><th>Autore</th><th>Collana</th><th>Genere</th><th class="r">Prezzo</th><th>Pubblicazione</th><th>Stato</th><th>Utenza</th><th></th></tr></thead>
+        <tbody>${AT.titoli.map((t, i) => `<tr><td class="small num">${esc(t.ean)}</td><td class="t-tit">${esc(titleCase(t.title || ''))}</td><td class="small">${esc(titleCase(t.author || ''))}</td>
+          <td class="small">${esc(t.editorialSeries?.code || '')}</td><td class="small">${esc(t.genre || '')}</td><td class="r">${t.price != null ? fDec2(t.price) : ''}</td>
+          <td class="small">${t.publicationDate ? fData(pd(t.publicationDate)) : ''}</td><td><span class="pill ${t.articleStatus?.code === '1' && t.articleSaleStatus?.code === '1' ? 'ok' : 'mut'}">${esc(t.articleStatus?.code || '?')}-${esc(t.articleSaleStatus?.code || '?')}</span></td>
+          <td><span class="pill ${t.account === 'pde_service' ? 'info' : 'mut'}">${atUtenza(t.account)}</span></td><td><button class="btn" data-at="${i}">Modifica</button></td></tr>`).join('') || '<tr><td colspan="10" class="empty">Nessun titolo trovato</td></tr>'}</tbody></table></div>
+        <div style="display:flex;gap:8px;margin-top:10px;justify-content:center">${AT.pagina > 1 ? '<button class="btn" id="at-prec">← Pagina precedente</button>' : ''}<span class="small muted" style="align-self:center">Pagina ${AT.pagina} · 50 titoli per utenza</span>${AT.titoli.length >= 50 ? '<button class="btn" id="at-succ">Pagina successiva →</button>' : ''}</div></div>` : `
+      <div class="card" style="margin-bottom:16px" id="at-ins"><div class="card-head"><div><h3>Nuova anagrafica titolo</h3><p class="h-sub">Compila i campi con l'asterisco, aggiungi alla lista e ripeti; alla fine invia tutto insieme a Messaggerie.</p></div></div>
+        <div class="form" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+          <label>Utenza *<select id="at-ut">${AT.utenze.map((u, i) => `<option value="${i}">${atUtenza(u.account)} · ${esc(atCod(u.code))} ${esc(u.description || '')}</option>`).join('')}</select></label>
+          <label>EAN *<input type="text" id="at-ean" maxlength="18"></label>
+          <label><span><input type="checkbox" id="at-matpub"> Materiale pubblicitario</span></label>
+          <label style="grid-column:span 2">Titolo completo *<input type="text" id="at-titolo"></label>
+          <label>Titolo breve * (max 30)<input type="text" id="at-breve" maxlength="30"></label>
+          <label>Collana *<select id="at-collana" data-t="collana"><option>Caricamento…</option></select></label>
+          <label>Genere *<select id="at-genere" data-t="genere"><option>Caricamento…</option></select></label>
+          <label>Prezzo € *<input type="text" id="at-prezzo" inputmode="decimal"></label>
+          <label>IVA *<select id="at-iva" data-t="iva"></select></label>
+          <label>Lingua *<select id="at-lingua" data-t="lingua"></select></label>
+          <label>Autore<input type="text" id="at-autore"></label>
+          <label>Data pubblicazione<input type="date" id="at-data"></label>
+          <label>Pagine<input type="text" id="at-pagine" maxlength="4"></label>
+          <label>N. volume<input type="text" id="at-volume" maxlength="4"></label>
+          <label>Cod. titolo presso editore<input type="text" id="at-codtit"></label>
+          <label>Editore originario<input type="text" id="at-orig"></label>
+          <label>Disegnatore<input type="text" id="at-disegnatore"></label>
+          <label>Sceneggiatore<input type="text" id="at-sceneggiatore"></label>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap"><button class="btn pri" id="at-agg" type="button">Aggiungi alla lista</button><span class="small" id="at-msg"></span></div>
+        <p class="note">Le nuove collane si creano da BookUp, Anagrafiche titoli.</p></div>
+      <div class="card"><h3>Da inviare a Messaggerie</h3><p class="h-sub">${AT.lista.length ? AT.lista.length + ' titoli in lista' : 'La lista è vuota'}</p>
+        ${AT.lista.length ? `<div class="tw"><table class="tbl"><thead><tr><th>EAN</th><th>Titolo</th><th>Utenza</th><th>Collana</th><th>Genere</th><th>IVA</th><th class="r">Prezzo</th><th>Autore</th><th></th></tr></thead>
+          <tbody>${AT.lista.map((x, i) => `<tr><td class="small num">${esc(x.card.ean)}</td><td class="t-tit">${esc(x.card.longTitle)}</td><td>${atUtenza(x.u.account)}</td><td>${esc(x.card.editorialSeriesCode)}</td><td>${esc(x.card.genre)}</td><td>${esc(x.card.vatCode)}</td>
+            <td class="r">${fDec2(x.card.price)}</td><td class="small">${esc(x.card.author)}</td><td><button class="btn" data-del-at="${i}">Togli</button></td></tr>`).join('')}</tbody></table></div>
+          <button class="btn pri" id="at-invia" style="margin-top:12px">Invia ${AT.lista.length} ${AT.lista.length === 1 ? 'titolo' : 'titoli'} a Messaggerie</button>` : ''}</div>`}`;
+  },
+  init(){
+    if (!ADMIN() || !AT.utenze?.length) return;
+    document.querySelectorAll('#at-tabs .chip').forEach(b => b.addEventListener('click', () => { AT.tab = b.dataset.tab; render(); }));
+    if (AT.tab === 'cons'){
+      const cerca = () => { AT.qTesto = $('#at-q-testo').value; AT.qEan = $('#at-q-ean').value; atCerca(1); };
+      $('#at-cerca').addEventListener('click', cerca);
+      ['#at-q-testo', '#at-q-ean'].forEach(s => $(s).addEventListener('keydown', e => { if (e.key === 'Enter') cerca(); }));
+      $('#at-prec')?.addEventListener('click', () => atCerca(AT.pagina - 1));
+      $('#at-succ')?.addEventListener('click', () => atCerca(AT.pagina + 1));
+      document.querySelectorAll('[data-at]').forEach(b => b.addEventListener('click', () => {
+        const t = AT.titoli[+b.dataset.at], card = atCardDaTitolo(t);
+        AT.modifica = { t, card, orig: { ...card }, u: { account: t.account, code: t.vendor?.code || '' } }; render(); window.scrollTo(0, 0);
+      }));
+      const m = AT.modifica, box = $('#at-mod');
+      if (m && box){
+        atTendine(box, m.u, { collana: m.card.editorialSeriesCode, genere: m.card.genre }).catch(e => { $('#at-m-msg').textContent = 'Collane e generi non letti: ' + e.message; });
+        box.querySelectorAll('[data-k]').forEach(el => ['input', 'change'].forEach(ev => el.addEventListener(ev, () => el.style.background = String(el.value) !== String(m.orig[el.dataset.k] ?? '') ? 'var(--warn-bg)' : '')));
+        $('#at-annulla').addEventListener('click', () => { AT.modifica = null; render(); });
+        $('#at-salva').addEventListener('click', async () => {
+          const card = { ...m.card };
+          box.querySelectorAll('[data-k]').forEach(el => card[el.dataset.k] = el.value);
+          ['longTitle', 'shortTitle', 'author', 'titleVendorCode', 'designer', 'screenwriter'].forEach(k => card[k] = String(card[k] || '').trim().toUpperCase());
+          card.price = Number(String(card.price).replace(',', '.'));
+          const camb = AT_CAMPI.filter(([k]) => String(card[k] ?? '') !== String(m.orig[k] ?? ''));
+          const msg = $('#at-m-msg');
+          if (!camb.length) { msg.textContent = 'Nessuna modifica.'; return; }
+          if (!card.longTitle || !card.shortTitle || !card.editorialSeriesCode || !card.genre || !(card.price > 0)) { msg.innerHTML = '<span style="color:var(--ko)">Titolo, titolo breve, collana, genere e prezzo sono obbligatori.</span>'; return; }
+          if (!confirm(`Salvare su Messaggerie le modifiche di ${m.t.ean}?\n\n${camb.map(([k, l]) => `${l}: ${m.orig[k] ?? '—'} → ${card[k] ?? '—'}`).join('\n')}`)) return;
+          msg.textContent = 'Salvo…';
+          try { const d = await atCall({ azione: 'modifica', account: m.u.account, titoli: [card] }); const t = atTesto(d.risposta);
+            msg.innerHTML = `<span style="color:var(--ok)">Modifiche inviate.</span>${t ? ' ' + esc(t).slice(0, 400) : ''}`; m.orig = { ...card }; m.card = card;
+            box.querySelectorAll('[data-k]').forEach(el => el.style.background = '');
+          } catch (e) { msg.innerHTML = `<span style="color:var(--ko)">Non salvato: ${esc(e.message)}</span>`; }
+        });
+      }
+    } else {
+      const box = $('#at-ins'), ut = () => AT.utenze[+$('#at-ut').value];
+      const riempi = () => atTendine(box, ut()).catch(e => { $('#at-msg').textContent = 'Opzioni non lette: ' + e.message; });
+      riempi(); $('#at-ut').addEventListener('change', riempi);
+      $('#at-titolo').addEventListener('input', () => { const b = $('#at-breve'); if (!b.dataset.toccato) b.value = $('#at-titolo').value.toUpperCase().slice(0, 30); });
+      $('#at-breve').addEventListener('input', () => $('#at-breve').dataset.toccato = '1');
+      const V = id => String($('#' + id).value || '').trim();
+      $('#at-agg').addEventListener('click', () => {
+        const u = ut(), mp = $('#at-matpub').checked;
+        const card = { isMatPub: mp, ean: V('at-ean').replace(/\s/g, ''), longTitle: V('at-titolo').toUpperCase(), shortTitle: V('at-breve').toUpperCase(), vendorCode: u.code,
+          editorialSeriesCode: V('at-collana'), genre: V('at-genere'), language: V('at-lingua') || 'IT', vatCode: V('at-iva') || 'L', publicationDate: V('at-data') || null,
+          author: V('at-autore').toUpperCase(), designer: V('at-disegnatore').toUpperCase(), screenwriter: V('at-sceneggiatore').toUpperCase(), originalPublisher: V('at-orig').toUpperCase(),
+          titleVendorCode: V('at-codtit').toUpperCase(), volumeNumber: V('at-volume'), pageCount: V('at-pagine'), price: V('at-prezzo').replace(',', '.') };
+        const err = [];
+        if (mp ? !/^[a-zA-Z][a-zA-Z0-9]{3}[0-9]{6}$/.test(card.ean) : !/^(?:[0-9]{13}|[0-9]{18})$/.test(card.ean)) err.push(mp ? 'codice materiale pubblicitario' : 'EAN (13 cifre)');
+        if (!card.longTitle) err.push('titolo completo'); if (!card.shortTitle) err.push('titolo breve');
+        if (!card.editorialSeriesCode) err.push('collana'); if (!card.genre) err.push('genere');
+        if (!/^[0-9]{1,5}([.][0-9]{1,2})?$/.test(card.price)) err.push('prezzo');
+        if (card.pageCount && !/^[0-9]{0,4}$/.test(card.pageCount)) err.push('pagine');
+        if (err.length) { $('#at-msg').innerHTML = `<span style="color:var(--ko)">Controlla: ${esc(err.join(', '))}.</span>`; return; }
+        if (AT.lista.some(x => x.card.ean === card.ean)) { $('#at-msg').innerHTML = '<span style="color:var(--ko)">Questo EAN è già nella lista.</span>'; return; }
+        card.price = Number(card.price);
+        AT.lista.push({ card, u }); render();
+      });
+      document.querySelectorAll('[data-del-at]').forEach(b => b.addEventListener('click', () => { AT.lista.splice(+b.dataset.delAt, 1); render(); }));
+      $('#at-invia')?.addEventListener('click', async ev => {
+        if (!confirm(`Inviare a Messaggerie ${AT.lista.length} nuove anagrafiche titolo?`)) return;
+        const b = ev.target; b.disabled = true; b.textContent = 'Invio…';
+        const per = {}; AT.lista.forEach(x => (per[x.u.account] ||= []).push(x));
+        const esiti = [];
+        for (const [acc, righe] of Object.entries(per)){
+          try { const d = await atCall({ azione: 'inserisci', account: acc, titoli: righe.map(x => x.card) }); esiti.push({ acc, ok: true, n: righe.length, t: atTesto(d.risposta), eans: righe.map(x => x.card.ean) }); }
+          catch (e) { esiti.push({ acc, ok: false, n: righe.length, t: e.message, eans: [] }); }
+        }
+        const ok = new Set(esiti.flatMap(x => x.eans));
+        AT.lista = AT.lista.filter(x => !ok.has(x.card.ean));
+        alert(esiti.map(x => `${atUtenza(x.acc)}: ${x.ok ? x.n + ' titoli inviati' : 'non inviati'}${x.t ? '\n' + x.t.slice(0, 600) : ''}`).join('\n\n') + '\n\nMessaggerie valida le anagrafiche: le ritrovi in "Consulta e modifica" appena elaborate.');
+        render();
+      });
+    }
+  },
+};
+const fDec2 = n => Number(n).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /* ---------- Eventi ---------- */
 const KEY_EV = 'pde-editori-eventi-' + SESSIONE.codiceEditore;
@@ -1807,7 +2108,8 @@ const MENU = [
   { g: 'Economico' },
   { id: 'investimenti', l: 'Investimenti', ic: 'coins', a: ['#2bb673', '#127a48'] },
   { id: 'fatturazione', l: 'Fatturazione PDE', ic: 'rec', a: ['#5b7cfa', '#3a4fc4'] },
-  { g: 'Magazzino' },
+  { g: 'Catalogo e magazzino' },
+  { id: 'anagrafiche', l: 'Anagrafiche titoli', ic: 'book', a: ['#6366f1', '#4338ca'], admin: true },
   { id: 'stock', l: 'Stock MeLi', ic: 'box', a: ['#8a94a6', '#56607a'] },
   { id: 'alert', l: 'Alert giacenza zero', ic: 'alert', a: ['#f06b6b', '#c62828'] },
   { g: 'Attività' },
@@ -1815,7 +2117,7 @@ const MENU = [
   { id: 'materiali', l: 'Materiali giri', ic: 'up', a: ['#7c4dbe', '#552f94'] },
 ];
 function disegnaMenu(attiva){
-  $('#nav').innerHTML = MENU.map(m => m.g ? `<span class="nav-g">${m.g}</span>` : `<a href="#${m.id}" class="${m.id === attiva ? 'active' : ''}" style="--a1:${m.a[0]};--a2:${m.a[1]}">
+  $('#nav').innerHTML = MENU.filter(m => !m.admin || ADMIN()).map(m => m.g ? `<span class="nav-g">${m.g}</span>` : `<a href="#${m.id}" class="${m.id === attiva ? 'active' : ''}" style="--a1:${m.a[0]};--a2:${m.a[1]}">
     <span class="ic"><svg viewBox="0 0 24 24">${IC[m.ic]}</svg></span><span>${m.l}</span>${S[m.id]?.demo ? '<span class="tag-demo">esempio</span>' : ''}</a>`).join('');
 }
 const BANNER_DEMO = `<div class="banner-demo"><b>Sezione di esempio.</b> Questi numeri sono inventati e servono a mostrare come sarà la sezione: i dati veri arriveranno quando la fonte sarà collegata.</div>`;
@@ -1864,7 +2166,8 @@ async function entra(){
   $('#content').innerHTML = '<div class="card empty">Caricamento dei dati…</div>';
   try { SESS = await rpc('ed_sessione'); }
   catch (e) { return bloccato('Errore di collegamento: ' + e.message); }
-  PER = periodi(SESS.ultimo_giorno);
+  PER = periodi();
+  disegnaPeriodo();
   $('#utente').textContent = SESS.email || '';
   $('#dati-al').textContent = 'Dati al ' + fData(PER.ultimo);
   const ammesso = UTENTI_AMMESSI.includes(String(SESS.email || '').toLowerCase());
@@ -1907,6 +2210,8 @@ async function avvio(){
     entra();
   });
   $('#b-esci').addEventListener('click', esci);
+  $('#b-periodo').addEventListener('click', apriPannelloPeriodo);
+  document.addEventListener('click', e => { const p = $('#pan-per'); if (p && !p.hidden && !e.target.closest('.periodo-wrap')) p.hidden = true; });
   $('#f-editore').addEventListener('change', e => {
     ED = (SESS.editori || []).find(x => x.codice_editore === e.target.value);
     try { localStorage.setItem('pde-editori-scelto', ED.codice_editore); } catch {}
