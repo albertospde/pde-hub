@@ -1422,6 +1422,22 @@ S.sconti = {
               <td style="width:36%"><div class="bar-in" style="height:10px"><i style="width:${Math.max(1, c.f / mx * 100)}%"></i></div></td><td class="r">${eurK(c.f)}</td>
               <td class="r"><span class="pill ${d > .005 ? 'sc-su' : d < -.005 ? 'sc-giu' : 'mut'}" title="${d > 0 ? '+' : ''}${fDec.format(d * 100)} punti sulla media">${pct(c.sconto)}</span></td></tr>`; }).join(''); })()}</tbody></table></div></div>
         <div>
+          ${(() => {
+            // sintesi: chi pesa, quanto costa lo sconto sopra la media, dove si concentra
+            const F = sum(cl.map(c => c.f)), li = [];
+            const top5 = cl.slice(0, 5), f5 = sum(top5.map(c => c.f)), lf5 = sum(top5.map(c => c.lf)), sc5 = lf5 ? 1 - sum(top5.map(c => c.nf)) / lf5 : 0;
+            li.push(`Lo sconto medio ponderato è <b>${pct(media)}</b> su ${num(cl.length)} clienti; la media semplice è ${pct(semplice)}: ${semplice > media ? 'i clienti piccoli hanno sconti più alti dei grandi' : 'i clienti grandi hanno sconti più alti dei piccoli'}.`);
+            if (F > 0) li.push(`I primi 5 clienti fanno il <b>${pct(f5 / F, 0)}</b> del venduto, con uno sconto medio del <b>${pct(sc5)}</b> (${sc5 >= media ? '+' : ''}${fDec.format((sc5 - media) * 100)} punti sulla media).`);
+            const gs = gruppi.filter(g => g.sc != null).sort((a, b) => b.sc - a.sc);
+            if (gs.length > 1) li.push(`Il canale con più sconto è <b>${esc(gs[0].n)}</b> (${pct(gs[0].sc)}), quello con meno è <b>${esc(gs[gs.length - 1].n)}</b> (${pct(gs[gs.length - 1].sc)}).`);
+            const sopraM = cl.filter(c => c.sconto != null && c.sconto > media);
+            const extra = sum(sopraM.map(c => (c.sconto - media) * c.lf));
+            if (extra > 0) li.push(`${num(sopraM.length)} clienti hanno uno sconto sopra la media: riportati alla media, varrebbero <b>${eurK(extra)}</b> di fatturato in più.`);
+            const fmax = [...fasce].sort((a, b) => b.f - a.f)[0];
+            if (fmax && F > 0) li.push(`Il venduto si concentra nella fascia <b>${esc(fmax.n)}</b>: ${pct(fmax.f / F, 0)} del totale, con ${num(fmax.cl)} clienti.`);
+            if (sopra.length) li.push(`Tra i clienti più grandi, <b>${num(sopra.length)}</b> stanno oltre 2 punti sopra la media: ${sopra.slice(0, 3).map(c => esc(c.nome)).join(', ')}${sopra.length > 3 ? '…' : ''}.`);
+            return `<div class="card insight" style="margin-bottom:16px"><h3>In sintesi</h3><ul>${li.map((x, i) => `<li data-i="${i + 1}">${x}</li>`).join('')}</ul></div>`;
+          })()}
           <div class="card" style="margin-bottom:16px"><h3>Sconto medio per canale</h3><p class="h-sub">Ponderato sul fornito</p>
             <div class="tw"><table class="tbl"><tbody>${gruppi.map(k => `<tr><td class="t-tit">${esc(k.n)}<div class="t-sub">${num(k.cl)} clienti · ${eurK(k.f)}</div></td><td style="width:40%"><div class="bar-in"><i style="width:${(k.sc || 0) / .6 * 100}%"></i></div></td><td class="r t-tit">${k.sc != null ? pct(k.sc) : '—'}</td></tr>`).join('')}</tbody></table></div></div>
           <div class="card"><h3>Venduto per fascia di sconto</h3><p class="h-sub">Quanto venduto passa da ogni fascia</p><div class="ch sm"><canvas id="c-fs"></canvas></div></div>
