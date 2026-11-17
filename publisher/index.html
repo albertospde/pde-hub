@@ -160,6 +160,12 @@
   .num{font-variant-numeric:tabular-nums}
 
   [hidden]{display:none !important}
+  .leg{list-style:none;margin:6px 0 0;padding:0;font-size:13.5px}
+  .leg li{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border)}
+  .leg li:last-child{border-bottom:none} .leg li.tot{font-weight:700}
+  .leg i{width:12px;height:12px;border-radius:4px} .leg b{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .leg span:not(.p){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .leg span.p{color:var(--text-dim);font-variant-numeric:tabular-nums;min-width:48px;text-align:right}
   .periodo-wrap{position:relative}
   .per-btn{font-weight:700;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pan-per{position:absolute;left:0;top:calc(100% + 8px);z-index:30;width:min(640px,92vw);box-shadow:0 18px 40px -12px rgba(20,45,90,.35)}
@@ -604,16 +610,36 @@ const tickEur = { callback: v => eurK(v) };
 const tickNum = { callback: v => numK(v) };
 const ttEur = { callbacks: { label: c => ` ${c.dataset.label || c.label}: ${eur(c.parsed.y ?? c.parsed)}` } };
 const ttNum = { callbacks: { label: c => ` ${c.dataset.label || c.label}: ${num(c.parsed.y ?? c.parsed)}` } };
+// Torta: mezza ciambella con il totale sotto l'arco e, sotto, la tabella con valori e percentuali (scelta dell'utente)
+Chart.register({
+  id: 'semi',
+  afterDraw(c, _a, o){
+    if (!o || o.testo == null) return;
+    const a = c.getDatasetMeta(0).data[0]; if (!a) return;
+    const { ctx } = c;
+    ctx.save(); ctx.textAlign = 'center';
+    ctx.fillStyle = css('--text'); ctx.font = "800 20px 'DM Sans'"; ctx.fillText(o.testo, a.x, a.y - 10);
+    ctx.fillStyle = css('--text-dim'); ctx.font = "600 11.5px 'DM Sans'"; ctx.fillText(o.sub || '', a.x, a.y + 6);
+    ctx.restore();
+  }
+});
 function torta(id, labels, valori, opz = {}){
-  const tot = sum(valori);
+  const el = document.getElementById(id); if (!el) return;
+  const tot = sum(valori), colori = opz.colori || SER().slice(0, valori.length);
+  const fmt = v => opz.eur ? eurK(v) : numK(v);
+  const box = el.parentElement; box.style.height = '160px';
+  let leg = box.nextElementSibling && box.nextElementSibling.classList.contains('leg') ? box.nextElementSibling : null;
+  if (!leg) { leg = document.createElement('ul'); leg.className = 'leg'; box.after(leg); }
+  leg.innerHTML = labels.map((l, i) => `<li><i style="background:${colori[i]}"></i><span>${esc(l)}</span><b>${fmt(valori[i])}</b><span class="p">${tot ? pct(valori[i] / tot) : '—'}</span></li>`).join('')
+    + (labels.length > 1 ? `<li class="tot"><i></i><b>Totale</b><b>${fmt(tot)}</b><span class="p">100%</span></li>` : '');
   return mk(id, {
     type: 'doughnut',
-    data: { labels, datasets: [{ data: valori, backgroundColor: opz.colori || SER().slice(0, valori.length), hoverOffset: 6 }] },
+    data: { labels, datasets: [{ data: valori, backgroundColor: colori, hoverOffset: 6 }] },
     options: {
-      cutout: '62%',
+      rotation: -90, circumference: 180, cutout: '58%', radius: '96%', layout: { padding: { top: 4, bottom: 18 } },
       plugins: {
-        legend: { position: opz.legenda || 'right' },
-        centro: { testo: opz.centro ?? (opz.eur ? eurK(tot) : numK(tot)), sub: opz.centroSub || 'totale' },
+        legend: { display: false },
+        semi: { testo: opz.centro ?? fmt(tot), sub: opz.centroSub || 'totale' },
         tooltip: { callbacks: { label: c => ` ${c.label}: ${opz.eur ? eur(c.parsed) : num(c.parsed)} (${pct(c.parsed / tot)})` } },
       },
     },
@@ -662,7 +688,8 @@ const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')
 const titleCase = s => String(s || '').toLowerCase().replace(/(^|[\s'’.(\/-])([a-zà-ù])/g, (_m, a, b) => a + b.toUpperCase());
 const pctS = v => (v > 0 ? '+' : '') + pct(v);
 const nomeGiro = g => `Giro ${g.numero} ${g.anno}`;
-const TIPI = { classico: 'Catalogo', novita: 'Novità', lancio: 'Lancio' };
+// Tipi di vendita, sempre in quest'ordine: lancio = Novità, rifornimento nell'anno di uscita = Rifornimento da novità, il resto = Rifornimento
+const TIPI = { lancio: 'Novità', novita: 'Rifornimento da novità', classico: 'Rifornimento' };
 const GRUPPI = { CATENE: 'Catene', ONLINE: 'Online', INDIE: 'Indipendenti', GROSSISTI: 'Grossisti', ALTRO: 'Altro' };
 const nomeGruppo = g => GRUPPI[(g || 'ALTRO').toUpperCase()] || titleCase(g);
 const SEDE = ['PP00002', 'PP00199'];   // amministratori PDE: i loro clienti sono direzionali
@@ -953,7 +980,7 @@ S.dashboard = {
       </div>
       <div class="grid g3">
         <div class="card"><h3>Venduto per ${gen.rilevati ? 'genere' : 'collana'}</h3><p class="h-sub">${PER.etichetta}${gen.rilevati ? ' · genere Messaggerie' : ''}</p><div class="ch sm"><canvas id="c-gen"></canvas></div></div>
-        <div class="card"><h3>Catalogo, novità e lanci</h3><p class="h-sub">${PER.etichetta}</p><div class="ch sm"><canvas id="c-tipi"></canvas></div></div>
+        <div class="card"><h3>Novità, rifornimenti da novità e rifornimenti</h3><p class="h-sub">${PER.etichetta}</p><div class="ch sm"><canvas id="c-tipi"></canvas></div></div>
         <div class="card"><h3>Giri aperti</h3><p class="h-sub">Prenotato sull'obiettivo</p>
           ${prossimi.length ? prossimi.map(g => `<div class="check"><span style="flex:1"><b>${esc(nomeGiro(g))}</b><br><span class="small muted">${g.inizio ? fData(g.inizio) + ' – ' + fData(g.fine) : ''}</span></span>${pillGiro(g.stato)}<b class="num" style="min-width:56px;text-align:right">${g.obiettivo ? pct(g.prenotato / g.obiettivo, 0) : num(g.prenotato)}</b></div>`).join('') : '<div class="empty">Nessun giro aperto</div>'}
           <p class="note"><a href="#giri">Vai ai giri vendita →</a></p></div>
@@ -980,7 +1007,7 @@ S.analisi = {
   html(){
     const V = VF(), L = TF(), Y = PER.Y;
     const cf = totP(V, false, v => v.cf), cr = totP(V, false, v => v.cr), cf1 = totP(V, true, v => v.cf), cr1 = totP(V, true, v => v.cr);
-    const tot = totP(V, false, fVen), nov = totP(V.filter(v => v.tipo === 'novita'), false, fVen);
+    const tot = totP(V, false, fVen), nov = totP(V.filter(v => v.tipo === 'lancio'), false, fVen);
     const ord = [...L].filter(t => t.cf || t.cr || t.cf1 || t.cr1).sort((a, b) => (b.lf - b.lr) - (a.lf - a.lr));
     this._d = { V, ord };
     return `
@@ -989,7 +1016,7 @@ S.analisi = {
         ${kpi('Fornito', numK(cf), `${delta(cf, cf1)} <span>copie</span>`, '--s1')}
         ${kpi('Reso', numK(cr), `${delta(cr, cr1, true)} <span>${pct(cf ? cr / cf : 0)} del fornito</span>`, '--s2')}
         ${kpi('Venduto', numK(cf - cr), `${delta(cf - cr, cf1 - cr1)} <span>copie</span>`, '--s3')}
-        ${kpi('Peso delle novità', pct(tot ? nov / tot : 0), '<span>sul venduto a copertina</span>', '--s7')}
+        ${kpi('Peso delle novità', pct(tot ? nov / tot : 0), '<span>lanci sul venduto a copertina</span>', '--s7')}
         ${kpi('Titoli movimentati', num(L.filter(t => t.cf > 0).length), '<span>con forniture nel periodo</span>', '--s4')}
       </div>
       <div class="grid g2">
@@ -998,7 +1025,7 @@ S.analisi = {
       </div>
       <div class="grid g2e">
         <div class="card"><h3>Andamento della resa</h3><p class="h-sub">Reso sul fornito per ${PER.granaNome}, a confronto con il ${Y - 1}</p><div class="ch sm"><canvas id="c-resa"></canvas></div></div>
-        <div class="card"><h3>Catalogo, novità e lanci</h3><p class="h-sub">Venduto per ${PER.granaNome}</p><div class="ch sm"><canvas id="c-tipom"></canvas></div></div>
+        <div class="card"><h3>Novità, rifornimenti da novità e rifornimenti</h3><p class="h-sub">Venduto per ${PER.granaNome}</p><div class="ch sm"><canvas id="c-tipom"></canvas></div></div>
       </div>
       <div class="card">
         <div class="card-head"><div><h3>Classifica titoli</h3><p class="h-sub">${num(ord.length)} titoli movimentati, ordinati per venduto · ${PER.etichetta}</p></div>
@@ -1031,7 +1058,7 @@ function righeTitoli(L, ordine){
   const pos = new Map(ordine.map((t, i) => [t.ean, i + 1]));
   return L.map(t => {
     const f = t.lf - t.lr, f1 = t.lf1 - t.lr1;
-    return `<tr><td class="muted">${pos.get(t.ean)}</td><td><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">EAN ${esc(t.ean)}${t.collana ? ' · ' + esc(t.collana) : ''}${t.novita ? ' · <span class="pill info">Novità</span>' : ''}</div></td>
+    return `<tr><td class="muted">${pos.get(t.ean)}</td><td><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">EAN ${esc(t.ean)}${t.collana ? ' · ' + esc(t.collana) : ''}${t.novita ? ' · <span class="pill info">Rifornimento da novità</span>' : ''}</div></td>
       <td class="small">${esc(genereDi(t.ean) || '—')}</td><td class="small">${t.uscita ? fData(pd(t.uscita)) : '—'}</td><td class="r">${num(t.cf - t.cr)}</td><td class="r">${eur(f)}</td>
       <td class="r">${f1 > 0 ? delta(f, f1) : '<span class="pill mut">nuovo</span>'}</td><td class="r">${t.cf ? pct(t.cr / t.cf) : '—'}</td></tr>`;
   }).join('');
