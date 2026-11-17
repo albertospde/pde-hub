@@ -2211,7 +2211,8 @@ async function avvio(){
   });
   $('#b-esci').addEventListener('click', esci);
   $('#b-periodo').addEventListener('click', apriPannelloPeriodo);
-  document.addEventListener('click', e => { const p = $('#pan-per'); if (p && !p.hidden && !e.target.closest('.periodo-wrap')) p.hidden = true; });
+  // chiude il pannello solo per un clic davvero fuori: il pannello si ridisegna a ogni scelta, e il pulsante cliccato non è più nella pagina
+  document.addEventListener('click', e => { const p = $('#pan-per'); if (p && !p.hidden && e.target.isConnected && !e.target.closest('.periodo-wrap')) p.hidden = true; });
   $('#f-editore').addEventListener('change', e => {
     ED = (SESS.editori || []).find(x => x.codice_editore === e.target.value);
     try { localStorage.setItem('pde-editori-scelto', ED.codice_editore); } catch {}
