@@ -1808,7 +1808,8 @@ const progMeli = () => AGG_MELI ? `<div class="bar-in" style="height:10px"><i st
 function boxAggiornaMeli(){
   const agg = R.meli.aggiornato_il ? new Date(R.meli.aggiornato_il) : null;
   return `<div class="card" style="margin-bottom:16px"><div class="card-head" style="margin:0"><div><h3>Dati Messaggerie da BookUp</h3>
-    <p class="h-sub" style="margin:0">${agg ? `Ultimo aggiornamento ${agg.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : 'Nessun aggiornamento ancora fatto'} · disponibilità dei magazzini 11 e 21, stati e genere come in BookUp, Consultazione titoli.</p></div>
+    <p class="h-sub" style="margin:0">${agg ? `Ultimo aggiornamento ${agg.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : 'Nessun aggiornamento ancora fatto'} · disponibilità dei magazzini 11 e 21, stati e genere come in BookUp, Consultazione titoli.
+    <br><span class="pill info">Automatico</span> si aggiorna da solo tre volte al giorno, alle 7, alle 12 e alle 17.</p></div>
     <div class="dx">${ADMIN() ? `<button class="btn pri" id="b-meli" ${AGG_MELI ? 'disabled' : ''}>${AGG_MELI ? 'Aggiornamento in corso…' : 'Aggiorna da Messaggerie'}</button>` : ''}</div></div>
     <div id="meli-prog" style="margin-top:10px">${progMeli()}</div></div>`;
 }
