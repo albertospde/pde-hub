@@ -36,20 +36,21 @@
     --prev:#5d6a93; --shadow:none; color-scheme:dark;
   }
   *{box-sizing:border-box}
-  html{font-size:16px}
+  /* spazio della barra di scorrimento sempre riservato: cambiando sezione la pagina non si allarga e non si stringe */
+  html{font-size:16px;scrollbar-gutter:stable}
   body{margin:0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
   button,input,select,textarea{font:inherit;color:inherit}
   .app{display:grid;grid-template-columns:272px minmax(0,1fr);min-height:100vh}
 
   /* ---------- menu laterale (stile BookUp) ---------- */
-  .side{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--card);border-right:1px solid var(--border);padding:18px 12px 24px}
+  .side{position:sticky;top:0;height:100vh;overflow-y:auto;scrollbar-gutter:stable;width:272px;min-width:0;background:var(--card);border-right:1px solid var(--border);padding:18px 12px 24px}
   .brand{padding:4px 8px 14px;border-bottom:1px solid var(--border);margin-bottom:6px}
   /* Logo BookUp Publisher Edition: logo BookUp con la dicitura larga quanto tutto il logo (dall'ala alla "p"), lettere distribuite */
   .bu-logo{container-type:inline-size;width:100%;background:#fff;border-radius:12px}
   .bu-logo img{display:block;width:100%;height:auto}
   .bu-ed{display:flex;justify-content:space-between;margin:-.6cqw 1.6% 0 1.1%;padding-bottom:2.5cqw;font-family:Montserrat,'Segoe UI',sans-serif;font-size:5.6cqw;font-weight:700;line-height:1}
   .bu-ed b{font-weight:700;color:#13297a} .bu-ed i{font-style:normal;font-weight:700;color:#1a8ff0} .bu-ed s{width:3cqw;text-decoration:none}
-  .brand .bu-logo{max-width:236px}
+  .brand .bu-logo{width:220px;max-width:220px}   /* misura fissa, non dipende dalla barra di scorrimento */
   .editore-box{margin:12px 6px 4px;padding:10px 12px;border-radius:14px;background:linear-gradient(140deg,#e3f3fb,#eef1ff);border:1px solid var(--border)}
   :root[data-theme="dark"] .editore-box{background:var(--card-2)}
   @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .editore-box{background:var(--card-2)}}
@@ -57,7 +58,8 @@
   .editore-box .nome{font-family:'Bree Serif',serif;font-size:18px;margin-top:2px}
   .editore-box .marchi{font-size:12px;color:var(--text-dim);margin-top:2px}
   .nav-g{display:block;margin:16px 10px 6px;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-dim)}
-  .nav a{display:flex;align-items:center;gap:10px;padding:5px 10px 5px 5px;margin:1px 0;border-radius:12px;color:var(--text);text-decoration:none;font-size:14.5px;font-weight:600;line-height:1.2}
+  .nav a{display:flex;align-items:center;gap:10px;padding:5px 10px 5px 5px;margin:1px 0;border-radius:12px;color:var(--text);text-decoration:none;font-size:14.5px;font-weight:600;line-height:1.2;min-height:42px;white-space:nowrap}
+  .nav a > span:not(.ic):not(.tag-demo){overflow:hidden;text-overflow:ellipsis}
   .nav a .ic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex-shrink:0;background:linear-gradient(140deg,var(--a1),var(--a2));color:#fff}
   .nav a .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   .nav a:hover{background:var(--card-2)}
@@ -207,7 +209,7 @@
   .login-logo .bu-logo{max-width:300px}
   @media (max-width:900px){
     .app{grid-template-columns:minmax(0,1fr)}
-    .side{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border);padding:12px 16px}
+    .side{position:static;height:auto;width:auto;border-right:none;border-bottom:1px solid var(--border);padding:12px 16px}
     .brand{border-bottom:none;padding-bottom:4px}
     .editore-box{margin:6px 0}
     .nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}
