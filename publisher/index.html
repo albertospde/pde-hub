@@ -160,6 +160,13 @@
   .num{font-variant-numeric:tabular-nums}
 
   [hidden]{display:none !important}
+  .sc-su{background:#fff1e9;color:#b4461b} .sc-giu{background:var(--info-bg);color:var(--info)}
+  .sc-tab td{padding:6px 8px} .sc-nm{max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cop{width:34px;height:48px;object-fit:cover;border-radius:4px;background:var(--card-2);cursor:zoom-in;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+  .cop.gr{width:46px;height:66px}
+  .con-cop{display:flex;gap:10px;align-items:center}
+  .lightbox{position:fixed;inset:0;z-index:100;background:rgba(10,18,40,.75);display:grid;place-items:center;cursor:zoom-out}
+  .lightbox img{max-width:90vw;max-height:88vh;border-radius:8px;box-shadow:0 20px 50px rgba(0,0,0,.5);background:#fff}
   .leg{list-style:none;margin:6px 0 0;padding:0;font-size:13.5px}
   .leg li{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border)}
   .leg li:last-child{border-bottom:none} .leg li.tot{font-weight:700}
@@ -688,6 +695,17 @@ const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')
 const titleCase = s => String(s || '').toLowerCase().replace(/(^|[\s'’.(\/-])([a-zà-ù])/g, (_m, a, b) => a + b.toUpperCase());
 const pctS = v => (v > 0 ? '+' : '') + pct(v);
 const nomeGiro = g => `Giro ${g.numero} ${g.anno}`;
+// Copertine come in BookUp: laFeltrinelli per EAN, IBS se manca, nascosta se non c'è; clic = ingrandimento
+const copUrl = (ean, grande) => `https://www.lafeltrinelli.it/images/${encodeURIComponent(ean)}_0_0_${grande ? 600 : 200}_0_75.jpg`;
+const copRiserva = ean => `https://img.ibs.it/img/${encodeURIComponent(ean)}M.jpg`;
+const cop = (ean, cls = '') => /^\d{10,13}$/.test(String(ean || '')) ? `<img class="cop ${cls}" loading="lazy" src="${copUrl(ean)}" data-cop="${esc(ean)}" alt="" onerror="this.onerror=function(){this.style.visibility='hidden'};this.src='${copRiserva(ean)}'">` : '';
+function apriCopertina(ean){
+  const box = document.createElement('div'); box.className = 'lightbox'; box.title = 'Chiudi';
+  box.innerHTML = `<img src="${copUrl(ean, true)}" alt="" onerror="this.onerror=null;this.src='${copRiserva(ean)}'">`;
+  box.addEventListener('click', () => box.remove());
+  document.addEventListener('keydown', function k(e){ if (e.key === 'Escape') { box.remove(); document.removeEventListener('keydown', k); } });
+  document.body.appendChild(box);
+}
 // Tipi di vendita, sempre in quest'ordine: lancio = Novità, rifornimento nell'anno di uscita = Rifornimento da novità, il resto = Rifornimento
 const TIPI = { lancio: 'Novità', novita: 'Rifornimento da novità', classico: 'Rifornimento' };
 const GRUPPI = { CATENE: 'Catene', ONLINE: 'Online', INDIE: 'Indipendenti', GROSSISTI: 'Grossisti', ALTRO: 'Altro' };
@@ -1058,7 +1076,7 @@ function righeTitoli(L, ordine){
   const pos = new Map(ordine.map((t, i) => [t.ean, i + 1]));
   return L.map(t => {
     const f = t.lf - t.lr, f1 = t.lf1 - t.lr1;
-    return `<tr><td class="muted">${pos.get(t.ean)}</td><td><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">EAN ${esc(t.ean)}${t.collana ? ' · ' + esc(t.collana) : ''}${t.novita ? ' · <span class="pill info">Rifornimento da novità</span>' : ''}</div></td>
+    return `<tr><td class="muted">${pos.get(t.ean)}</td><td><div class="con-cop">${cop(t.ean)}<div><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">EAN ${esc(t.ean)}${t.collana ? ' · ' + esc(t.collana) : ''}${t.novita ? ' · <span class="pill info">Rifornimento da novità</span>' : ''}</div></div></div></td>
       <td class="small">${esc(genereDi(t.ean) || '—')}</td><td class="small">${t.uscita ? fData(pd(t.uscita)) : '—'}</td><td class="r">${num(t.cf - t.cr)}</td><td class="r">${eur(f)}</td>
       <td class="r">${f1 > 0 ? delta(f, f1) : '<span class="pill mut">nuovo</span>'}</td><td class="r">${t.cf ? pct(t.cr / t.cf) : '—'}</td></tr>`;
   }).join('');
@@ -1162,7 +1180,7 @@ S.gfk = {
     torta('c-gg', g.map(x => x[0]), g.map(x => x[1]), { centroSub: 'copie', legenda: 'bottom' });
     const draw = () => {
       const L = (STATO.gfkTipo === 'WEEK' ? W : T).sort((a, b) => a.rank_pos - b.rank_pos);
-      $('#tb-g').innerHTML = L.map(r => `<tr><td class="r t-tit">${r.rank_pos}º</td><td><div class="t-tit">${esc(titleCase(r.title))}</div><div class="t-sub">${esc(titleCase(r.author || ''))} · EAN ${esc(r.ean || '')}</div></td>
+      $('#tb-g').innerHTML = L.map(r => `<tr><td class="r t-tit">${r.rank_pos}º</td><td><div class="con-cop">${cop(r.ean)}<div><div class="t-tit">${esc(titleCase(r.title))}</div><div class="t-sub">${esc(titleCase(r.author || ''))} · EAN ${esc(r.ean || '')}</div></div></div></td>
         <td class="small">${esc(titleCase(r.genre || ''))}</td><td class="r">${r.cover_price ? eur(+r.cover_price).replace(',00', '') : '—'}</td><td class="r">${num(+r.units)}</td><td class="r">${eur(+r.value)}</td></tr>`).join('') || '<tr><td colspan="6" class="empty">Nessun titolo in classifica</td></tr>';
     };
     draw();
@@ -1215,7 +1233,7 @@ S.giri = {
       <div class="grid g2">
         <div class="card"><h3>Titoli · ${esc(nomeSel)}</h3><p class="h-sub">Ordinati per prenotato</p>
           <div class="tw scroll"><table class="tbl"><thead><tr><th>Titolo</th>${sel.length > 1 ? '<th>Giro</th>' : ''}<th>Uscita</th><th class="r">Prezzo</th><th class="r">Obiettivo</th><th class="r">Prenotato</th><th class="r">Raggiunto</th></tr></thead>
-          <tbody>${tit.map(t => `<tr><td><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">${esc(titleCase(t.autore || ''))} · EAN ${esc(t.ean)}</div></td>${sel.length > 1 ? `<td class="small">${esc(t.giro)}</td>` : ''}
+          <tbody>${tit.map(t => `<tr><td><div class="con-cop">${cop(t.ean)}<div><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">${esc(titleCase(t.autore || ''))} · EAN ${esc(t.ean)}</div></div></div></td>${sel.length > 1 ? `<td class="small">${esc(t.giro)}</td>` : ''}
             <td class="small">${esc(titleCase(t.uscita || ''))}</td><td class="r">${t.prezzo ? eur(+t.prezzo).replace(',00', '') : '—'}</td><td class="r">${num(+t.obiettivo)}</td><td class="r t-tit">${num(+t.prenotato)}</td>
             <td class="r">${+t.obiettivo ? pillPerc(t.prenotato / t.obiettivo) : '—'}</td></tr>`).join('')}</tbody></table></div></div>
         <div class="card"><h3>Prenotato per canale</h3><p class="h-sub">Copie · ${esc(nomeSel)}</p>${P ? '<div class="ch"><canvas id="c-gc"></canvas></div>' : '<div class="empty">Nessuna prenotazione</div>'}</div>
@@ -1279,7 +1297,7 @@ S.finegiri = {
           <td class="r">${g.obiettivo ? pillPerc(g.prenotato / g.obiettivo) : '—'}</td><td class="r">${num(g.cf)}</td><td class="r">${num(g.cr)}</td><td class="r t-tit">${num(g.cf - g.cr)}</td><td class="r">${g.cf ? pct(g.cr / g.cf) : '—'}</td></tr>`).join('')}</tbody></table></div></div>
       <div class="card"><h3>Titoli dei giri chiusi</h3><p class="h-sub">Ordinati per copie vendute</p>
         <div class="tw scroll"><table class="tbl"><thead><tr><th>Titolo</th><th>Giro</th><th class="r">Obiettivo</th><th class="r">Prenotato</th><th class="r">Fornito</th><th class="r">Venduto</th><th class="r">Resa</th></tr></thead>
-        <tbody>${tit.map(t => `<tr><td><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">${esc(titleCase(t.autore || ''))}</div></td><td class="small">${esc(t.giro)}</td><td class="r">${num(+t.obiettivo)}</td><td class="r">${num(+t.prenotato)}</td>
+        <tbody>${tit.map(t => `<tr><td><div class="con-cop">${cop(t.ean)}<div><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">${esc(titleCase(t.autore || ''))}</div></div></div></td><td class="small">${esc(t.giro)}</td><td class="r">${num(+t.obiettivo)}</td><td class="r">${num(+t.prenotato)}</td>
           <td class="r">${num(+t.cf)}</td><td class="r t-tit">${num(t.cf - t.cr)}</td><td class="r">${+t.cf ? pct(t.cr / t.cf) : '—'}</td></tr>`).join('')}</tbody></table></div></div>`;
   },
   init(){
@@ -1377,8 +1395,11 @@ S.sconti = {
         ${kpi('Grandi clienti sopra la media', num(sopra.length), '<span>tra i primi 10% per venduto, oltre 2 punti</span>', '--s8')}
       </div>
       <div class="grid g2">
-        <div class="card"><h3>Mappa sconto e venduto</h3><p class="h-sub">Ogni punto è un cliente: più a destra vende di più, più in alto ha più sconto. La linea tratteggiata è la media ponderata.</p><div class="ch lg"><canvas id="c-sc"></canvas></div>
-          <p class="note">In alto a destra ci sono i clienti grandi con sconto sopra la media: sono quelli che pesano di più sul margine.</p></div>
+        <div class="card"><h3>I clienti più importanti e il loro sconto</h3><p class="h-sub">La barra è quanto vendono; a destra lo sconto: <span class="pill sc-su">sopra la media</span> <span class="pill sc-giu">sotto la media</span> (media ${pct(media)})</p>
+          <div class="tw"><table class="tbl sc-tab"><tbody>${(() => { const top = cl.slice(0, 20), mx = Math.max(1, top[0]?.f || 1);
+            return top.map(c => { const d = c.sconto - media; return `<tr><td><div class="t-tit sc-nm">${esc(c.nome)}</div><div class="t-sub">${esc(c.citta || '')}${c.provincia ? ' (' + esc(c.provincia) + ')' : ''}</div></td>
+              <td style="width:36%"><div class="bar-in" style="height:10px"><i style="width:${Math.max(1, c.f / mx * 100)}%"></i></div></td><td class="r">${eurK(c.f)}</td>
+              <td class="r"><span class="pill ${d > .005 ? 'sc-su' : d < -.005 ? 'sc-giu' : 'mut'}" title="${d > 0 ? '+' : ''}${fDec.format(d * 100)} punti sulla media">${pct(c.sconto)}</span></td></tr>`; }).join(''); })()}</tbody></table></div></div>
         <div>
           <div class="card" style="margin-bottom:16px"><h3>Sconto medio per canale</h3><p class="h-sub">Ponderato sul fornito</p>
             <div class="tw"><table class="tbl"><tbody>${gruppi.map(k => `<tr><td class="t-tit">${esc(k.n)}<div class="t-sub">${num(k.cl)} clienti · ${eurK(k.f)}</div></td><td style="width:40%"><div class="bar-in"><i style="width:${(k.sc || 0) / .6 * 100}%"></i></div></td><td class="r t-tit">${k.sc != null ? pct(k.sc) : '—'}</td></tr>`).join('')}</tbody></table></div></div>
@@ -1393,15 +1414,6 @@ S.sconti = {
     agganciaPerCli();
     if (!this._d) return;
     const { signif, media, gruppi, fasce } = this._d, s = SER();
-    const ds = gruppi.map((g, i) => ({
-      label: g.n, backgroundColor: s[i] + 'cc', borderColor: css('--card'), borderWidth: 1, pointRadius: 4.5, pointHoverRadius: 7,
-      data: signif.filter(c => (c.canale_gruppo || 'ALTRO').toUpperCase() === g.k && c.f > 0).map(c => ({ x: c.f, y: +(c.sconto * 100).toFixed(1), c })),
-    }));
-    mk('c-sc', { type: 'scatter', data: { datasets: ds },
-      options: { scales: { x: { type: 'logarithmic', title: { display: true, text: 'venduto a prezzo di copertina (scala logaritmica)' }, ticks: { callback: v => [100, 1000, 10000, 100000, 1000000].includes(v) ? eurK(v) : '' } },
-                           y: { title: { display: true, text: 'sconto' }, ticks: { callback: v => v + '%' } } },
-        plugins: { legend: { position: 'top', align: 'end' }, lineaY: { valore: media * 100, etichetta: 'media ' + pct(media) },
-          tooltip: { callbacks: { title: i => i[0].raw.c.nome, label: c => ` ${c.raw.c.citta || ''} · venduto ${eur(c.raw.x)} · sconto ${fDec.format(c.raw.y)}%` } } } } });
     mk('c-fs', { type: 'bar', data: { labels: fasce.map(f => f.n), datasets: [barre('Venduto', fasce.map(f => f.f), s[0])] },
       options: { scales: { y: { ticks: tickEur }, x: { grid: { display: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${eur(c.parsed.y)} · ${num(fasce[c.dataIndex].cl)} clienti` } } } } });
     const cl = this._D.clienti.filter(c => c.lf > 0).sort((a, b) => b.f - a.f);
@@ -1744,7 +1756,7 @@ S.stock = {
       $('#tb-st').innerHTML = rows.map(m => {
         const c = m._cop, t = R.titoliMap.get(m.ean);
         const cp = m.disponibilita <= 0 ? '<span class="pill ko">esaurito</span>' : c === Infinity ? '<span class="pill mut">nessuna vendita</span>' : `<span class="pill ${c < 4 ? 'warn' : c > 26 ? 'info' : 'ok'}">${fDec.format(c)} sett.</span>`;
-        return `<tr><td><div class="t-tit">${esc(titleCase(m.titolo || (t || {}).titolo || ''))}</div><div class="t-sub">${esc(titleCase(m.autore || ''))} · EAN ${esc(m.ean)}${m.risposta_editore ? ' · ' + esc(m.risposta_editore) : ''}</div></td>
+        return `<tr><td><div class="con-cop">${cop(m.ean)}<div><div class="t-tit">${esc(titleCase(m.titolo || (t || {}).titolo || ''))}</div><div class="t-sub">${esc(titleCase(m.autore || ''))} · EAN ${esc(m.ean)}${m.risposta_editore ? ' · ' + esc(m.risposta_editore) : ''}</div></div></div></td>
           <td class="small">${esc(titleCase(m.genere || ''))}</td><td><span class="pill ${attivo11(m) ? 'ok' : 'mut'}" title="${esc((m.stato_articolo || '') + ' / ' + (m.stato_vendita || ''))}">${statoMeli(m)}</span><div class="t-sub">${esc(titleCase(m.stato_articolo || ''))}</div></td>
           <td class="r">${m.m11 ?? '—'}</td><td class="r">${m.m21 ?? '—'}</td><td class="r t-tit">${num(m.disponibilita ?? 0)}</td><td class="r">${t ? num(t.v_ult) : '—'}</td><td class="r">${cp}</td></tr>`;
       }).join('') || '<tr><td colspan="8" class="empty">Nessun titolo</td></tr>';
@@ -1787,8 +1799,8 @@ S.alert = {
         <div class="card"><h3>Titoli da riassortire</h3><p class="h-sub">Dal più vecchio al più recente</p>
           <div class="list-ev">${A.slice(0, 80).map(x => { const [k, l, p] = sev(x.gg); return `<div class="alert-card">
             <div class="gg sev-${k}"><b>${x.almeno ? '≥' : ''}${x.gg}</b><span>giorni</span></div>
-            <div><div class="t-tit">${esc(titleCase(x.titolo || (x.t || {}).titolo || ''))}</div><div class="t-sub">${esc(titleCase(x.autore || ''))} · EAN ${esc(x.ean)}${x.genere ? ' · ' + esc(titleCase(x.genere)) : ''}</div>
-              <div class="t-sub">${x.zero_dal ? 'A zero dal ' + fData(pd(x.zero_dal)) : ''}${x.ultima_fornitura ? ' · ultima fornitura Messaggerie il ' + fData(pd(x.ultima_fornitura)) : ''} · ${x.ritmo ? `${num(x.ritmo)} copie vendute negli ultimi 30 giorni` : 'nessuna vendita negli ultimi 30 giorni'}${x.risposta_editore ? ' · ' + esc(x.risposta_editore) : ''}</div></div>
+            <div class="con-cop">${cop(x.ean, 'gr')}<div><div class="t-tit">${esc(titleCase(x.titolo || (x.t || {}).titolo || ''))}</div><div class="t-sub">${esc(titleCase(x.autore || ''))} · EAN ${esc(x.ean)}${x.genere ? ' · ' + esc(titleCase(x.genere)) : ''}</div>
+              <div class="t-sub">${x.zero_dal ? 'A zero dal ' + fData(pd(x.zero_dal)) : ''}${x.ultima_fornitura ? ' · ultima fornitura Messaggerie il ' + fData(pd(x.ultima_fornitura)) : ''} · ${x.ritmo ? `${num(x.ritmo)} copie vendute negli ultimi 30 giorni` : 'nessuna vendita negli ultimi 30 giorni'}${x.risposta_editore ? ' · ' + esc(x.risposta_editore) : ''}</div></div></div>
             <span class="pill ${p}">${l}</span></div>`; }).join('')}</div>
           ${A.length > 80 ? `<p class="note">Sono mostrati i primi 80 di ${num(A.length)}.</p>` : ''}</div>
         <div class="card"><h3>Giorni a giacenza zero</h3><p class="h-sub">I 20 titoli da più tempo a zero</p><div class="ch" style="height:${Math.min(20, A.length) * 24 + 70}px"><canvas id="c-al"></canvas></div>
@@ -1894,7 +1906,7 @@ S.anagrafiche = {
           ${tipo === 'sel' ? `<select data-k="${k}" data-t="${k === 'genre' ? 'genere' : 'collana'}"><option>Caricamento…</option></select>` : `<input type="${tipo === 'date' ? 'date' : 'text'}" data-k="${k}" value="${esc(m.card[k] ?? '')}"${k === 'shortTitle' ? ' maxlength="30"' : ''}>`}</label>`).join('')}</div>
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center"><button class="btn pri" id="at-salva" type="button">Salva le modifiche su Messaggerie</button><button class="btn" id="at-annulla" type="button">Annulla</button><span class="small" id="at-m-msg"></span></div></div>` : ''}
       <div class="card"><div class="tw scroll"><table class="tbl"><thead><tr><th>EAN</th><th>Titolo</th><th>Autore</th><th>Collana</th><th>Genere</th><th class="r">Prezzo</th><th>Pubblicazione</th><th>Stato</th><th>Utenza</th><th></th></tr></thead>
-        <tbody>${AT.titoli.map((t, i) => `<tr><td class="small num">${esc(t.ean)}</td><td class="t-tit">${esc(titleCase(t.title || ''))}</td><td class="small">${esc(titleCase(t.author || ''))}</td>
+        <tbody>${AT.titoli.map((t, i) => `<tr><td class="small num">${esc(t.ean)}</td><td><div class="con-cop">${cop(t.ean)}<span class="t-tit">${esc(titleCase(t.title || ''))}</span></div></td><td class="small">${esc(titleCase(t.author || ''))}</td>
           <td class="small">${esc(t.editorialSeries?.code || '')}</td><td class="small">${esc(t.genre || '')}</td><td class="r">${t.price != null ? fDec2(t.price) : ''}</td>
           <td class="small">${t.publicationDate ? fData(pd(t.publicationDate)) : ''}</td><td><span class="pill ${t.articleStatus?.code === '1' && t.articleSaleStatus?.code === '1' ? 'ok' : 'mut'}">${esc(t.articleStatus?.code || '?')}-${esc(t.articleSaleStatus?.code || '?')}</span></td>
           <td><span class="pill ${t.account === 'pde_service' ? 'info' : 'mut'}">${atUtenza(t.account)}</span></td><td><button class="btn" data-at="${i}">Modifica</button></td></tr>`).join('') || '<tr><td colspan="10" class="empty">Nessun titolo trovato</td></tr>'}</tbody></table></div>
@@ -2238,6 +2250,7 @@ async function avvio(){
   });
   $('#b-esci').addEventListener('click', esci);
   $('#b-periodo').addEventListener('click', apriPannelloPeriodo);
+  document.addEventListener('click', e => { const i = e.target.closest('[data-cop]'); if (i) { e.stopPropagation(); apriCopertina(i.dataset.cop); } }, true);
   // chiude il pannello solo per un clic davvero fuori: il pannello si ridisegna a ogni scelta, e il pulsante cliccato non è più nella pagina
   document.addEventListener('click', e => { const p = $('#pan-per'); if (p && !p.hidden && e.target.isConnected && !e.target.closest('.periodo-wrap')) p.hidden = true; });
   $('#f-editore').addEventListener('change', e => {
