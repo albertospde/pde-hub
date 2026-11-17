@@ -836,6 +836,8 @@ async function rpc(nome, args){
 }
 async function caricaEditore(codice){
   const p = { p_editore: codice };
+  // il riepilogo vendite dell'editore si aggiorna con gli ultimi giorni importati da Messaggerie (veloce se è già aggiornato)
+  try { await rpc('ed_vendite_aggiorna', p); } catch (e) { console.warn('Riepilogo vendite non aggiornato:', e.message); }
   const [vendite, titoli, giri, gfk, materiali, mesiCli, meli, inv, fatt, mensili] = await Promise.all([
     rpc('ed_vendite_periodo', { ...p, p_dal: PER.dal, p_al: PER.al, p_grana: PER.grana }),
     rpc('ed_titoli_periodo', { ...p, p_dal: PER.dal, p_al: PER.al }),
