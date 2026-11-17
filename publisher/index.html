@@ -1270,41 +1270,62 @@ S.giri = {
   },
 };
 
-/* ---------- Fine giri ---------- */
+/* ---------- Fine giro: il giro in lavorazione (o, a giro chiuso, l'ultimo lavorato) con avanzamento e consuntivo ---------- */
+const giroInLavorazione = () => R.giri.find(g => g.stato === 'in corso') || R.giri.find(g => g.stato === 'chiuso') || null;
 S.finegiri = {
-  titolo: 'Fine giri', sub: () => 'Il consuntivo dei giri chiusi: obiettivo, prenotato, fornito, reso e venduto',
+  titolo: 'Fine giro', sub: () => { const g = giroInLavorazione(); return g ? `${nomeGiro(g)} · ${g.stato === 'in corso' ? 'in lavorazione' : 'ultimo giro lavorato, chiuso il ' + fData(g.fine)}` : 'Nessun giro in lavorazione'; },
+  async prepara(){ const g = giroInLavorazione(); this._g = g; this._D = g ? await dettaglioGiri([g.chiave]) : null; },
   html(){
-    const C = R.giri.filter(g => g.stato === 'chiuso');
-    if (!C.length) return vuoto('Nessun giro chiuso con titoli dell\'editore.');
-    const O = sum(C.map(g => g.obiettivo)), P = sum(C.map(g => g.prenotato)), F = sum(C.map(g => g.cf)), Rs = sum(C.map(g => g.cr));
-    const tit = C.flatMap(g => g.titoli.map(t => ({ ...t, giro: nomeGiro(g) }))).sort((a, b) => (b.cf - b.cr) - (a.cf - a.cr));
-    this._C = C;
+    const g = this._g, D = this._D;
+    if (!g) return vuoto('Non c\'è un giro in lavorazione né un giro chiuso con titoli dell\'editore. <a href="#giri">Vedi tutti i giri</a>');
+    const inCorso = g.stato === 'in corso';
+    const tot = g.inizio && g.fine ? diffGg(g.fine, g.inizio) + 1 : null;
+    const fatti = tot ? Math.min(tot, Math.max(1, diffGg(OGGI, g.inizio) + 1)) : null;
+    const ritmo = fatti ? g.prenotato / fatti : null;
+    const stima = inCorso && ritmo ? Math.round(ritmo * tot) : null;
+    const P = g.prenotato, O = g.obiettivo;
+    const tit = g.titoli.map(t => ({ ...t, perc: +t.obiettivo ? t.prenotato / t.obiettivo : null })).sort((a, b) => (+b.obiettivo) - (+a.obiettivo) || b.prenotato - a.prenotato);
+    const indietro = tit.filter(t => t.perc != null && t.perc < .9).length;
+    const dir = (D.per_agente || []).find(a => a.agente === 'DIREZIONALE');
+    this._d = { g, D };
     return `
-      <p class="lead">Fornito, reso e venduto sono i dati Messaggerie dei titoli del giro, dall'uscita a oggi: comprendono anche i riassortimenti dopo la prima fornitura.</p>
+      <p class="lead">${inCorso ? `Il giro su cui si sta lavorando: quanto è stato prenotato finora, a che ritmo e dove si arriva a fine giro se il ritmo resta questo.`
+        : `Il giro è chiuso: qui resta l'ultimo giro lavorato, con il consuntivo Messaggerie, finché non parte il prossimo.`} <a href="#giri">Tutti i giri →</a></p>
       <div class="grid g-kpi">
-        ${kpi('Giri chiusi', C.length, `<span>${num(sum(C.map(g => g.titoli.length)))} titoli</span>`, '--s7')}
-        ${kpi('Obiettivo raggiunto', O ? pct(P / O, 0) : '—', `<span>${numK(P)} prenotate su ${numK(O)}</span>`, '--s1')}
-        ${kpi('Fornito', numK(F), `<span>${P ? pct(F / P, 0) + ' del prenotato' : 'copie'}</span>`, '--s3')}
-        ${kpi('Venduto', numK(F - Rs), `<span>copie, resa ${F ? pct(Rs / F) : '—'}</span>`, '--s4')}
+        ${kpi('Prenotato', num(P), `<span>copie${O ? ' su obiettivo ' + num(O) : ''}</span>`, '--s1')}
+        ${kpi('Obiettivo raggiunto', O ? pct(P / O, 0) : '—', `<span>${indietro ? num(indietro) + ' titoli sotto il 90%' : 'tutti i titoli almeno al 90%'}</span>`, '--s3')}
+        ${inCorso ? kpi('Giorni', `${fatti} di ${tot}`, `<span>${fData(g.inizio)} – ${fData(g.fine)} · mancano ${tot - fatti}</span>`, '--s7')
+          : kpi('Giro chiuso', fData(g.fine), `<span>dal ${fData(g.inizio)} · ${tot || '—'} giorni</span>`, '--s7')}
+        ${kpi('Ritmo', ritmo ? num(Math.round(ritmo)) : '—', '<span>copie prenotate al giorno</span>', '--s4')}
+        ${inCorso ? kpi('Stima a fine giro', stima ? num(stima) : '—', stima && O ? `${pillPerc(stima / O)} <span>dell'obiettivo, a questo ritmo</span>` : '<span>a questo ritmo</span>', '--s2')
+          : kpi('Venduto a oggi', num(g.cf - g.cr), `<span>fornito ${num(g.cf)} · resa ${g.cf ? pct(g.cr / g.cf) : '—'}</span>`, '--s2')}
+        ${kpi('Punti vendita', num(D.clienti || 0), '<span>che hanno prenotato</span>', '--s8')}
       </div>
-      <div class="grid g2e">
-        <div class="card"><h3>Obiettivo e prenotato</h3><p class="h-sub">Copie per giro</p><div class="ch"><canvas id="c-fg"></canvas></div></div>
-        <div class="card"><h3>Prenotato, fornito e venduto</h3><p class="h-sub">Copie per giro</p><div class="ch"><canvas id="c-fv"></canvas></div></div>
-      </div>
-      <div class="card" style="margin-bottom:16px"><h3>Consuntivo per giro</h3><p class="h-sub">Dati a oggi</p>
-        <div class="tw"><table class="tbl"><thead><tr><th>Giro</th><th>Periodo</th><th class="r">Titoli</th><th class="r">Obiettivo</th><th class="r">Prenotato</th><th class="r">Raggiunto</th><th class="r">Fornito</th><th class="r">Reso</th><th class="r">Venduto</th><th class="r">Resa</th></tr></thead>
-        <tbody>${C.map(g => `<tr><td class="t-tit">${esc(nomeGiro(g))}</td><td class="small">${fData(g.inizio)} – ${fData(g.fine)}</td><td class="r">${g.titoli.length}</td><td class="r">${num(g.obiettivo)}</td><td class="r">${num(g.prenotato)}</td>
-          <td class="r">${g.obiettivo ? pillPerc(g.prenotato / g.obiettivo) : '—'}</td><td class="r">${num(g.cf)}</td><td class="r">${num(g.cr)}</td><td class="r t-tit">${num(g.cf - g.cr)}</td><td class="r">${g.cf ? pct(g.cr / g.cf) : '—'}</td></tr>`).join('')}</tbody></table></div></div>
-      <div class="card"><h3>Titoli dei giri chiusi</h3><p class="h-sub">Ordinati per copie vendute</p>
-        <div class="tw scroll"><table class="tbl"><thead><tr><th>Titolo</th><th>Giro</th><th class="r">Obiettivo</th><th class="r">Prenotato</th><th class="r">Fornito</th><th class="r">Venduto</th><th class="r">Resa</th></tr></thead>
-        <tbody>${tit.map(t => `<tr><td><div class="con-cop">${cop(t.ean)}<div><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">${esc(titleCase(t.autore || ''))}</div></div></div></td><td class="small">${esc(t.giro)}</td><td class="r">${num(+t.obiettivo)}</td><td class="r">${num(+t.prenotato)}</td>
-          <td class="r">${num(+t.cf)}</td><td class="r t-tit">${num(t.cf - t.cr)}</td><td class="r">${+t.cf ? pct(t.cr / t.cf) : '—'}</td></tr>`).join('')}</tbody></table></div></div>`;
+      <div class="card" style="margin-bottom:16px"><h3>Avanzamento dei titoli</h3><p class="h-sub">Prenotato sull'obiettivo, titolo per titolo${inCorso ? '' : ', con il consuntivo Messaggerie'}</p>
+        <div class="tw scroll"><table class="tbl"><thead><tr><th>Titolo</th><th>Uscita</th><th class="r">Obiettivo</th><th class="r">Prenotato</th><th style="min-width:160px">Avanzamento</th>${inCorso ? '' : '<th class="r">Fornito</th><th class="r">Venduto</th><th class="r">Resa</th>'}</tr></thead>
+        <tbody>${tit.map(t => `<tr><td><div class="con-cop">${cop(t.ean)}<div><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">${esc(titleCase(t.autore || ''))} · EAN ${esc(t.ean)}</div></div></div></td>
+          <td class="small">${esc(titleCase(t.uscita || ''))}</td><td class="r">${num(+t.obiettivo)}</td><td class="r t-tit">${num(+t.prenotato)}</td>
+          <td>${t.perc != null ? `<div style="display:flex;align-items:center;gap:8px"><div class="bar-in" style="flex:1"><i style="width:${Math.min(100, t.perc * 100)}%;background:${t.perc >= 1 ? 'var(--ok)' : t.perc >= .9 ? 'var(--warn)' : 'var(--cyan)'}"></i></div>${pillPerc(t.perc)}</div>` : '<span class="pill mut">senza obiettivo</span>'}</td>
+          ${inCorso ? '' : `<td class="r">${num(+t.cf)}</td><td class="r t-tit">${num(t.cf - t.cr)}</td><td class="r">${+t.cf ? pct(t.cr / t.cf) : '—'}</td>`}</tr>`).join('')}</tbody></table></div></div>
+      ${P ? `<div class="grid g2">
+        <div class="card"><h3>Agenti</h3><p class="h-sub">Copie raccolte da ogni agente PDE sul territorio${dir ? ` · clienti direzionali: ${num(dir.copie)} copie in ${num(dir.clienti)} punti vendita` : ''}</p><div class="ch" style="height:${Math.max(260, (D.per_agente || []).length * 24 + 60)}px"><canvas id="c-fga"></canvas></div></div>
+        <div><div class="card" style="margin-bottom:16px"><h3>Per canale</h3><p class="h-sub">Copie prenotate</p><div class="ch"><canvas id="c-fgc"></canvas></div></div>
+          <div class="card"><h3>Per zona</h3><p class="h-sub">Copie prenotate</p><div class="ch"><canvas id="c-fgz"></canvas></div></div></div>
+      </div>` : ''}`;
   },
   init(){
-    const C = this._C; if (!C) return;
-    const s = SER(), lab = C.map(nomeGiro);
-    mk('c-fg', { type: 'bar', data: { labels: lab, datasets: [barre('Obiettivo', C.map(g => g.obiettivo), css('--prev')), barre('Prenotato', C.map(g => g.prenotato), s[0])] }, options: lineOpts(tickNum, ttNum) });
-    mk('c-fv', { type: 'bar', data: { labels: lab, datasets: [barre('Prenotato', C.map(g => g.prenotato), s[0]), barre('Fornito', C.map(g => g.cf), s[2]), barre('Venduto', C.map(g => g.cf - g.cr), s[3])] }, options: lineOpts(tickNum, ttNum) });
+    if (!this._d || !this._d.g.prenotato) return;
+    const { D } = this._d, s = SER();
+    const pa = {}; (D.per_agente || []).filter(a => a.agente !== 'DIREZIONALE').forEach(a => { const n = nomeAgente(a.agente); pa[n] ||= { copie: 0, clienti: 0 }; pa[n].copie += +a.copie; pa[n].clienti += +a.clienti; });
+    const ag = Object.entries(pa).sort((a, b) => b[1].copie - a[1].copie);
+    mk('c-fga', { type: 'bar', data: { labels: ag.map(a => a[0]), datasets: [barre('Copie prenotate', ag.map(a => a[1].copie), s[0], { maxBarThickness: 16 })] },
+      options: { indexAxis: 'y', scales: { x: { ticks: tickNum }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${num(c.parsed.x)} copie · ${num(ag[c.dataIndex][1].clienti)} punti vendita` } } } } });
+    const gr = {}; (D.per_canale || []).forEach(c => gr[nomeGruppo(c.gruppo)] = (gr[nomeGruppo(c.gruppo)] || 0) + +c.copie);
+    const ge = Object.entries(gr).sort((a, b) => b[1] - a[1]);
+    torta('c-fgc', ge.map(x => x[0]), ge.map(x => x[1]), { centroSub: 'copie' });
+    const z = {}; (D.per_zona || []).forEach(r => { const k = zonaDi(r.provincia, r.regione); z[k] = (z[k] || 0) + +r.copie; });
+    const zl = ZONE_ND.filter(k => z[k]);
+    torta('c-fgz', zl, zl.map(k => z[k]), { centroSub: 'copie' });
   },
 };
 
@@ -2141,7 +2162,7 @@ const MENU = [
   { id: 'gfk', l: 'GfK e sell-out', ic: 'eye', a: ['#a46cf0', '#6b3fc4'] },
   { g: 'Vendite' },
   { id: 'giri', l: 'Giri vendita', ic: 'route', a: ['#f59e42', '#d9622b'] },
-  { id: 'finegiri', l: 'Fine giri', ic: 'flag', a: ['#f2b53a', '#c98500'] },
+  { id: 'finegiri', l: 'Fine giro', ic: 'flag', a: ['#f2b53a', '#c98500'] },
   { id: 'agenti', l: 'Agenti e zone', ic: 'users', a: ['#3d8bfd', '#1f5fc8'] },
   { id: 'sconti', l: 'Sconto per cliente', ic: 'perc', a: ['#ec6ca0', '#c23d74'] },
   { g: 'Economico' },
