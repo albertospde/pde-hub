@@ -167,6 +167,12 @@
   .con-cop{display:flex;gap:10px;align-items:center}
   .lightbox{position:fixed;inset:0;z-index:100;background:rgba(10,18,40,.75);display:grid;place-items:center;cursor:zoom-out}
   .lightbox img{max-width:90vw;max-height:88vh;border-radius:8px;box-shadow:0 20px 50px rgba(0,0,0,.5);background:#fff}
+  .ed-logo{background:#fff;border-radius:10px;padding:10px;margin-bottom:10px;display:grid;place-items:center;border:1px solid var(--border)}
+  .ed-logo img{max-width:100%;max-height:72px;object-fit:contain;display:block}
+  .logo-az{display:inline-block;margin-top:8px;font-size:12px;font-weight:700;color:var(--info);cursor:pointer;text-decoration:none}
+  .inv-tab{min-width:900px} .inv-tab td{vertical-align:top} .inv-desc{white-space:normal}
+  .inv-tab td:nth-child(2){min-width:230px} .inv-tab td:nth-child(3){min-width:160px} .inv-tab td:nth-child(5) .t-sub{white-space:nowrap} .inv-tab td:nth-child(6){max-width:140px}
+  .inv-tab td:last-child{width:96px} .inv-tab td:last-child .btn{display:block;width:100%;margin-bottom:4px;padding:4px 9px;font-size:12.5px}
   .leg{list-style:none;margin:6px 0 0;padding:0;font-size:13.5px}
   .leg li{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border)}
   .leg li:last-child{border-bottom:none} .leg li.tot{font-weight:700}
@@ -228,9 +234,11 @@
       <div class="bu-logo" role="img" aria-label="BookUp Publisher Edition"><img src="assets/bookup-logo.jpg" alt=""><div class="bu-ed" aria-hidden="true"><b>P</b><b>U</b><b>B</b><b>L</b><b>I</b><b>S</b><b>H</b><b>E</b><b>R</b><s></s><i>E</i><i>D</i><i>I</i><i>T</i><i>I</i><i>O</i><i>N</i></div></div>
     </div>
     <div class="editore-box">
+      <div class="ed-logo" id="ed-logo" hidden></div>
       <div class="lab">Area riservata editore</div>
       <div class="nome" id="ed-nome"></div>
       <div class="marchi" id="ed-marchi"></div>
+      <div id="ed-logo-az"></div>
     </div>
     <nav class="nav" id="nav"></nav>
   </aside>
@@ -1478,68 +1486,86 @@ const ESEMPIO_INV = () => ({ chi: 'Editore', destinatario: 'Gruppo', gruppo: 'Gi
   descrizione: 'Vetrina natalizia con le novità del giro in corso in 40 punti vendita, con espositore da banco', importo: 4000, sconto_extra: 2, copie: 1200,
   titoli: 'Le novità del giro in corso (EAN o titoli separati da virgola)', giro: R.giri[0] ? nomeGiro(R.giri[0]) : '', stato: 'Previsto', referente: 'Nome Cognome · trade marketing',
   note: 'Foto delle vetrine entro il 15 gennaio' });
+const CONFERMATI = ['Confermato', 'Rendicontato'];
+const destInv = i => i.destinatario === 'Cliente' ? (i.cliente_nome || i.codice_cliente || 'Cliente') : i.destinatario === 'Gruppo' ? (i.gruppo || 'Gruppo') : i.destinatario === 'Canale' ? (i.canale || 'Canale') : 'Tutti i clienti';
+const pillInv = st => `<span class="pill ${st === 'Rendicontato' ? 'ok' : st === 'Confermato' ? 'info' : st === 'Annullato' ? 'mut' : 'warn'}">${esc(st)}</span>`;
+const modificabile = i => ADMIN() || i.chi === 'Editore';
+// Elenco orizzontale, una riga per investimento
+function tabellaInv(L, azioni){
+  if (!L.length) return '<div class="empty">Nessun investimento</div>';
+  return `<div class="tw scroll"><table class="tbl inv-tab"><thead><tr><th>Chi</th><th>Iniziativa</th><th>Destinatario</th><th>Periodo</th><th class="r">Importo</th><th>Referente</th><th>Stato</th><th></th></tr></thead>
+    <tbody>${L.map(i => `<tr>
+      <td><span class="pill ${i.chi === 'PDE' ? 'info' : 'mut'}">${esc(i.chi)}</span></td>
+      <td><div class="t-tit">${esc(i.tipologia)}</div>${i.descrizione ? `<div class="t-sub inv-desc">${esc(i.descrizione)}</div>` : ''}${i.titoli ? `<div class="t-sub inv-desc">Titoli: ${esc(i.titoli)}</div>` : ''}</td>
+      <td><div class="t-tit">${esc(titleCase(destInv(i)))}</div><div class="t-sub">${esc(i.destinatario)} · ${esc(i.zona || 'tutta Italia')}${i.giro ? ' · ' + esc(i.giro) : ''}</div></td>
+      <td class="small" style="white-space:nowrap">${i.dal ? fData(pd(i.dal)) : '—'}${i.al ? '<br>' + fData(pd(i.al)) : ''}</td>
+      <td class="r"><div class="t-tit">${eur(+i.importo)}</div>${i.sconto_extra ? `<div class="t-sub">+${fDec.format(+i.sconto_extra)}% sconto</div>` : ''}${i.copie ? `<div class="t-sub">${num(+i.copie)} copie</div>` : ''}</td>
+      <td class="small">${esc(i.referente || '—')}</td><td>${pillInv(i.stato)}</td>
+      <td style="white-space:nowrap">${modificabile(i) ? azioni(i) : ''}</td></tr>`).join('')}</tbody></table></div>`;
+}
+async function cambiaStatoInv(id, stato, b){
+  const i = R.inv.find(x => x.id === id); if (!i) return;
+  await salvaCon(b, async () => { await rpc('ed_investimento_salva', { p_editore: ED.codice_editore, p: { ...i, stato } }); await ricarica('inv', 'ed_investimenti_lista'); render(); });
+}
+function agganciaAzioniInv(){
+  document.querySelectorAll('[data-ie]').forEach(b => b.addEventListener('click', () => { STATO.invEdit = b.dataset.ie; STATO.invBozza = null; if (location.hash !== '#investimenti') location.hash = 'investimenti'; else render(); window.scrollTo(0, 0); }));
+  document.querySelectorAll('[data-id]').forEach(b => b.addEventListener('click', () => {
+    if (!confirm('Eliminare questo investimento?')) return;
+    salvaCon(b, async () => { await rpc('ed_investimento_elimina', { p_editore: ED.codice_editore, p_id: b.dataset.id }); await ricarica('inv', 'ed_investimenti_lista'); render(); });
+  }));
+  document.querySelectorAll('[data-ist]').forEach(b => b.addEventListener('click', () => cambiaStatoInv(b.dataset.ist, b.dataset.st, b)));
+}
 S.investimenti = {
-  titolo: 'Investimenti sui clienti', sub: () => 'Cosa investe l\'editore e cosa investe PDE: clienti, gruppi, periodo e risultati',
+  titolo: 'Investimenti sui clienti', sub: () => 'Registra gli investimenti dell\'editore e di PDE; quelli confermati passano in Investimenti confermati',
   async prepara(){ await anagrafica(); },
   html(){
-    const I = R.inv.filter(i => i.stato !== 'Annullato');
-    const E = sum(I.filter(i => i.chi === 'Editore').map(i => +i.importo)), P = sum(I.filter(i => i.chi === 'PDE').map(i => +i.importo));
+    const da = R.inv.filter(i => i.stato === 'Previsto'), conf = R.inv.filter(i => CONFERMATI.includes(i.stato)), ann = R.inv.filter(i => i.stato === 'Annullato');
     const gruppi = [...new Set(R.anag.map(c => c.gruppo).filter(Boolean))].sort();
     const canali = [...new Set(R.anag.map(c => c.canale).filter(Boolean))].sort();
     const ed = STATO.invEdit ? R.inv.find(i => i.id === STATO.invEdit) : null;
     const v = ed || STATO.invBozza || { chi: ADMIN() ? 'PDE' : 'Editore', destinatario: 'Cliente', stato: 'Previsto' };
     const opt = (L, sel) => L.map(x => `<option ${String(x) === String(sel ?? '') ? 'selected' : ''}>${esc(x)}</option>`).join('');
-    this._I = I;
+    STATO.invVista ||= 'da';
+    const elenco = STATO.invVista === 'ann' ? ann : STATO.invVista === 'tutti' ? R.inv : da;
     return `
-      <p class="lead">Qui si registrano gli investimenti sui clienti, sia dell'editore sia di PDE: per cliente, per gruppo (catena) o per canale, con periodo, importo e risultato atteso.
-      ${ADMIN() ? '' : 'Puoi registrare gli investimenti della tua casa editrice; quelli di PDE li inserisce PDE.'}</p>
+      <p class="lead">Qui si registrano gli investimenti sui clienti, dell'editore e di PDE: per cliente, per gruppo (catena) o per canale, con periodo, importo e risultato atteso.
+      Quando un investimento è confermato passa in <a href="#invconf">Investimenti confermati</a>.${ADMIN() ? '' : ' Puoi registrare gli investimenti della tua casa editrice; quelli di PDE li inserisce PDE.'}</p>
       <div class="grid g-kpi">
-        ${kpi('Investimento editore', eurK(E), `<span>${E + P ? pct(E / (E + P), 0) : '—'} del totale</span>`, '--s1')}
-        ${kpi('Investimento PDE', eurK(P), `<span>${E + P ? pct(P / (E + P), 0) : '—'} del totale</span>`, '--s3')}
-        ${kpi('Totale investito', eurK(E + P), `<span>${num(I.length)} iniziative</span>`, '--s7')}
-        ${kpi('Da confermare', num(I.filter(i => i.stato === 'Previsto').length), '<span>iniziative previste</span>', '--s4')}
+        ${kpi('Da confermare', num(da.length), `<span>${eurK(sum(da.map(i => +i.importo)))}</span>`, '--s4')}
+        ${kpi('Confermati', num(conf.length), `<span>${eurK(sum(conf.map(i => +i.importo)))} · <a href="#invconf">vedi</a></span>`, '--s3')}
+        ${kpi('Annullati', num(ann.length), `<span>${eurK(sum(ann.map(i => +i.importo)))}</span>`, '--prev')}
+        ${kpi('Registrati in tutto', num(R.inv.length), `<span>${eurK(sum(R.inv.filter(i => i.stato !== 'Annullato').map(i => +i.importo)))} esclusi gli annullati</span>`, '--s1')}
       </div>
-      ${I.length ? `<div class="grid g3">
-        <div class="card"><h3>Chi investe</h3><p class="h-sub">Editore e PDE</p><div class="ch sm"><canvas id="c-chi"></canvas></div></div>
-        <div class="card"><h3>Per tipologia</h3><p class="h-sub">Editore + PDE</p><div class="ch sm"><canvas id="c-tipo"></canvas></div></div>
-        <div class="card"><h3>Per mese di inizio</h3><p class="h-sub">Editore e PDE</p><div class="ch sm"><canvas id="c-imese"></canvas></div></div>
-      </div>` : ''}
-      <div class="grid g2">
-        <div class="card"><div class="card-head"><div><h3>${ed ? 'Modifica investimento' : 'Nuovo investimento'}</h3><p class="h-sub">I campi con * sono obbligatori</p></div>
-          <div class="dx">${ed ? '' : '<button class="btn" type="button" id="b-inv-es">Compila con un esempio</button>'}</div></div>
-          <form class="form" id="f-inv" style="grid-template-columns:repeat(2,minmax(0,1fr))">
-            <label>Chi investe *<select name="chi" ${ADMIN() ? '' : 'disabled'}>${opt(['Editore', 'PDE'], v.chi)}</select></label>
-            <label>Destinatario *<select name="destinatario" id="inv-dest">${opt(['Cliente', 'Gruppo', 'Canale', 'Tutti i clienti'], v.destinatario)}</select></label>
-            <label class="inv-cli" style="grid-column:1/-1">Cliente<input type="text" name="cliente" list="dl-cli" placeholder="Scrivi il nome o il codice del cliente" value="${esc(v.cliente_nome ? `${v.cliente_nome}${v.codice_cliente ? ' · ' + v.codice_cliente : ''}` : '')}"></label>
-            <label class="inv-gru">Gruppo / catena<input type="text" name="gruppo" list="dl-gru" value="${esc(v.gruppo || '')}"></label>
-            <label class="inv-can">Canale<input type="text" name="canale" list="dl-can" value="${esc(v.canale || '')}"></label>
-            <label>Zona<select name="zona"><option value="">Tutta Italia</option>${opt(ZONE, v.zona)}</select></label>
-            <label>Giro collegato<select name="giro"><option value="">—</option>${opt(R.giri.map(nomeGiro), v.giro)}</select></label>
-            <label>Dal *<input type="date" name="dal" required value="${esc(v.dal || '')}"></label>
-            <label>Al *<input type="date" name="al" required value="${esc(v.al || '')}"></label>
-            <label>Tipologia *<select name="tipologia" required>${opt(TIPI_INVEST, v.tipologia)}</select></label>
-            <label>Stato<select name="stato">${opt(STATI_INV, v.stato)}</select></label>
-            <label>Importo € *<input type="number" name="importo" min="0" step="0.01" required value="${esc(v.importo ?? '')}"></label>
-            <label>Sconto extra %<input type="number" name="sconto_extra" min="0" max="100" step="0.1" value="${esc(v.sconto_extra ?? '')}"></label>
-            <label>Copie coinvolte<input type="number" name="copie" min="0" step="1" value="${esc(v.copie ?? '')}"></label>
-            <label>Referente<input type="text" name="referente" value="${esc(v.referente || '')}"></label>
-            <label style="grid-column:1/-1">Descrizione<textarea name="descrizione" rows="2">${esc(v.descrizione || '')}</textarea></label>
-            <label style="grid-column:1/-1">Titoli coinvolti<input type="text" name="titoli" value="${esc(v.titoli || '')}" placeholder="EAN o titoli, separati da virgola"></label>
-            <label style="grid-column:1/-1">Note<textarea name="note" rows="2">${esc(v.note || '')}</textarea></label>
-            <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">${ed ? 'Salva le modifiche' : 'Registra investimento'}</button>${ed || STATO.invBozza ? '<button class="btn" type="button" id="b-inv-annulla">Annulla</button>' : ''}</div>
-          </form>
-          <datalist id="dl-cli">${R.anag.slice(0, 5000).map(c => `<option value="${esc(c.nome)} · ${esc(c.cc)}">${esc(c.citta || '')}${c.gruppo ? ' · ' + esc(c.gruppo) : ''}</option>`).join('')}</datalist>
-          <datalist id="dl-gru">${gruppi.map(g => `<option value="${esc(g)}">`).join('')}</datalist>
-          <datalist id="dl-can">${canali.map(g => `<option value="${esc(g)}">`).join('')}</datalist></div>
-        <div class="card"><h3>Investimenti registrati</h3><p class="h-sub">Dal più recente</p>
-          ${R.inv.length ? `<div class="tw scroll"><table class="tbl"><thead><tr><th>Iniziativa</th><th>Periodo</th><th class="r">Importo</th><th>Stato</th><th></th></tr></thead>
-          <tbody>${R.inv.map(i => { const dest = i.destinatario === 'Cliente' ? (i.cliente_nome || i.codice_cliente) : i.destinatario === 'Gruppo' ? i.gruppo : i.destinatario === 'Canale' ? i.canale : 'Tutti i clienti';
-            const mod = ADMIN() || i.chi === 'Editore';
-            return `<tr><td><div class="t-tit">${esc(i.tipologia)}</div><div class="t-sub"><span class="pill ${i.chi === 'PDE' ? 'info' : 'mut'}">${esc(i.chi)}</span> ${esc(dest || '')}${i.zona ? ' · ' + esc(i.zona) : ''}${i.giro ? ' · ' + esc(i.giro) : ''}</div>${i.descrizione ? `<div class="t-sub">${esc(i.descrizione)}</div>` : ''}</td>
-              <td class="small">${i.dal ? fData(pd(i.dal)) : '—'}<br>${i.al ? fData(pd(i.al)) : ''}</td><td class="r t-tit">${eur(+i.importo)}${i.sconto_extra ? `<div class="t-sub">+${fDec.format(+i.sconto_extra)}% sconto</div>` : ''}</td>
-              <td><span class="pill ${i.stato === 'Rendicontato' ? 'ok' : i.stato === 'Confermato' ? 'info' : i.stato === 'Annullato' ? 'mut' : 'warn'}">${esc(i.stato)}</span></td>
-              <td style="white-space:nowrap">${mod ? `<button class="btn" data-ie="${i.id}">Modifica</button> <button class="btn" data-id="${i.id}">Elimina</button>` : ''}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Nessun investimento registrato. Usa il modulo a sinistra: "Compila con un esempio" mostra come si compila.</div>'}</div>
-      </div>`;
+      <div class="card" style="margin-bottom:16px"><div class="card-head"><div><h3>${ed ? 'Modifica investimento' : 'Nuovo investimento'}</h3><p class="h-sub">I campi con * sono obbligatori</p></div>
+        <div class="dx">${ed ? '' : '<button class="btn" type="button" id="b-inv-es">Compila con un esempio</button>'}</div></div>
+        <form class="form" id="f-inv" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+          <label>Chi investe *<select name="chi" ${ADMIN() ? '' : 'disabled'}>${opt(['Editore', 'PDE'], v.chi)}</select></label>
+          <label>Destinatario *<select name="destinatario" id="inv-dest">${opt(['Cliente', 'Gruppo', 'Canale', 'Tutti i clienti'], v.destinatario)}</select></label>
+          <label class="inv-cli" style="grid-column:span 2">Cliente<input type="text" name="cliente" list="dl-cli" placeholder="Scrivi il nome o il codice del cliente" value="${esc(v.cliente_nome ? `${v.cliente_nome}${v.codice_cliente ? ' · ' + v.codice_cliente : ''}` : '')}"></label>
+          <label class="inv-gru" style="grid-column:span 2">Gruppo / catena<input type="text" name="gruppo" list="dl-gru" value="${esc(v.gruppo || '')}"></label>
+          <label class="inv-can" style="grid-column:span 2">Canale<input type="text" name="canale" list="dl-can" value="${esc(v.canale || '')}"></label>
+          <label>Tipologia *<select name="tipologia" required>${opt(TIPI_INVEST, v.tipologia)}</select></label>
+          <label>Dal *<input type="date" name="dal" required value="${esc(v.dal || '')}"></label>
+          <label>Al *<input type="date" name="al" required value="${esc(v.al || '')}"></label>
+          <label>Stato<select name="stato">${opt(STATI_INV, v.stato)}</select></label>
+          <label>Importo € *<input type="number" name="importo" min="0" step="0.01" required value="${esc(v.importo ?? '')}"></label>
+          <label>Sconto extra %<input type="number" name="sconto_extra" min="0" max="100" step="0.1" value="${esc(v.sconto_extra ?? '')}"></label>
+          <label>Copie coinvolte<input type="number" name="copie" min="0" step="1" value="${esc(v.copie ?? '')}"></label>
+          <label>Zona<select name="zona"><option value="">Tutta Italia</option>${opt(ZONE, v.zona)}</select></label>
+          <label>Giro collegato<select name="giro"><option value="">—</option>${opt(R.giri.map(nomeGiro), v.giro)}</select></label>
+          <label>Referente<input type="text" name="referente" value="${esc(v.referente || '')}"></label>
+          <label style="grid-column:span 2">Titoli coinvolti<input type="text" name="titoli" value="${esc(v.titoli || '')}" placeholder="EAN o titoli, separati da virgola"></label>
+          <label style="grid-column:span 2">Descrizione<textarea name="descrizione" rows="2">${esc(v.descrizione || '')}</textarea></label>
+          <label style="grid-column:span 2">Note<textarea name="note" rows="2">${esc(v.note || '')}</textarea></label>
+          <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">${ed ? 'Salva le modifiche' : 'Registra investimento'}</button>${ed || STATO.invBozza ? '<button class="btn" type="button" id="b-inv-annulla">Annulla</button>' : ''}</div>
+        </form>
+        <datalist id="dl-cli">${R.anag.slice(0, 5000).map(c => `<option value="${esc(c.nome)} · ${esc(c.cc)}">${esc(c.citta || '')}${c.gruppo ? ' · ' + esc(c.gruppo) : ''}</option>`).join('')}</datalist>
+        <datalist id="dl-gru">${gruppi.map(g => `<option value="${esc(g)}">`).join('')}</datalist>
+        <datalist id="dl-can">${canali.map(g => `<option value="${esc(g)}">`).join('')}</datalist></div>
+      <div class="card"><div class="card-head"><div><h3>Investimenti registrati</h3><p class="h-sub">Conferma un investimento quando è deciso: passa in Investimenti confermati</p></div>
+        <div class="dx chips" id="ch-inv">${[['da', `Da confermare (${da.length})`], ['ann', `Annullati (${ann.length})`], ['tutti', `Tutti (${R.inv.length})`]].map(([k, l]) => `<button class="chip ${STATO.invVista === k ? 'on' : ''}" data-v="${k}">${l}</button>`).join('')}</div></div>
+        ${tabellaInv(elenco, i => `${i.stato === 'Previsto' ? `<button class="btn pri" data-ist="${i.id}" data-st="Confermato">Conferma</button> ` : ''}<button class="btn" data-ie="${i.id}">Modifica</button> <button class="btn" data-id="${i.id}">Elimina</button>`)}
+        ${!R.inv.length ? '<p class="note">"Compila con un esempio" nel modulo mostra come si compila un investimento.</p>' : ''}</div>`;
   },
   init(){
     const f = $('#f-inv'); if (!f) return;
@@ -1548,6 +1574,7 @@ S.investimenti = {
     vis(); $('#inv-dest').addEventListener('change', vis);
     $('#b-inv-es')?.addEventListener('click', () => { STATO.invBozza = ESEMPIO_INV(); render(); });
     $('#b-inv-annulla')?.addEventListener('click', () => { STATO.invEdit = null; STATO.invBozza = null; render(); });
+    document.querySelectorAll('#ch-inv .chip').forEach(b => b.addEventListener('click', () => { STATO.invVista = b.dataset.v; render(); }));
     f.addEventListener('submit', ev => {
       ev.preventDefault();
       const d = fdata(f);
@@ -1566,20 +1593,45 @@ S.investimenti = {
         STATO.invEdit = null; STATO.invBozza = null; render();
       });
     });
-    document.querySelectorAll('[data-ie]').forEach(b => b.addEventListener('click', () => { STATO.invEdit = b.dataset.ie; STATO.invBozza = null; render(); window.scrollTo(0, 0); }));
-    document.querySelectorAll('[data-id]').forEach(b => b.addEventListener('click', () => {
-      if (!confirm('Eliminare questo investimento?')) return;
-      salvaCon(b, async () => { await rpc('ed_investimento_elimina', { p_editore: ED.codice_editore, p_id: b.dataset.id }); await ricarica('inv', 'ed_investimenti_lista'); render(); });
-    }));
-    const I = this._I; if (!I.length) return;
+    agganciaAzioniInv();
+  },
+};
+
+/* ---------- Investimenti confermati ---------- */
+S.invconf = {
+  titolo: 'Investimenti confermati', sub: () => 'Gli investimenti decisi, dell\'editore e di PDE, con il loro stato di rendicontazione',
+  html(){
+    const I = R.inv.filter(i => CONFERMATI.includes(i.stato));
+    this._I = I;
+    if (!I.length) return vuoto('Nessun investimento confermato. Si confermano dalla sezione <a href="#investimenti">Investimenti</a>.');
+    const E = sum(I.filter(i => i.chi === 'Editore').map(i => +i.importo)), P = sum(I.filter(i => i.chi === 'PDE').map(i => +i.importo));
+    const rend = I.filter(i => i.stato === 'Rendicontato');
+    return `
+      <p class="lead">Gli investimenti confermati sui clienti. Quando un'iniziativa è conclusa e se ne conoscono i risultati, segnala come rendicontata.</p>
+      <div class="grid g-kpi">
+        ${kpi('Investimento editore', eurK(E), `<span>${E + P ? pct(E / (E + P), 0) : '—'} del totale</span>`, '--s1')}
+        ${kpi('Investimento PDE', eurK(P), `<span>${E + P ? pct(P / (E + P), 0) : '—'} del totale</span>`, '--s3')}
+        ${kpi('Totale confermato', eurK(E + P), `<span>${num(I.length)} iniziative</span>`, '--s7')}
+        ${kpi('Rendicontati', num(rend.length), `<span>${eurK(sum(rend.map(i => +i.importo)))} · ${num(I.length - rend.length)} in corso</span>`, '--s4')}
+      </div>
+      <div class="grid g3">
+        <div class="card"><h3>Chi investe</h3><p class="h-sub">Editore e PDE</p><div class="ch sm"><canvas id="c-chi"></canvas></div></div>
+        <div class="card"><h3>Per tipologia</h3><p class="h-sub">Editore + PDE</p><div class="ch sm"><canvas id="c-tipo"></canvas></div></div>
+        <div class="card"><h3>Per mese di inizio</h3><p class="h-sub">Editore e PDE</p><div class="ch sm"><canvas id="c-imese"></canvas></div></div>
+      </div>
+      <div class="card"><h3>Elenco</h3><p class="h-sub">Dal più recente</p>
+        ${tabellaInv(I, i => `${i.stato === 'Confermato' ? `<button class="btn pri" data-ist="${i.id}" data-st="Rendicontato">Rendicontato</button> ` : `<button class="btn" data-ist="${i.id}" data-st="Confermato">Riapri</button> `}<button class="btn" data-ie="${i.id}">Modifica</button>`)}</div>`;
+  },
+  init(){
+    agganciaAzioniInv();
+    const I = this._I; if (!I || !I.length) return;
     const s = SER();
     const E = sum(I.filter(i => i.chi === 'Editore').map(i => +i.importo)), P = sum(I.filter(i => i.chi === 'PDE').map(i => +i.importo));
-    torta('c-chi', ['Editore', 'PDE'], [E, P], { eur: true, legenda: 'bottom', colori: [s[0], s[2]] });
+    torta('c-chi', ['Editore', 'PDE'], [E, P], { eur: true, colori: [s[0], s[2]] });
     const tp = TIPI_INVEST.filter(t => I.some(i => i.tipologia === t));
-    torta('c-tipo', tp, tp.map(t => sum(I.filter(i => i.tipologia === t).map(i => +i.importo))), { eur: true, legenda: 'bottom' });
+    torta('c-tipo', tp, tp.map(t => sum(I.filter(i => i.tipologia === t).map(i => +i.importo))), { eur: true });
     const mesi = [...new Set(I.filter(i => i.dal).map(i => i.dal.slice(0, 7)))].sort();
-    const lab = mesi.map(m => MESI[+m.slice(5, 7) - 1] + ' ' + m.slice(2, 4));
-    mk('c-imese', { type: 'bar', data: { labels: lab, datasets: ['Editore', 'PDE'].map((c, k) => barre(c, mesi.map(m => sum(I.filter(i => i.chi === c && i.dal && i.dal.startsWith(m)).map(i => +i.importo))), s[k === 0 ? 0 : 2], { stack: 'x' })) },
+    mk('c-imese', { type: 'bar', data: { labels: mesi.map(m => MESI[+m.slice(5, 7) - 1] + ' ' + m.slice(2, 4)), datasets: ['Editore', 'PDE'].map((c, k) => barre(c, mesi.map(m => sum(I.filter(i => i.chi === c && i.dal && i.dal.startsWith(m)).map(i => +i.importo))), s[k === 0 ? 0 : 2], { stack: 'x' })) },
       options: { interaction: { mode: 'index', intersect: false }, scales: { y: { stacked: true, ticks: tickEur }, x: { stacked: true, grid: { display: false } } }, plugins: { tooltip: ttEur, legend: { position: 'top', align: 'end' } } } });
   },
 };
@@ -2183,6 +2235,7 @@ const MENU = [
   { id: 'sconti', l: 'Sconto per cliente', ic: 'perc', a: ['#ec6ca0', '#c23d74'] },
   { g: 'Economico' },
   { id: 'investimenti', l: 'Investimenti', ic: 'coins', a: ['#2bb673', '#127a48'] },
+  { id: 'invconf', l: 'Investimenti confermati', ic: 'coins', a: ['#16a34a', '#0f6b33'] },
   { id: 'fatturazione', l: 'Fatturazione PDE', ic: 'rec', a: ['#5b7cfa', '#3a4fc4'] },
   { g: 'Catalogo e magazzino' },
   { id: 'anagrafiche', l: 'Anagrafiche titoli', ic: 'book', a: ['#6366f1', '#4338ca'], admin: true },
@@ -2263,10 +2316,42 @@ async function entra(){
   }
   await apriEditore();
 }
+// Logo dell'editore nel riquadro a sinistra: lo carica PDE (ridotto a 400 px), lo vede anche l'editore
+function mostraLogo(){
+  const L = ED && ED.logo, box = $('#ed-logo');
+  box.hidden = !L; box.innerHTML = L ? `<img src="${L}" alt="Logo ${esc(ED.nome)}">` : '';
+  const az = $('#ed-logo-az');
+  az.innerHTML = ADMIN() ? `<label class="logo-az">${L ? 'Cambia logo' : '+ Carica il logo dell\'editore'}<input type="file" id="ed-logo-file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden></label>${L ? ' · <a href="#" class="logo-az" id="ed-logo-togli">togli</a>' : ''}` : '';
+  const salva = async logo => {
+    try { await rpc('ed_editore_logo_salva', { p_editore: ED.codice_editore, p_logo: logo }); }
+    catch (e) { alert('Logo non salvato: ' + e.message); return; }
+    ED.logo = logo; const x = (SESS.editori || []).find(e => e.codice_editore === ED.codice_editore); if (x) x.logo = logo;
+    mostraLogo();
+  };
+  $('#ed-logo-togli')?.addEventListener('click', e => { e.preventDefault(); if (confirm('Togliere il logo dell\'editore?')) salva(null); });
+  $('#ed-logo-file')?.addEventListener('change', e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      if (f.type === 'image/svg+xml') { if (r.result.length > 600000) { alert('Il file è troppo grande.'); return; } salva(r.result); return; }
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, 400 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        salva(c.toDataURL('image/png'));
+      };
+      img.onerror = () => alert('Immagine non leggibile.');
+      img.src = r.result;
+    };
+    r.readAsDataURL(f);
+  });
+}
 async function apriEditore(){
   R = null;
   STATO = { giriSel: [], annoGiri: 'tutti', agente: null };
   $('#ed-nome').textContent = ED.nome;
+  mostraLogo();
   $('#ed-marchi').textContent = 'Caricamento…';
   $('#content').innerHTML = '<div class="card empty">Caricamento dei dati…</div>';
   try { await caricaEditore(ED.codice_editore); }
