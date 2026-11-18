@@ -188,6 +188,12 @@
   .inv-tab{min-width:900px} .inv-tab td{vertical-align:top} .inv-desc{white-space:normal}
   .inv-tab td:nth-child(2){min-width:230px} .inv-tab td:nth-child(3){min-width:160px} .inv-tab td:nth-child(5) .t-sub{white-space:nowrap} .inv-tab td:nth-child(6){max-width:140px}
   .inv-tab td:last-child{width:96px} .inv-tab td:last-child .btn{display:block;width:100%;margin-bottom:4px;padding:4px 9px;font-size:12.5px}
+  /* tendina di ricerca (libreria o città negli eventi) */
+  .ac-wrap{position:relative}
+  .ac{position:absolute;left:0;right:0;top:100%;z-index:40;margin-top:4px;max-height:320px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 36px -12px rgba(20,45,90,.35);text-transform:none;letter-spacing:0;font-weight:400;color:var(--text)}
+  .ac-gr{padding:8px 12px 4px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);background:var(--card-2)}
+  .ac-v{padding:8px 12px;font-size:13.5px;cursor:pointer;border-bottom:1px solid var(--border)} .ac-v:last-child{border-bottom:none}
+  .ac-v:hover{background:var(--cyan-dim)} .ac-vuoto{padding:10px 12px;font-size:13px;color:var(--text-dim)}
   .leg{list-style:none;margin:6px 0 0;padding:0;font-size:13.5px}
   .leg li{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border)}
   .leg li:last-child{border-bottom:none} .leg li.tot{font-weight:700}
@@ -973,8 +979,9 @@ function kpi(lab, val, foot, col){ return `<div class="card kpi" style="--k:var(
 function evHtml(e){
   const pass = e.data < OGGI;
   return `<div class="ev ${pass ? 'pass' : ''}"><div class="dt"><b>${e.data.getDate()}</b><span>${MESI[e.data.getMonth()]}</span></div>
-    <div><div class="t">${esc(e.titolo)}</div><div class="m">${esc(e.luogo)}${e.autore && e.autore !== '—' ? ' · ' + esc(e.autore) : ''}</div></div>
-    <span class="pill ${pass ? 'mut' : 'info'}">${esc(e.tipo)}</span></div>`;
+    <div><div class="t">${esc(e.titolo)}</div><div class="m">${esc(e.luogo)}${e.cc ? ' · cod. ' + esc(e.cc) : ''}${e.autore && e.autore !== '—' ? ' · ' + esc(e.autore) : ''}</div>
+      ${e.da_individuare ? '<div class="m"><span class="pill warn">Libreria da individuare a carico della rete promozionale</span></div>' : ''}</div>
+    <span style="display:flex;flex-direction:column;gap:4px;align-items:flex-end"><span class="pill ${pass ? 'mut' : 'info'}">${esc(e.tipo)}</span>${e.proposto ? '<span class="pill warn">da confermare</span>' : ''}</span></div>`;
 }
 const pillGiro = st => st === 'chiuso' ? '<span class="pill mut">Chiuso</span>' : st === 'in corso' ? '<span class="pill ok">In corso</span>' : st === 'programmato' ? '<span class="pill info">Programmato</span>' : '<span class="pill mut">Senza date</span>';
 const pillPerc = p => `<span class="pill ${p >= 1 ? 'ok' : p >= .9 ? 'warn' : 'ko'}">${pct(p, 0)}</span>`;
@@ -2189,7 +2196,10 @@ S.eventi = {
             <form class="form" id="f-ev" style="grid-template-columns:1fr">
               <label>Titolo<input type="text" name="titolo" required placeholder="Es. presentazione di…"></label>
               <label>Data<input type="date" name="data" required></label>
-              <label>Luogo<input type="text" name="luogo" required placeholder="Libreria, città"></label>
+              <label class="ac-wrap">Libreria o città
+                <input type="text" id="ev-luogo" autocomplete="off" placeholder="Nome o codice della libreria, oppure la città">
+                <div class="ac" id="ev-ac" hidden></div></label>
+              <div class="small" id="ev-scelta"></div>
               <label>Autore<input type="text" name="autore"></label>
               <label>Tipo<select name="tipo">${['Presentazione', 'Firmacopie', 'Festival', 'Fiera', 'Scuole', 'Incontro librai'].map(t => `<option>${t}</option>`).join('')}</select></label>
               <button class="btn pri" type="submit">Invia proposta</button>
@@ -2202,14 +2212,56 @@ S.eventi = {
     torta('c-ev', tipi, tipi.map(t => E.filter(e => e.tipo === t).length), { centroSub: 'eventi' });
     const draw = () => {
       const k = STATO.filtroE;
-      $('#l-ev').innerHTML = E.filter(e => k === 'Tutti' || e.tipo === k).map(e => evHtml(e).replace('</span></div>', `</span>${e.proposto ? ' <span class="pill warn">da confermare</span>' : ''}</div>`)).join('') || '<div class="empty">Nessun evento</div>';
+      $('#l-ev').innerHTML = E.filter(e => k === 'Tutti' || e.tipo === k).map(evHtml).join('') || '<div class="empty">Nessun evento</div>';
     };
     draw();
     document.querySelectorAll('#ch-e .chip').forEach(b => b.addEventListener('click', () => { STATO.filtroE = b.dataset.f; document.querySelectorAll('#ch-e .chip').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
+    // Libreria o città: ricerca nell'anagrafica clienti RPN mentre si scrive (nome, codice o città).
+    // Scegliendo una città: "libreria da individuare a carico della rete promozionale".
+    let scelta = null, ultimo = null, timer = null;
+    const inp = $('#ev-luogo'), ac = $('#ev-ac'), info = $('#ev-scelta');
+    const mostraScelta = () => {
+      info.innerHTML = !scelta ? '' : scelta.tipo === 'libreria'
+        ? `<span class="pill ok">Libreria</span> ${esc(titleCase(scelta.nome))} · cod. ${esc(scelta.cc)}`
+        : `<span class="pill warn">Città</span> ${esc(titleCase(scelta.citta))}${scelta.provincia ? ' (' + esc(scelta.provincia) + ')' : ''}: libreria da individuare a carico della rete promozionale`;
+    };
+    const scegli = x => {
+      scelta = x; ac.hidden = true;
+      inp.value = x.tipo === 'libreria' ? `${titleCase(x.nome)}, ${titleCase(x.citta || '')}${x.provincia ? ' (' + x.provincia + ')' : ''}` : `${titleCase(x.citta)}${x.provincia ? ' (' + x.provincia + ')' : ''}`;
+      mostraScelta();
+    };
+    const disegnaAc = (r, q) => {
+      ultimo = r;
+      const citta = (r.citta || []).map(c => ({ tipo: 'citta', ...c })), lib = (r.librerie || []).map(l => ({ tipo: 'libreria', ...l }));
+      if (!citta.length && !lib.length) { ac.innerHTML = `<div class="ac-vuoto">Nessuna libreria o città trovata per "${esc(q)}"</div>`; ac.hidden = false; return; }
+      ac._voci = [...citta, ...lib];
+      ac.innerHTML = (citta.length ? `<div class="ac-gr">Città · libreria da individuare a carico della rete promozionale</div>` : '')
+        + citta.map((c, i) => `<div class="ac-v" data-i="${i}">📍 <b>${esc(titleCase(c.citta))}</b>${c.provincia ? ' (' + esc(c.provincia) + ')' : ''} <span class="muted">· ${num(c.librerie)} librerie</span></div>`).join('')
+        + (lib.length ? `<div class="ac-gr">Librerie</div>` : '')
+        + lib.map((l, i) => `<div class="ac-v" data-i="${citta.length + i}"><b>${esc(titleCase(l.nome))}</b><div class="muted small">${esc(titleCase(l.indirizzo || ''))}${l.citta ? ', ' + esc(titleCase(l.citta)) : ''}${l.provincia ? ' (' + esc(l.provincia) + ')' : ''} · cod. ${esc(l.cc)}${l.gruppo ? ' · ' + esc(l.gruppo) : ''}</div></div>`).join('');
+      ac.hidden = false;
+      ac.querySelectorAll('.ac-v').forEach(v => v.addEventListener('mousedown', e => { e.preventDefault(); scegli(ac._voci[+v.dataset.i]); }));
+    };
+    inp.addEventListener('input', () => {
+      scelta = null; mostraScelta();
+      const q = inp.value.trim();
+      clearTimeout(timer);
+      if (q.length < 2) { ac.hidden = true; return; }
+      timer = setTimeout(async () => {
+        try { const r = await rpc('ed_cerca_librerie', { p_editore: ED.codice_editore, p_q: q }); if (inp.value.trim() === q) disegnaAc(r, q); }
+        catch (e) { ac.innerHTML = `<div class="ac-vuoto">Ricerca non riuscita: ${esc(e.message)}</div>`; ac.hidden = false; }
+      }, 250);
+    });
+    inp.addEventListener('blur', () => setTimeout(() => { ac.hidden = true; }, 150));
+    inp.addEventListener('focus', () => { if (!scelta && ac.innerHTML) ac.hidden = false; });
     $('#f-ev').addEventListener('submit', ev => {
       ev.preventDefault();
+      // scritta a mano una città dell'elenco senza sceglierla: vale come città
+      if (!scelta && ultimo) { const t = inp.value.trim().toLowerCase(); const c = (ultimo.citta || []).find(x => x.citta.toLowerCase() === t); if (c) scegli({ tipo: 'citta', ...c }); }
+      if (!scelta) { alert('Scegli dall\'elenco una libreria oppure una città.'); inp.focus(); return; }
       const d = Object.fromEntries(new FormData(ev.target));
-      const L = leggi(KEY_EV); L.push({ id: 'p' + Date.now(), ...d, autore: d.autore || '—' }); scrivi(KEY_EV, L);
+      const luogo = scelta.tipo === 'libreria' ? inp.value : `${titleCase(scelta.citta)}${scelta.provincia ? ' (' + scelta.provincia + ')' : ''}`;
+      const L = leggi(KEY_EV); L.push({ id: 'p' + Date.now(), ...d, luogo, cc: scelta.tipo === 'libreria' ? scelta.cc : null, da_individuare: scelta.tipo === 'citta', autore: d.autore || '—' }); scrivi(KEY_EV, L);
       render();
     });
   },
