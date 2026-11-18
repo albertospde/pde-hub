@@ -43,7 +43,10 @@
   .app{display:grid;grid-template-columns:272px minmax(0,1fr);min-height:100vh}
 
   /* ---------- menu laterale (stile BookUp) ---------- */
-  .side{position:sticky;top:0;height:100vh;overflow-y:auto;scrollbar-gutter:stable;width:272px;min-width:0;background:var(--card);border-right:1px solid var(--border);padding:18px 12px 24px}
+  /* menu laterale: logo BookUp e riquadro editore fermi in alto, scorrono solo le voci */
+  .side{position:sticky;top:0;height:100vh;overflow:hidden;display:flex;flex-direction:column;width:272px;min-width:0;background:var(--card);border-right:1px solid var(--border);padding:18px 12px 0}
+  .side > .brand, .side > .editore-box{flex:none}
+  .side > .nav{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-gutter:stable;margin:6px -12px 0 0;padding:0 8px 24px 0}
   .brand{padding:4px 8px 14px;border-bottom:1px solid var(--border);margin-bottom:6px}
   /* Logo BookUp Publisher Edition: logo BookUp con la dicitura larga quanto tutto il logo (dall'ala alla "p"), lettere distribuite */
   .bu-logo{container-type:inline-size;width:100%;background:#fff;border-radius:12px}
@@ -209,10 +212,10 @@
   .login-logo .bu-logo{max-width:300px}
   @media (max-width:900px){
     .app{grid-template-columns:minmax(0,1fr)}
-    .side{position:static;height:auto;width:auto;border-right:none;border-bottom:1px solid var(--border);padding:12px 16px}
+    .side{position:static;height:auto;width:auto;display:block;overflow:visible;border-right:none;border-bottom:1px solid var(--border);padding:12px 16px}
     .brand{border-bottom:none;padding-bottom:4px}
     .editore-box{margin:6px 0}
-    .nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}
+    .side > .nav{display:flex;gap:6px;overflow-x:auto;overflow-y:visible;margin:0;padding:0 0 6px}
     .nav-g{display:none}
     .nav a{flex-shrink:0;white-space:nowrap;border:1px solid var(--border)}
     .top{position:static;padding:14px 16px}
@@ -2263,7 +2266,9 @@ const MENU = [
   { id: 'materiali', l: 'Materiali giri', ic: 'up', a: ['#7c4dbe', '#552f94'] },
 ];
 function disegnaMenu(attiva){
-  $('#nav').innerHTML = MENU.filter(m => !m.admin || ADMIN()).map(m => m.g ? `<span class="nav-g">${m.g}</span>` : `<a href="#${m.id}" class="${m.id === attiva ? 'active' : ''}" style="--a1:${m.a[0]};--a2:${m.a[1]}">
+  const nav = $('#nav'), pos = nav.scrollTop;   // il menu si ridisegna: resta dov'era
+  setTimeout(() => { nav.scrollTop = pos; });
+  nav.innerHTML = MENU.filter(m => !m.admin || ADMIN()).map(m => m.g ? `<span class="nav-g">${m.g}</span>` : `<a href="#${m.id}" class="${m.id === attiva ? 'active' : ''}" style="--a1:${m.a[0]};--a2:${m.a[1]}">
     <span class="ic"><svg viewBox="0 0 24 24">${IC[m.ic]}</svg></span><span>${m.l}</span>${S[m.id]?.demo ? '<span class="tag-demo">esempio</span>' : ''}</a>`).join('');
 }
 const BANNER_DEMO = `<div class="banner-demo"><b>Sezione di esempio.</b> Questi numeri sono inventati e servono a mostrare come sarà la sezione: i dati veri arriveranno quando la fonte sarà collegata.</div>`;
