@@ -68,6 +68,8 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
 .cal-pren { border-left: 3px solid var(--c); padding: 1px 0 1px 4px; margin-top: 2px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-pren b { font-weight: 600; }
 @media (max-width: 520px) { .cal-giorno { min-height: 54px; font-size: 10px; } .cal-pren b { display: block; } }
+.link-gestione { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 6px 12px; font: 500 13px Inter, sans-serif; cursor: pointer; }
+.link-gestione[aria-expanded="true"] { color: var(--text); border-color: var(--accent); }
 .centro { text-align: center; padding: 60px 20px; }
 .centro a { color: var(--accent); }
 @media (max-width: 520px) {
@@ -82,10 +84,10 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
   <div id="app" class="hidden">
     <header>
       <div class="logo-box"><div class="pde-logo" role="img" aria-label="PDE Parking"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>PARKING</span></div><div class="pl-tag"><i class="c0">IL</i> <i class="c1">TUO</i> <i class="c2">POSTO</i></div></div><div class="pl-wing"></div></div></div>
-      <div class="aggiornato">Riepilogo aggiornato al 16/11/2026</div>
+      <button type="button" class="link-gestione hidden" id="link-gestione" aria-expanded="false">Gestione</button>
     </header>
 
-    <section>
+    <section class="gestione hidden">
       <h2>Prossima notte</h2>
       <div class="stanotte" id="stanotte"></div>
       <div class="nota">I flussi partono alle 00:30, dal lunedì al venerdì, e prenotano la data a 14 giorni. Ognuno riceve una mail con l'esito.</div>
@@ -102,29 +104,28 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
       </div>
       <div class="cal-legenda" id="cal-legenda"></div>
       <div class="calendario" id="calendario" role="grid" aria-label="Calendario prenotazioni"></div>
-      <div class="nota" id="cal-agg"></div>
     </section>
 
-    <section>
+    <section class="gestione hidden">
       <h2>Prenotazioni attive</h2>
       <a class="pulsante-link" target="_blank" rel="noopener"
          href="https://lafeltrinelli.sharepoint.com/sites/FeltrinelliCommonTasks/Lists/Parking%20Reservations/AllItems.aspx?FilterFields1=ReservedBy&amp;FilterValues1=Simola%20Alberto%3B%23Pallotta%20Valeria%3B%23Sala%20Federica%3B%23Ferrario%20Elisa&amp;FilterTypes1=User&amp;sortField=CheckOutFrom&amp;isAscending=false">Apri le prenotazioni di Alberto, Valeria, Federica ed Elisa ↗</a>
       <div class="nota">Elenco SharePoint dell'app parcheggi, filtrato sui vostri nomi, con le date più lontane in alto. Per cancellare usa l'app Parking Reservation.</div>
     </section>
 
-    <section>
+    <section class="gestione hidden">
       <h2>La settimana</h2>
       <div class="settimana" id="settimana"></div>
       <div class="nota">In grigio chi non ha ancora attivato il proprio flusso.</div>
     </section>
 
-    <section>
+    <section class="gestione hidden">
       <h2>Flussi</h2>
       <div class="persone" id="persone"></div>
       <div class="nota">"Prenota ora" apre il flusso in Power Automate: clicca <b>Esegui</b> e poi <b>Esegui flusso</b>. Prenota subito la data a 14 giorni da oggi, se è uno dei giorni di quella persona e non c'è già una prenotazione; altrimenti arriva solo la mail di esito.</div>
     </section>
 
-    <section>
+    <section class="gestione hidden">
       <h2>Da fare</h2>
       <ol>
         <li>Elisa: aggiungere la regola dei posti accanto a quelli del gruppo.</li>
@@ -132,7 +133,7 @@ li.fatto { color: var(--muted); text-decoration: line-through; }
       </ol>
     </section>
 
-    <section>
+    <section class="gestione hidden">
       <h2>Da sapere</h2>
       <ul>
         <li>14 posti al piano -2; limite di 2 prenotazioni a settimana per persona.</li>
@@ -209,13 +210,10 @@ function disegnaCalendario() {
 }
 
 async function caricaCalendario() {
-  const [{ data: righe }, { data: stato }] = await Promise.all([
-    sb.from('parking_calendario').select('data,posto,persona').order('data'),
-    sb.from('parking_calendario_stato').select('aggiornato_il').maybeSingle(),
-  ]);
+  const { data: righe, error } = await sb.from('parking_calendario').select('data,posto,persona').order('data');
+  if (error) return blocca('Calendario non disponibile', 'Riprova tra poco.');
   // Solo voi 4: eventuali righe di altri colleghi non vengono mostrate.
   prenotazioni = (righe || []).filter(p => p.persona in COLORI);
-  $('cal-agg').textContent = stato ? 'Dati letti da SharePoint il ' + new Date(stato.aggiornato_il).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' (si aggiornano dal PC di Alberto). Per la situazione in tempo reale usa "Prenotazioni attive".' : '';
   disegnaCalendario();
 }
 $('cal-prec').onclick = () => { meseVisto.setMonth(meseVisto.getMonth() - 1); disegnaCalendario(); };
@@ -230,13 +228,20 @@ function blocca(titolo, testo) {
 (async () => {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) return blocca('Accesso richiesto', 'Apri PDE Parking da PDE Hub.');
-  // La riga è leggibile solo dall'utente abilitato (regola di sicurezza su Supabase).
-  const { data, error } = await sb.from('parking_config').select('id').maybeSingle();
-  if (error) return blocca('Pagina non disponibile', 'Riprova tra poco.');
-  if (!data) return blocca('Accesso non autorizzato', 'Questa app è riservata.');
-  disegna();
   $('app').classList.remove('hidden');
   caricaCalendario();
+  // Le sezioni di gestione restano disponibili solo ad Alberto (la riga di configurazione è leggibile solo da lui).
+  const { data } = await sb.from('parking_config').select('id').maybeSingle();
+  if (data) {
+    disegna();
+    const link = $('link-gestione');
+    link.classList.remove('hidden');
+    link.onclick = () => {
+      const aperto = link.getAttribute('aria-expanded') !== 'true';
+      link.setAttribute('aria-expanded', String(aperto));
+      document.querySelectorAll('.gestione').forEach(s => s.classList.toggle('hidden', !aperto));
+    };
+  }
 })();
 </script>
 </body>
