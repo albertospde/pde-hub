@@ -169,6 +169,12 @@
   .sc-tab td{padding:6px 8px} .sc-nm{max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cop{width:34px;height:48px;object-fit:cover;border-radius:4px;background:var(--card-2);cursor:zoom-in;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.15)}
   .cop.gr{width:46px;height:66px}
+  /* copertina mancante: riquadro PDE "coming soon" (sempre bianco, come in PDE Analisi) */
+  .cop-cs{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#fff;border:1px solid #d6e0f2;box-sizing:border-box;cursor:default;vertical-align:middle}
+  .cop-cs img{width:18px;height:18px}
+  .cop-cs b{font-size:8.5px;line-height:1;font-weight:800;letter-spacing:.5px;color:#0a2a6b}
+  .cop-cs i{font-style:normal;font-size:5.2px;line-height:1.15;font-weight:700;letter-spacing:.3px;text-align:center;color:#fff;background:#1d5fd6;border-radius:2px;padding:1px 3px}
+  .cop-cs.gr img{width:24px;height:24px} .cop-cs.gr b{font-size:10.5px} .cop-cs.gr i{font-size:6.5px}
   .con-cop{display:flex;gap:10px;align-items:center}
   .lightbox{position:fixed;inset:0;z-index:100;background:rgba(10,18,40,.75);display:grid;place-items:center;cursor:zoom-out}
   .lightbox img{max-width:90vw;max-height:88vh;border-radius:8px;box-shadow:0 20px 50px rgba(0,0,0,.5);background:#fff}
@@ -712,13 +718,37 @@ const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')
 const titleCase = s => String(s || '').toLowerCase().replace(/(^|[\s'’.(\/-])([a-zà-ù])/g, (_m, a, b) => a + b.toUpperCase());
 const pctS = v => (v > 0 ? '+' : '') + pct(v);
 const nomeGiro = g => `Giro ${g.numero} ${g.anno}`;
-// Copertine come in BookUp: laFeltrinelli per EAN, IBS se manca, nascosta se non c'è; clic = ingrandimento
-const copUrl = (ean, grande) => `https://www.lafeltrinelli.it/images/${encodeURIComponent(ean)}_0_0_${grande ? 600 : 200}_0_75.jpg`;
-const copRiserva = ean => `https://img.ibs.it/img/${encodeURIComponent(ean)}M.jpg`;
-const cop = (ean, cls = '') => /^\d{10,13}$/.test(String(ean || '')) ? `<img class="cop ${cls}" loading="lazy" src="${copUrl(ean)}" data-cop="${esc(ean)}" alt="" onerror="this.onerror=function(){this.style.visibility='hidden'};this.src='${copRiserva(ean)}'">` : '';
+// Copertine (come PDE Analisi): laFeltrinelli, poi Messaggerie. Per un EAN che non conoscono i due siti non danno errore
+// ma un segnaposto ("Copertina in arrivo!"): Feltrinelli quadrato 200×200, Messaggerie 200×260. Quelli si scartano e si passa
+// alla fonte dopo; senza copertina, il riquadro PDE "coming soon". COP_TROVATA ricorda per EAN la fonte buona (-1 = nessuna).
+const COP_FONTI = [
+  { url: (e, g) => `https://www.lafeltrinelli.it/images/${e}_0_0_${g ? 600 : 200}_0_75.jpg`, buona: (w, h) => h > w },
+  { url: e => `https://img.messaggerielibri.it/images/${e}_0_0_260_0.png`, buona: (w, h) => h > w && !(w === 200 && h === 260) },
+];
+const COP_TROVATA = new Map();
+const copVuota = (cls = '') => `<span class="cop cop-cs ${cls}" aria-label="Copertina non disponibile"><img src="assets/pde-ala.png" alt=""><b>PDE</b><i>COMING<br>SOON</i></span>`;
+const cop = (ean, cls = '') => {
+  if (!/^\d{10,13}$/.test(String(ean || ''))) return '';
+  const f = COP_TROVATA.get(ean) ?? 0;
+  if (f < 0) return copVuota(cls);
+  return `<img class="cop ${cls}" loading="lazy" alt="" data-cop="${esc(ean)}" data-f="${f}" data-cls="${cls}" src="${COP_FONTI[f].url(ean)}" onload="copOk(this)" onerror="copNo(this)">`;
+};
+function copOk(img){
+  const f = Number(img.dataset.f), w = img.naturalWidth, h = img.naturalHeight;
+  if (w < 50 || !COP_FONTI[f].buona(w, h)) return copNo(img);
+  COP_TROVATA.set(img.dataset.cop, f);
+}
+function copNo(img){
+  const f = Number(img.dataset.f) + 1;
+  if (f < COP_FONTI.length) { img.dataset.f = f; img.src = COP_FONTI[f].url(img.dataset.cop); return; }
+  COP_TROVATA.set(img.dataset.cop, -1);
+  img.outerHTML = copVuota(img.dataset.cls || '');
+}
 function apriCopertina(ean){
+  const f = COP_TROVATA.get(ean) ?? 0;
+  if (f < 0) return;
   const box = document.createElement('div'); box.className = 'lightbox'; box.title = 'Chiudi';
-  box.innerHTML = `<img src="${copUrl(ean, true)}" alt="" onerror="this.onerror=null;this.src='${copRiserva(ean)}'">`;
+  box.innerHTML = `<img src="${COP_FONTI[f].url(ean, true)}" alt="">`;
   box.addEventListener('click', () => box.remove());
   document.addEventListener('keydown', function k(e){ if (e.key === 'Escape') { box.remove(); document.removeEventListener('keydown', k); } });
   document.body.appendChild(box);
