@@ -194,6 +194,8 @@
   .ac-gr{padding:8px 12px 4px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);background:var(--card-2)}
   .ac-v{padding:8px 12px;font-size:13.5px;cursor:pointer;border-bottom:1px solid var(--border)} .ac-v:last-child{border-bottom:none}
   .ac-v:hover{background:var(--cyan-dim)} .ac-vuoto{padding:10px 12px;font-size:13px;color:var(--text-dim)}
+  .ev-piede{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px dashed var(--border);padding-top:8px}
+  .ev-piede .btn{padding:4px 10px;font-size:12.5px}
   .leg{list-style:none;margin:6px 0 0;padding:0;font-size:13.5px}
   .leg li{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border)}
   .leg li:last-child{border-bottom:none} .leg li.tot{font-weight:700}
@@ -2165,34 +2167,37 @@ S.anagrafiche = {
 };
 const fDec2 = n => Number(n).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/* ---------- Eventi ---------- */
-const KEY_EV = 'pde-editori-eventi-' + SESSIONE.codiceEditore;
+/* ---------- Eventi: salvati nel database (ed_eventi); l'editore propone, PDE conferma ---------- */
 const KEY_MAT = 'pde-editori-materiali-' + SESSIONE.codiceEditore;
 const leggi = k => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch { return []; } };
 const scrivi = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
-const tuttiEventi = () => [...DB.eventi, ...leggi(KEY_EV).map(e => ({ ...e, data: new Date(e.data), proposto: true }))].sort((a, b) => a.data - b.data);
+const TIPI_EVENTO = ['Presentazione', 'Firmacopie', 'Festival', 'Fiera', 'Scuole', 'Incontro librai'];
 S.eventi = {
   titolo: 'Eventi', sub: () => 'Presentazioni, firmacopie, festival e incontri con i librai',
+  async prepara(){ this._E = (await rpc('ed_eventi_lista', { p_editore: ED.codice_editore })).map(e => ({ ...e, data: pd(e.data), proposto: e.stato === 'Proposto' })); },
   html(){
-    const E = tuttiEventi();
-    STATO.filtroE ||= 'Tutti';
-    const tipi = [...new Set(E.map(e => e.tipo))];
-    const fut = E.filter(e => e.data >= OGGI);
-    this._E = E; this._tipi = tipi;
+    const E = this._E;
+    STATO.filtroE ||= 'Prossimi';
+    const attivi = E.filter(e => e.stato !== 'Annullato');
+    const fut = attivi.filter(e => e.data >= OGGI);
+    const tipi = [...new Set(attivi.map(e => e.tipo))];
+    const autori = new Set(attivi.flatMap(e => String(e.autore || '').split(',').map(x => x.trim())).filter(Boolean));
     return `
+      <p class="lead">Il calendario degli eventi di ${esc(ED.nome)}. ${ADMIN() ? 'Gli eventi proposti dall\'editore aspettano la conferma di PDE.' : 'Le tue proposte arrivano a PDE, che le conferma.'}
+      Se come luogo si sceglie solo una città, la libreria la individua la rete promozionale.</p>
       <div class="grid g-kpi">
-        ${kpi('Prossimi eventi', fut.length, fut[0] ? `<span>il primo il ${fDataL(fut[0].data)}</span>` : '', '--s1')}
-        ${kpi('Svolti nel 2026', E.filter(e => e.data < OGGI && e.data.getFullYear() === 2026).length, '<span>da inizio anno</span>', '--s3')}
-        ${kpi('Autori coinvolti', new Set(E.flatMap(e => e.autore.split(',').map(x => x.trim())).filter(x => x && x !== '—' && x !== 'Vari autori')).size, '<span>nel calendario</span>', '--s7')}
-        ${kpi('Proposti da te', leggi(KEY_EV).length, '<span>in attesa di conferma PDE</span>', '--s4')}
+        ${kpi('Prossimi eventi', num(fut.length), fut[0] ? `<span>il primo il ${fDataL(fut[0].data)}</span>` : '<span>nessuno in calendario</span>', '--s1')}
+        ${kpi('Da confermare', num(E.filter(e => e.stato === 'Proposto').length), '<span>proposte in attesa di PDE</span>', '--s4')}
+        ${kpi('Libreria da individuare', num(fut.filter(e => e.da_individuare).length), '<span>a carico della rete promozionale</span>', '--s2')}
+        ${kpi('Autori coinvolti', num(autori.size), '<span>nel calendario</span>', '--s7')}
       </div>
       <div class="grid g2">
         <div class="card"><div class="card-head"><div><h3>Calendario</h3><p class="h-sub">In ordine di data</p></div>
-          <div class="dx chips" id="ch-e">${['Tutti', ...tipi].map(x => `<button class="chip ${STATO.filtroE === x ? 'on' : ''}" data-f="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>
+          <div class="dx chips" id="ch-e">${['Prossimi', 'Da confermare', 'Passati', 'Annullati', 'Tutti'].map(x => `<button class="chip ${STATO.filtroE === x ? 'on' : ''}" data-f="${x}">${x}</button>`).join('')}</div></div>
           <div class="list-ev" id="l-ev"></div></div>
         <div>
-          <div class="card" style="margin-bottom:16px"><h3>Eventi per tipo</h3><p class="h-sub">Tutto il calendario</p><div class="ch sm"><canvas id="c-ev"></canvas></div></div>
-          <div class="card"><h3>Proponi un evento</h3><p class="h-sub">Arriva al team PDE per la conferma</p>
+          ${attivi.length ? `<div class="card" style="margin-bottom:16px"><h3>Eventi per tipo</h3><p class="h-sub">Esclusi gli annullati</p><div class="ch sm"><canvas id="c-ev"></canvas></div></div>` : ''}
+          <div class="card"><h3>${ADMIN() ? 'Nuovo evento' : 'Proponi un evento'}</h3><p class="h-sub">${ADMIN() ? 'Inserito da PDE: puoi registrarlo già confermato' : 'Arriva al team PDE per la conferma'}</p>
             <form class="form" id="f-ev" style="grid-template-columns:1fr">
               <label>Titolo<input type="text" name="titolo" required placeholder="Es. presentazione di…"></label>
               <label>Data<input type="date" name="data" required></label>
@@ -2201,21 +2206,38 @@ S.eventi = {
                 <div class="ac" id="ev-ac" hidden></div></label>
               <div class="small" id="ev-scelta"></div>
               <label>Autore<input type="text" name="autore"></label>
-              <label>Tipo<select name="tipo">${['Presentazione', 'Firmacopie', 'Festival', 'Fiera', 'Scuole', 'Incontro librai'].map(t => `<option>${t}</option>`).join('')}</select></label>
-              <button class="btn pri" type="submit">Invia proposta</button>
+              <label>Tipo<select name="tipo">${TIPI_EVENTO.map(t => `<option>${t}</option>`).join('')}</select></label>
+              <label>Note<textarea name="note" rows="2" placeholder="Orario, ospiti, materiali…"></textarea></label>
+              ${ADMIN() ? '<label class="small" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="confermato" style="width:auto"> Registra già confermato</label>' : ''}
+              <button class="btn pri" type="submit">${ADMIN() ? 'Registra evento' : 'Invia proposta'}</button>
             </form></div>
         </div>
       </div>`;
   },
   init(){
-    const E = this._E, tipi = this._tipi;
-    torta('c-ev', tipi, tipi.map(t => E.filter(e => e.tipo === t).length), { centroSub: 'eventi' });
+    const E = this._E;
+    const attivi = E.filter(e => e.stato !== 'Annullato'), tipi = [...new Set(attivi.map(e => e.tipo))];
+    if (attivi.length) torta('c-ev', tipi, tipi.map(t => attivi.filter(e => e.tipo === t).length), { centroSub: 'eventi' });
+    const mio = e => e.stato === 'Proposto' && String(e.creato_da || '').toLowerCase() === String(SESS.email || '').toLowerCase();
     const draw = () => {
       const k = STATO.filtroE;
-      $('#l-ev').innerHTML = E.filter(e => k === 'Tutti' || e.tipo === k).map(evHtml).join('') || '<div class="empty">Nessun evento</div>';
+      const L = E.filter(e => k === 'Tutti' ? true : k === 'Prossimi' ? e.stato !== 'Annullato' && e.data >= OGGI : k === 'Passati' ? e.stato !== 'Annullato' && e.data < OGGI
+        : k === 'Annullati' ? e.stato === 'Annullato' : e.stato === 'Proposto');
+      if (k === 'Passati') L.reverse();
+      $('#l-ev').innerHTML = L.map(e => {
+        const az = (ADMIN() ? (e.stato !== 'Confermato' ? `<button class="btn pri" data-es="${e.id}" data-st="Confermato">Conferma</button>` : '')
+            + (e.stato !== 'Annullato' ? ` <button class="btn" data-es="${e.id}" data-st="Annullato">Annulla</button>` : ` <button class="btn" data-es="${e.id}" data-st="Proposto">Riapri</button>`) : '')
+          + ((ADMIN() || mio(e)) ? ` <button class="btn" data-ed="${e.id}">Elimina</button>` : '');
+        return evHtml(e).replace(/<\/div>$/, '') + (e.note || az ? `<div class="ev-piede">${e.note ? `<span class="small muted">${esc(e.note)}</span>` : '<span></span>'}<span>${az}</span></div>` : '') + '</div>';
+      }).join('') || `<div class="empty">Nessun evento${k !== 'Tutti' ? ' in questa vista' : ''}. ${E.length ? '' : 'Usa il modulo a destra per proporre il primo.'}</div>`;
+      document.querySelectorAll('[data-es]').forEach(b => b.addEventListener('click', () => salvaCon(b, async () => {
+        await rpc('ed_evento_stato', { p_editore: ED.codice_editore, p_id: b.dataset.es, p_stato: b.dataset.st }); render(); })));
+      document.querySelectorAll('[data-ed]').forEach(b => b.addEventListener('click', () => { if (confirm('Eliminare questo evento?')) salvaCon(b, async () => {
+        await rpc('ed_evento_elimina', { p_editore: ED.codice_editore, p_id: b.dataset.ed }); render(); }); }));
     };
     draw();
     document.querySelectorAll('#ch-e .chip').forEach(b => b.addEventListener('click', () => { STATO.filtroE = b.dataset.f; document.querySelectorAll('#ch-e .chip').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
+
     // Libreria o città: ricerca nell'anagrafica clienti RPN mentre si scrive (nome, codice o città).
     // Scegliendo una città: "libreria da individuare a carico della rete promozionale".
     let scelta = null, ultimo = null, timer = null;
@@ -2260,9 +2282,14 @@ S.eventi = {
       if (!scelta && ultimo) { const t = inp.value.trim().toLowerCase(); const c = (ultimo.citta || []).find(x => x.citta.toLowerCase() === t); if (c) scegli({ tipo: 'citta', ...c }); }
       if (!scelta) { alert('Scegli dall\'elenco una libreria oppure una città.'); inp.focus(); return; }
       const d = Object.fromEntries(new FormData(ev.target));
-      const luogo = scelta.tipo === 'libreria' ? inp.value : `${titleCase(scelta.citta)}${scelta.provincia ? ' (' + scelta.provincia + ')' : ''}`;
-      const L = leggi(KEY_EV); L.push({ id: 'p' + Date.now(), ...d, luogo, cc: scelta.tipo === 'libreria' ? scelta.cc : null, da_individuare: scelta.tipo === 'citta', autore: d.autore || '—' }); scrivi(KEY_EV, L);
-      render();
+      const p = { titolo: d.titolo, data: d.data, tipo: d.tipo, autore: d.autore, note: d.note, stato: d.confermato ? 'Confermato' : 'Proposto',
+        luogo: scelta.tipo === 'libreria' ? inp.value : `${titleCase(scelta.citta)}${scelta.provincia ? ' (' + scelta.provincia + ')' : ''}`,
+        codice_cliente: scelta.tipo === 'libreria' ? scelta.cc : '', citta: scelta.citta || '', provincia: scelta.provincia || '', da_individuare: scelta.tipo === 'citta' };
+      salvaCon(ev.submitter || ev.target.querySelector('[type=submit]'), async () => {
+        await rpc('ed_evento_salva', { p_editore: ED.codice_editore, p });
+        STATO.filtroE = p.stato === 'Confermato' ? 'Prossimi' : 'Da confermare';
+        render();
+      });
     });
   },
 };
@@ -2318,7 +2345,7 @@ S.materiali = {
 };
 
 // Sezioni ancora senza fonte dati: restano con dati di esempio, segnalati
-S.eventi.demo = true;   // eventi: ancora di esempio
+// tutte le sezioni leggono dati veri
 
 /* =====================================================================
    MENU, ACCESSO E NAVIGAZIONE
