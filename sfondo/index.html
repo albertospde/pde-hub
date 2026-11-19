@@ -13,79 +13,93 @@
     --bg: #0b1220; --bg2: #101a2e; --card: rgba(22, 34, 58, .78); --line: rgba(120, 160, 220, .16);
     --tx: #e8eef8; --tx2: #9fb0c8; --tx3: #6c7f9c;
     --blu: #1f6fe5; --ciano: #00b4e8; --verde: #2fbf8f; --ambra: #f0a93b; --rosso: #ef5b5b; --viola: #9b7bf0;
-    /* margini per icone del desktop (sx) e barra applicazioni (basso) */
-    --pad-sx: 7vw; --pad-dx: 2.6vw; --pad-top: 3vh; --pad-bot: 7.5vh;
+    /* spazio libero a sinistra per icone di app e cartelle, e in basso per la barra applicazioni */
+    --pad-sx: 12vw; --pad-dx: 1.8vw; --pad-top: 2.6vh; --pad-bot: 7vh;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { width: 100%; height: 100%; overflow: hidden; }
   body {
-    font-family: Montserrat, "Segoe UI", sans-serif; color: var(--tx); font-size: clamp(11px, .78vw, 17px);
+    font-family: Montserrat, "Segoe UI", sans-serif; color: var(--tx); font-size: clamp(10px, .72vw, 16px);
     background:
       radial-gradient(1200px 700px at 85% -10%, rgba(0,180,232,.16), transparent 60%),
       radial-gradient(900px 600px at 0% 110%, rgba(31,111,229,.18), transparent 60%),
       linear-gradient(160deg, var(--bg2), var(--bg));
-    /* sfondo: niente clic, niente selezione */
     pointer-events: none; user-select: none; -webkit-user-select: none; cursor: default;
   }
   .wrap { position: absolute; inset: var(--pad-top) var(--pad-dx) var(--pad-bot) var(--pad-sx);
-    display: grid; grid-template-columns: 1.15fr 1.15fr .95fr; grid-template-rows: auto 1fr; gap: 1.6vh 1.4vw; }
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr auto; gap: 1.4vh 1.2vw; }
 
-  /* intestazione */
   header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 2vw; }
-  .logo-box { background: #fff; border-radius: 10px; padding: .55em .9em; display: inline-flex; }
-  .logo-box .pde-logo { font-size: clamp(13px, 1vw, 20px); }
+  .logo-box { background: #fff; border-radius: 10px; padding: .5em .85em; display: inline-flex; }
+  .logo-box .pde-logo { font-size: clamp(12px, .9vw, 18px); }
   .ora { text-align: right; }
-  .ora .h { font-size: 3.6em; font-weight: 300; letter-spacing: -.02em; line-height: 1; }
-  .ora .d { font-size: 1.15em; color: var(--tx2); margin-top: .3em; text-transform: capitalize; }
-  .giro { flex: 1; max-width: 42em; }
+  .ora .h { font-size: 3.4em; font-weight: 300; letter-spacing: -.02em; line-height: 1; }
+  .ora .d { font-size: 1.1em; color: var(--tx2); margin-top: .25em; text-transform: capitalize; }
+  .giro { flex: 1; max-width: 44em; }
   .giro .lbl { font-size: .85em; color: var(--tx2); letter-spacing: .12em; text-transform: uppercase; display: flex; justify-content: space-between; }
   .giro .lbl b { color: var(--tx); letter-spacing: 0; text-transform: none; font-weight: 600; font-size: 1.15em; }
-  .bar { height: 7px; background: rgba(255,255,255,.08); border-radius: 9px; margin: .55em 0 .35em; overflow: hidden; }
+  .bar { height: 6px; background: rgba(255,255,255,.08); border-radius: 9px; margin: .5em 0 .3em; overflow: hidden; }
   .bar i { display: block; height: 100%; border-radius: 9px; background: linear-gradient(90deg, var(--blu), var(--ciano)); }
   .giro .sub { font-size: .85em; color: var(--tx3); display: flex; justify-content: space-between; }
 
-  /* card */
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 1.3em 1.4em;
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 1.1em 1.3em;
     display: flex; flex-direction: column; min-height: 0; backdrop-filter: blur(6px); }
   .kicker { font-size: .78em; letter-spacing: .16em; text-transform: uppercase; font-weight: 600; display: flex; align-items: center; gap: .6em; }
   .kicker .dot { width: .6em; height: .6em; border-radius: 50%; }
-  .card h2 { font-size: 2.7em; font-weight: 700; letter-spacing: -.02em; margin: .2em 0 .1em; line-height: 1.05; }
-  .card h2 small { font-size: .42em; font-weight: 500; color: var(--tx2); letter-spacing: 0; margin-left: .4em; }
-  .meta { color: var(--tx2); font-size: 1em; margin-bottom: .9em; }
-  .meta b { color: var(--tx); font-weight: 600; }
-  .chip { display: inline-block; font-size: .78em; padding: .2em .65em; border-radius: 99px; font-weight: 600; margin-left: .4em; vertical-align: middle; }
-  .kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7em; margin-bottom: 1em; }
-  .kpi div { background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 10px; padding: .6em .75em; }
-  .kpi span { display: block; font-size: .72em; color: var(--tx3); letter-spacing: .1em; text-transform: uppercase; }
-  .kpi b { font-size: 1.55em; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .lista { list-style: none; overflow: hidden; flex: 1; min-height: 0; }
-  .lista li { display: grid; grid-template-columns: 1fr auto; gap: .2em 1em; padding: .5em 0; border-top: 1px solid var(--line); }
-  .lista .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: lowercase; }
-  .lista .t::first-letter { text-transform: uppercase; }
-  .lista .e { grid-column: 1; font-size: .82em; color: var(--tx3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: .03em; }
-  .lista .n { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--tx2); }
-  .vuoto { color: var(--tx3); font-style: italic; padding: 1em 0; }
-  .countdown { margin-left: auto; font-size: .95em; font-weight: 700; padding: .25em .7em; border-radius: 8px; letter-spacing: 0; text-transform: none; }
+  .titolo-card { display: flex; align-items: baseline; gap: .8em; margin: .25em 0 .7em; flex-wrap: wrap; }
+  .titolo-card h2 { font-size: 2.1em; font-weight: 700; letter-spacing: -.02em; }
+  .titolo-card span { color: var(--tx2); }
+  .titolo-card b { color: var(--tx); font-weight: 600; }
+  .chip { display: inline-block; font-size: .75em; padding: .15em .6em; border-radius: 99px; font-weight: 600; background: #ffffff14; color: var(--tx3); }
+  .vuoto { color: var(--tx3); font-style: italic; padding: .6em 0; }
 
-  /* colonna agenda */
-  .agenda { gap: 0; }
-  .agenda h3 { font-size: .78em; letter-spacing: .16em; text-transform: uppercase; font-weight: 600; color: var(--tx2); margin: .2em 0 .6em; }
-  .agenda h3 + * { margin-bottom: 1.1em; }
-  .tl { list-style: none; overflow: hidden; }
-  .tl li { display: grid; grid-template-columns: 4.3em 1fr; gap: .9em; padding: .42em 0; align-items: center; }
-  .tl .dt { text-align: center; border-radius: 9px; padding: .25em 0; background: rgba(255,255,255,.05); border: 1px solid var(--line); line-height: 1.1; }
-  .tl .dt b { display: block; font-size: 1.3em; }
-  .tl .dt span { font-size: .7em; color: var(--tx3); text-transform: uppercase; letter-spacing: .08em; }
-  .tl .tx { font-size: .95em; line-height: 1.3; }
-  .tl .tx small { display: block; color: var(--tx3); font-size: .82em; }
-  .tl li.oggi .dt { background: rgba(0,180,232,.18); border-color: rgba(0,180,232,.5); }
-  .tag { display: inline-block; width: .55em; height: .55em; border-radius: 50%; margin-right: .45em; vertical-align: middle; }
-  .riunione { background: rgba(155,123,240,.1); border: 1px solid rgba(155,123,240,.35); border-radius: 10px; padding: .6em .8em; margin-bottom: .5em; }
-  .riunione b { display: block; }
-  .riunione span { color: var(--tx2); font-size: .9em; }
-  footer { position: absolute; right: var(--pad-dx); bottom: calc(var(--pad-bot) - 2.2em); font-size: .72em; color: var(--tx3); }
+  /* usciti: tutta la metà sinistra, due colonne, carattere adattato perché entri tutto */
+  #usciti { grid-row: 2 / span 2; }
+  #elenco { flex: 1; min-height: 0; column-count: 2; column-gap: 2em; column-fill: auto; overflow: hidden; column-rule: 1px solid var(--line); }
+  .ed { break-inside: avoid; margin-bottom: .55em; }
+  .ed h4 { font-size: .78em; color: var(--ciano); letter-spacing: .08em; font-weight: 600; text-transform: uppercase; display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: .15em; margin-bottom: .15em; }
+  .ed h4 small { color: var(--tx3); letter-spacing: 0; font-weight: 500; }
+  .ti { display: flex; justify-content: space-between; gap: .8em; line-height: 1.35; }
+  .ti span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: lowercase; }
+  .ti span::first-letter { text-transform: uppercase; }
+  .ti span em { font-style: normal; color: var(--tx3); text-transform: none; }
+  .ti b { font-weight: 500; color: var(--tx2); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+  /* calendario lanci */
+  #cal { min-height: 0; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th { font-size: .72em; color: var(--tx3); text-transform: uppercase; letter-spacing: .08em; font-weight: 600; text-align: left; padding: .35em .5em; border-bottom: 1px solid var(--line); }
+  th.g { text-align: center; color: var(--tx2); border-bottom: 0; padding-bottom: 0; }
+  td { padding: .38em .5em; border-bottom: 1px solid rgba(120,160,220,.08); white-space: nowrap; }
+  td.n { font-weight: 700; font-size: 1.05em; }
+  tr.passato td { color: var(--tx3); }
+  tr.uscita td { background: rgba(47,191,143,.10); }
+  tr.uscita td:first-child { box-shadow: inset 3px 0 0 var(--verde); }
+  tr.corrente td { background: rgba(0,180,232,.16); font-weight: 600; }
+  tr.corrente td:first-child { box-shadow: inset 3px 0 0 var(--ciano); }
+  td .st { color: var(--tx3); font-weight: 400; }
+  td.tag { font-size: .78em; font-weight: 600; }
+  .focus { display: grid; grid-template-columns: repeat(4, 1fr); gap: .6em; margin: .2em 0 .8em; }
+  .focus div { background: rgba(0,180,232,.08); border: 1px solid rgba(0,180,232,.3); border-radius: 10px; padding: .5em .7em; }
+  .focus span { display: block; font-size: .7em; color: var(--tx2); letter-spacing: .08em; text-transform: uppercase; }
+  .focus b { font-size: 1.15em; font-weight: 600; }
+  .focus i { display: block; font-style: normal; font-size: .78em; font-weight: 600; margin-top: .1em; }
+
+  /* prossime 2 settimane: compatto */
+  #scad { padding: .8em 1.1em; }
+  #scad .kicker { font-size: .7em; margin-bottom: .5em; color: var(--tx2); }
+  .sc { display: grid; grid-template-columns: 1fr 1fr; gap: .15em 1.6em; font-size: .88em; }
+  .sc div { display: flex; gap: .6em; align-items: baseline; white-space: nowrap; overflow: hidden; }
+  .sc div b { width: 5.6em; flex-shrink: 0; color: var(--tx2); font-weight: 600; }
+  .sc div span { overflow: hidden; text-overflow: ellipsis; }
+  .sc div.oggi b { color: var(--ciano); }
+  .tg { display: inline-block; width: .5em; height: .5em; border-radius: 50%; margin-right: .4em; }
+  .riu { margin-top: .5em; font-size: .85em; color: var(--tx2); }
+  .riu b { color: var(--viola); font-weight: 600; }
+
+  footer { position: absolute; right: var(--pad-dx); bottom: calc(var(--pad-bot) - 2em); font-size: .72em; color: var(--tx3); }
   .offline footer { color: var(--ambra); }
-  /* login: visibile solo alla prima configurazione */
+
   #login { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(5,10,20,.82); z-index: 10; pointer-events: auto; }
   body.da-login #login { display: flex; }
   body.da-login { pointer-events: auto; }
@@ -104,9 +118,9 @@
     <div class="giro" id="giro"></div>
     <div class="ora"><div class="h" id="h">--:--</div><div class="d" id="d"></div></div>
   </header>
-  <section class="card" id="trasm"></section>
-  <section class="card" id="uscita"></section>
-  <section class="card agenda" id="agenda"></section>
+  <section class="card" id="usciti"></section>
+  <section class="card" id="cal"></section>
+  <section class="card" id="scad"></section>
 </div>
 <footer id="ft"></footer>
 <div id="login"><form id="lf" autocomplete="on">
@@ -128,89 +142,26 @@ const DEMO = P.get('demo'); // file json locale per prove
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'pde-sfondo-auth' } });
 const AGGIORNA_MIN = 10;
 
-// blocca qualsiasi interazione (Lively di norma non inoltra il mouse, questo è un doppio blocco)
-// (attivo solo quando non serve il login)
+// blocca qualsiasi interazione, tranne durante il login
 ['contextmenu','mousedown','keydown','wheel','dragstart','selectstart'].forEach(ev =>
   addEventListener(ev, e => { if (!document.body.classList.contains('da-login')) e.preventDefault(); }, { capture: true, passive: false }));
 
 const GG = ['dom','lun','mar','mer','gio','ven','sab'];
 const MM = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
 const d0 = s => new Date(s + 'T12:00:00');
-const fmt = s => { const d = d0(s); return `${GG[d.getDay()]} ${d.getDate()} ${MM[d.getMonth()]}`; };
+const fmt = s => { if (!s) return '—'; const d = d0(s); return `${GG[d.getDay()]} ${d.getDate()} ${MM[d.getMonth()]}`; };
+const corta = s => { if (!s) return '—'; const d = d0(s); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; };
 const num = n => String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 const oggiISO = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset()*6e4).toISOString().slice(0,10); };
 const diffGG = s => Math.round((d0(s) - d0(oggiISO())) / 864e5);
+const traGG = s => { const g = diffGG(s); return g < 0 ? 'fatto' : g === 0 ? 'oggi' : g === 1 ? 'domani' : `tra ${g} gg`; };
+const colGG = s => { const g = diffGG(s); return g < 0 ? 'var(--tx3)' : g <= 2 ? 'var(--rosso)' : g <= 5 ? 'var(--ambra)' : 'var(--verde)'; };
 
 function orologio() {
   const d = new Date();
   document.getElementById('h').textContent = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
   document.getElementById('d').textContent = d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-function listaTitoli(t) {
-  if (!t || !t.length) return '<div class="vuoto">Titoli non ancora sincronizzati da Messaggerie</div>';
-  return '<ul class="lista">' + t.map(r => `<li><span class="t">${esc(r.titolo)}</span><span class="n">${num(r.prenotato)}</span><span class="e">${esc(r.editore)}${r.autore ? ' · ' + esc(r.autore) : ''}</span></li>`).join('') + '</ul>';
-}
-
-function rTrasm(l, prox) {
-  const el = document.getElementById('trasm');
-  if (!l) { el.innerHTML = '<div class="kicker">Lancio da trasmettere</div><div class="vuoto">Nessun lancio in calendario</div>'; return; }
-  const g = diffGG(l.iscrizione);
-  let cd = '', col = 'var(--ciano)';
-  if (g > 0) { cd = g === 1 ? 'iscrizione domani' : `iscrizione tra ${g} gg`; col = g <= 2 ? 'var(--rosso)' : 'var(--ambra)'; }
-  else if (g === 0) { cd = 'iscrizione OGGI'; col = 'var(--rosso)'; }
-  else { cd = 'da trasmettere'; col = 'var(--ambra)'; }
-  const proxTxt = prox ? ` · prossima: lancio ${prox.numero} il ${fmt(prox.iscrizione)}` : '';
-  el.innerHTML = `
-    <div class="kicker" style="color:var(--ciano)"><span class="dot" style="background:var(--ciano)"></span>${l.della_settimana ? 'Lancio della settimana' : 'Prossimo lancio'}
-      <span class="countdown" style="background:${col}22;color:${col}">${cd}</span></div>
-    <h2>Lancio ${l.numero}<small>${l.anno}</small></h2>
-    <div class="meta">Iscrizione <b>${fmt(l.iscrizione)}</b> · in libreria <b>${fmt(l.vendita_sopra)}</b>${l.uscita_stimata ? ' <span class="chip" style="background:#ffffff14;color:var(--tx3)">stima</span>' : ''}${esc(proxTxt)}</div>
-    <div class="kpi">
-      <div><span>Titoli</span><b>${num(l.n_titoli)}</b></div>
-      <div><span>Editori</span><b>${num(l.n_editori)}</b></div>
-      <div><span>Prenotato</span><b>${num(l.prenotato_trasmesso || l.prenotato_iscrizione)}</b></div>
-    </div>
-    ${listaTitoli(l.titoli)}`;
-}
-
-function rUscita(arr) {
-  const el = document.getElementById('uscita');
-  if (!arr || !arr.length) { el.innerHTML = '<div class="kicker">In uscita</div><div class="vuoto">Nessuna uscita in calendario</div>'; return; }
-  const l = arr[0];
-  const date = l.vendita_sopra === l.vendita_sotto
-    ? `in libreria <b>${fmt(l.vendita_sopra)}</b>`
-    : `in libreria <b>${fmt(l.vendita_sopra)}</b> (&gt; 2.000) · <b>${fmt(l.vendita_sotto)}</b> (&lt; 2.000)`;
-  const altri = arr.slice(1).map(x => `lancio ${x.numero}`).join(', ');
-  el.innerHTML = `
-    <div class="kicker" style="color:var(--verde)"><span class="dot" style="background:var(--verde)"></span>${l.settimana_corrente ? 'Esce questa settimana' : 'Prossima uscita'}</div>
-    <h2>Lancio ${l.numero}<small>${l.anno}</small></h2>
-    <div class="meta">${date}${l.uscita_stimata ? ' <span class="chip" style="background:#ffffff14;color:var(--tx3)">stima</span>' : ''}${altri ? ` · anche ${esc(altri)}` : ''}</div>
-    <div class="kpi">
-      <div><span>Titoli</span><b>${num(l.n_titoli)}</b></div>
-      <div><span>Editori</span><b>${num(l.n_editori)}</b></div>
-      <div><span>Prenotato</span><b>${num(l.prenotato_trasmesso || l.prenotato_iscrizione)}</b></div>
-    </div>
-    ${listaTitoli(l.titoli)}`;
-}
-
-const COL = { iscrizione: 'var(--ciano)', magazzino: 'var(--ambra)', uscita: 'var(--verde)', giro: 'var(--blu)', evento: 'var(--viola)' };
-
-function rAgenda(f) {
-  const el = document.getElementById('agenda');
-  const oggi = oggiISO();
-  const ev = (f.eventi || []).map(e => ({ data: e.data, tipo: 'evento',
-    testo: e.titolo, sub: [e.ora, e.autore, e.luogo || e.citta].filter(Boolean).join(' · ') }));
-  const tutte = [...(f.scadenze || []), ...ev].sort((a, b) => a.data < b.data ? -1 : a.data > b.data ? 1 : 0).slice(0, 11);
-  const riun = (f.riunioni || []).map(r => `<div class="riunione"><b>Riunioni ${esc(r.giro)}</b><span>${esc(r.quando)} · uscite ${esc(r.mese_uscita || '')}</span></div>`).join('');
-  el.innerHTML = `
-    <h3>Prossime scadenze</h3>
-    <ul class="tl">${tutte.map(s => { const d = d0(s.data); return `
-      <li class="${s.data === oggi ? 'oggi' : ''}"><div class="dt"><b>${d.getDate()}</b><span>${GG[d.getDay()]} ${MM[d.getMonth()]}</span></div>
-      <div class="tx"><span class="tag" style="background:${COL[s.tipo] || 'var(--tx3)'}"></span>${esc(s.testo)}${s.sub ? `<small>${esc(s.sub)}</small>` : ''}</div></li>`; }).join('') || '<li class="vuoto">Nessuna scadenza nelle prossime 4 settimane</li>'}</ul>
-    ${riun ? `<h3>Riunioni</h3><div>${riun}</div>` : ''}
-    ${(f.eventi || []).length ? '' : '<h3>Eventi</h3><div class="vuoto" style="padding:0">Nessun evento in calendario</div>'}`;
 }
 
 function rGiro(g) {
@@ -224,8 +175,81 @@ function rGiro(g) {
     <div class="sub"><span>${fmt(g.inizio)}</span><span>${rest > 0 ? `fine giro tra ${rest} gg` : rest === 0 ? 'fine giro OGGI' : 'giro chiuso'} · dati agli editori ${fmt(g.dati_a_editori)}</span><span>${fmt(g.fine)}</span></div>`;
 }
 
+// titoli usciti in settimana, raggruppati per editore, su due colonne
+function rUsciti(arr) {
+  const el = document.getElementById('usciti');
+  const titoli = (arr || []).flatMap(l => l.titoli.map(t => ({ ...t, lancio: l.numero })));
+  const lanci = (arr || []).map(l => `lancio ${l.numero}`).join(' + ');
+  const l0 = (arr || [])[0];
+  const quando = l0 ? (l0.vendita_sopra === l0.vendita_sotto ? `in libreria <b>${fmt(l0.vendita_sopra)}</b>`
+    : `in libreria <b>${fmt(l0.vendita_sopra)}</b> (&gt; 2.000) · <b>${fmt(l0.vendita_sotto)}</b> (&lt; 2.000)`) : '';
+  const gruppi = [];
+  for (const t of titoli.sort((a, b) => a.editore.localeCompare(b.editore, 'it') || a.titolo.localeCompare(b.titolo, 'it'))) {
+    const g = gruppi[gruppi.length - 1];
+    if (g && g.editore === t.editore) g.titoli.push(t); else gruppi.push({ editore: t.editore, titoli: [t] });
+  }
+  el.innerHTML = `
+    <div class="kicker" style="color:var(--verde)"><span class="dot" style="background:var(--verde)"></span>Usciti questa settimana</div>
+    <div class="titolo-card"><h2>${titoli.length ? `${titoli.length} titoli` : 'Nessuna uscita'}</h2>
+      <span>${esc(lanci)}${quando ? ' · ' + quando : ''} · ${gruppi.length} editori</span>
+      ${l0 && l0.uscita_stimata ? '<span class="chip">data stimata</span>' : ''}</div>
+    <div id="elenco">${gruppi.map(g => `<div class="ed"><h4>${esc(g.editore)}<small>${g.titoli.length}</small></h4>
+      ${g.titoli.map(t => `<div class="ti"><span>${esc(t.titolo)}${t.autore ? ` <em>· ${esc(t.autore)}</em>` : ''}</span><b>${num(t.prenotato)}</b></div>`).join('')}</div>`).join('')}</div>`;
+  adatta();
+}
+
+// riduce il carattere dell'elenco finché tutti i titoli entrano nelle due colonne
+function adatta() {
+  const el = document.getElementById('elenco');
+  if (!el) return;
+  let size = 15;
+  el.style.fontSize = size + 'px';
+  while (size > 8 && (el.scrollWidth > el.clientWidth + 2 || el.scrollHeight > el.clientHeight + 2)) {
+    size -= 0.25; el.style.fontSize = size + 'px';
+  }
+}
+
+function rCal(cal) {
+  const el = document.getElementById('cal');
+  const c = (cal || []).find(l => l.corrente);
+  const focus = c ? `
+    <div class="kicker" style="color:var(--ciano)"><span class="dot" style="background:var(--ciano)"></span>Lancio della settimana</div>
+    <div class="titolo-card"><h2>Lancio ${c.numero}</h2><span>${esc(c.note || '')}</span></div>
+    <div class="focus">
+      <div><span>Iscrizione</span><b>${fmt(c.iscrizione)}</b><i style="color:${colGG(c.iscrizione)}">${traGG(c.iscrizione)}</i></div>
+      <div><span>Consegna mag.</span><b>${c.mag_sopra ? fmt(c.mag_sopra) : '—'}</b><i style="color:${c.mag_sopra ? colGG(c.mag_sopra) : 'var(--tx3)'}">${c.mag_sopra ? traGG(c.mag_sopra) + (c.mag_sotto && c.mag_sotto !== c.mag_sopra ? ' · &lt;2.000 ' + corta(c.mag_sotto) : '') : 'da calendario'}</i></div>
+      <div><span>Consegna libreria</span><b>${c.lib_sopra ? fmt(c.lib_sopra) : '—'}</b><i style="color:var(--tx3)">${c.lib_sotto && c.lib_sotto !== c.lib_sopra ? '&lt;2.000 ' + corta(c.lib_sotto) : '&nbsp;'}</i></div>
+      <div><span>In libreria</span><b>${fmt(c.vendita_sopra)}</b><i style="color:${colGG(c.vendita_sopra)}">${c.uscita_stimata ? 'stima · ' : ''}${traGG(c.vendita_sopra)}</i></div>
+    </div>` : '';
+  const righe = (cal || []).map(l => {
+    const cls = l.corrente ? 'corrente' : l.in_uscita ? 'uscita' : l.passato ? 'passato' : '';
+    const tag = l.corrente ? '<span style="color:var(--ciano)">questa settimana</span>' : l.in_uscita ? '<span style="color:var(--verde)">in uscita</span>' : '';
+    const st = l.uscita_stimata ? '<span class="st">~</span>' : '';
+    return `<tr class="${cls}"><td class="n">${l.numero}</td><td>${fmt(l.iscrizione)}</td>
+      <td>${corta(l.mag_sopra)}</td><td>${corta(l.mag_sotto)}</td>
+      <td>${st}${corta(l.vendita_sopra)}</td><td>${st}${corta(l.vendita_sotto)}</td><td class="tag">${tag}</td></tr>`;
+  }).join('');
+  el.innerHTML = focus + `
+    <div class="kicker" style="color:var(--tx2);margin-bottom:.3em">Calendario lanci</div>
+    <table><thead>
+      <tr><th></th><th></th><th class="g" colspan="2">Consegna mag.</th><th class="g" colspan="2">In libreria</th><th></th></tr>
+      <tr><th>N°</th><th>Iscrizione</th><th>&gt; 2.000</th><th>&lt; 2.000</th><th>&gt; 2.000</th><th>&lt; 2.000</th><th></th></tr>
+    </thead><tbody>${righe}</tbody></table>`;
+}
+
+const COL = { iscrizione: 'var(--ciano)', magazzino: 'var(--ambra)', uscita: 'var(--verde)', giro: 'var(--blu)', evento: 'var(--viola)' };
+function rScad(f) {
+  const el = document.getElementById('scad');
+  const oggi = oggiISO();
+  const s = (f.scadenze || []);
+  const riu = (f.riunioni || []).map(r => `<b>Riunioni ${esc(r.giro)}</b>: ${esc(r.quando)}`).join(' · ');
+  el.innerHTML = `<div class="kicker">Prossime 2 settimane</div>
+    <div class="sc">${s.map(x => `<div class="${x.data === oggi ? 'oggi' : ''}"><b>${fmt(x.data)}</b><span><i class="tg" style="background:${COL[x.tipo] || 'var(--tx3)'}"></i>${esc(x.testo)}${x.sub ? ' · ' + esc(x.sub) : ''}</span></div>`).join('') || '<div class="vuoto">Nessuna scadenza</div>'}</div>
+    ${riu ? `<div class="riu">${riu}</div>` : ''}`;
+}
+
 function render(f, offline) {
-  rGiro(f.giro_in_corso); rTrasm(f.da_trasmettere, f.prossima_iscrizione); rUscita(f.in_uscita); rAgenda(f);
+  rGiro(f.giro_in_corso); rCal(f.calendario); rScad(f); rUsciti(f.usciti);
   document.body.classList.toggle('offline', !!offline);
   const t = new Date(f.generato).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   document.getElementById('ft').textContent = (offline ? 'Non aggiornato · ultimo dato ' : 'Aggiornato ') + t;
@@ -245,11 +269,11 @@ async function carica() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const f = await r.json();
     if (f.error) throw new Error(f.error);
-    try { localStorage.setItem('pde_sfondo_feed', JSON.stringify(f)); } catch (_) {}
+    try { localStorage.setItem('pde_sfondo_feed_v4', JSON.stringify(f)); } catch (_) {}
     render(f, false);
   } catch (e) {
     let f = null;
-    try { f = JSON.parse(localStorage.getItem('pde_sfondo_feed') || 'null'); } catch (_) {}
+    try { f = JSON.parse(localStorage.getItem('pde_sfondo_feed_v4') || 'null'); } catch (_) {}
     if (f) render(f, true);
     else document.getElementById('ft').textContent = 'Dati non disponibili, riprovo tra poco';
   }
@@ -265,9 +289,9 @@ document.getElementById('lf').addEventListener('submit', async e => {
   carica();
 });
 
+addEventListener('resize', adatta);
 orologio(); setInterval(orologio, 15000);
 carica(); setInterval(carica, AGGIORNA_MIN * 60000);
-// ricarica completa ogni 6 ore per prendere eventuali aggiornamenti della pagina
 setTimeout(() => location.reload(), 6 * 3600000);
 </script>
 </body>
