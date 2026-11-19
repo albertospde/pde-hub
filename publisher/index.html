@@ -208,6 +208,26 @@
   .sellout .val{font-size:30px;font-weight:800;margin:4px 0}
   .sellout-fonti{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin-top:10px;font-size:13px;padding-top:10px;border-top:1px dashed var(--border)}
   .sellout-fonti b{color:var(--text-dim);font-weight:600}
+  .so-griglia{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+  .so-griglia > div + div{border-left:1px dashed var(--border);padding-left:14px}
+  .so-per{font-size:12px;color:var(--text-dim);font-weight:600}
+  .sellout .so-griglia .val{font-size:24px;margin:2px 0 0}
+  .so-cop{font-weight:700;font-size:14px;margin-bottom:2px}
+  /* "In sintesi" cliccabile */
+  .sintesi-apri{display:flex;align-items:center;gap:14px;width:100%;margin-bottom:16px;text-align:left;font:inherit;color:inherit;cursor:pointer;
+    border:1.5px solid var(--cyan);background:var(--cyan-dim);transition:transform .12s, box-shadow .12s}
+  .sintesi-apri:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,144,200,.18)}
+  .si-ico{font-size:26px;flex:none}
+  .si-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .si-txt b{font-size:15px} .si-txt span{font-size:13px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .si-cta{flex:none;background:var(--cyan);color:#fff;font-weight:700;font-size:13px;padding:8px 14px;border-radius:10px}
+  /* in evidenza nel periodo */
+  .evidenza{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;margin-top:6px}
+  .evidenza .lab{font-size:11.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+  .ev-tit{display:flex;gap:10px;align-items:center;min-width:0}
+  .ev-nome{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .ev-num{padding:10px 12px;border-radius:12px;background:var(--card-2)} .ev-num .v{font-size:24px;font-weight:800}
+  @media (max-width:700px){.evidenza,.so-griglia{grid-template-columns:1fr} .so-griglia > div + div{border-left:0;padding-left:0}}
   .top10{list-style:none;margin:0;padding:0}
   .top10 li{display:grid;grid-template-columns:34px auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border)}
   .top10 li:last-child{border-bottom:none} .top10 .pos{font-weight:800;color:var(--text-dim);text-align:right;font-size:13px}
@@ -1088,6 +1108,14 @@ S.dashboard = {
     const prossimi = R.giri.filter(g => g.stato !== 'chiuso');
     const top10 = [...T].sort((a, b) => gM(b) - gM(a)).slice(0, 10);
     const w = settimaneGfk();
+    // ultima settimana GfK disponibile: classifica settimanale dell'ultimo import
+    const wk = [...new Set((R.gfk.righe || []).filter(r => r.tipo === 'WEEK').map(r => r.week_key))].sort((a, b) => (settimaneGfk(b) || {}).a - (settimaneGfk(a) || {}).a || b.localeCompare(a))[0];
+    const W = (R.gfk.righe || []).filter(r => r.tipo === 'WEEK' && r.week_key === wk), ww = settimaneGfk(wk);
+    // in evidenza nel periodo
+    const L = TF().filter(t => t.cf || t.cr), ordT = [...L].sort((a, b) => tM(b) - tM(a));
+    const uscite = ordT.filter(t => t.uscita && t.uscita >= PER.dal.slice(0, 4) + '-01-01');
+    const nov = totP(V.filter(v => v.tipo === 'lancio'), false, fM), totV = totP(V, false, fM);
+    const tEv = (lab, t, extra) => t ? `<div class="ev-tit">${cop(t.ean)}<div style="min-width:0"><div class="lab">${lab}</div><div class="t-tit ev-nome">${esc(titleCase(t.titolo))}</div><div class="t-sub">${fmtMF(tM(t))} · ${num(t.cf - t.cr)} copie${extra || ''}</div></div></div>` : '';
     const li = [];
     li.push(`Nel periodo il venduto ${unitaM()} è <b>${fmtM(f)}</b>${f1 ? `, ${f >= f1 ? 'in crescita' : 'in calo'} del <b>${pct(Math.abs(varr(f, f1)))}</b> sulle stesse date del ${Y - 1}` : ''}.`);
     if (PER.chiavi.length > 1) li.push(`${{ giorno: 'Il giorno migliore è stato il', settimana: 'La settimana migliore è stata quella del', mese: 'Il mese migliore è stato' }[PER.grana]} <b>${PER.grana === 'mese' ? MESI_L[pd(PER.chiavi[mb]).getMonth()] + ' ' + PER.chiavi[mb].slice(0, 4) : fData(pd(PER.chiavi[mb]))}</b> con ${fmtM(s0[mb])}.`);
@@ -1109,12 +1137,26 @@ S.dashboard = {
         ${kpi('Sconto medio', pct(sc), `<span>era ${pct(sc1)} nel ${Y - 1}</span>`, '--s4')}
       </div>
       <div class="grid g2">
-        <div class="card"><div class="card-head"><div><h3>Andamento del venduto</h3><p class="h-sub">Per ${PER.granaNome}, ${unitaM()}, a confronto con le stesse date del ${Y - 1}</p></div>
-          <div class="dx"><button class="btn pri" type="button" id="b-sintesi">💡 In sintesi</button></div></div><div class="ch lg"><canvas id="c-trend"></canvas></div></div>
         <div>
-          <div class="card sellout" style="margin-bottom:16px"><div class="lab">Sell-out totale</div>
-            <div class="val">${T.length ? fmtM(sum(T.map(gM))) : '—'}</div>
-            <div class="small muted">GfK, titoli in classifica ${w ? `(settimane ${w.da}–${w.a} del ${w.anno})` : ''}</div>
+          <div class="card" style="margin-bottom:16px"><h3>Andamento del venduto</h3><p class="h-sub">Per ${PER.granaNome}, ${unitaM()}, a confronto con le stesse date del ${Y - 1}</p><div class="ch lg"><canvas id="c-trend"></canvas></div></div>
+          <button type="button" class="card sintesi-apri" id="b-sintesi" aria-haspopup="dialog">
+            <span class="si-ico">💡</span>
+            <span class="si-txt"><b>In sintesi: ${li.length} cose da sapere sul periodo</b><span>${li[0].replace(/<[^>]+>/g, '')}</span></span>
+            <span class="si-cta">Leggi tutto →</span></button>
+          <div class="card"><h3>In evidenza nel periodo</h3><p class="h-sub">${PER.etichetta}</p>
+            <div class="evidenza">
+              ${tEv('Titolo più venduto', ordT[0])}
+              ${tEv(`Uscita del ${PER.dal.slice(0, 4)} più venduta`, uscite[0], uscite[0] && uscite[0].uscita ? ` · uscito il ${fData(pd(uscite[0].uscita))}` : '')}
+              <div class="ev-num"><div class="lab">Titoli movimentati</div><div class="v">${num(L.filter(t => t.cf > 0).length)}</div><div class="t-sub">con forniture nel periodo · ${num(uscite.length)} usciti nel ${PER.dal.slice(0, 4)}</div></div>
+              <div class="ev-num"><div class="lab">Peso delle novità</div><div class="v">${pct(totV ? nov / totV : 0, 1)}</div><div class="t-sub">del venduto viene dai lanci</div></div>
+            </div></div>
+        </div>
+        <div>
+          <div class="card sellout" style="margin-bottom:16px"><div class="lab">Sell-out totale (GfK)</div>
+            <div class="so-griglia">
+              <div><div class="so-per">Da inizio anno${w ? ` · sett. ${w.da}–${w.a}` : ''}</div><div class="val">${T.length ? eurK(sum(T.map(r => +r.value))) : '—'}</div><div class="so-cop">${T.length ? num(sum(T.map(r => +r.units))) + ' copie' : ''}</div><div class="small muted">${num(T.length)} titoli in classifica</div></div>
+              <div><div class="so-per">Ultima settimana${ww ? ` · sett. ${ww.a}` : ''}</div><div class="val">${W.length ? eurK(sum(W.map(r => +r.value))) : '—'}</div><div class="so-cop">${W.length ? num(sum(W.map(r => +r.units))) + ' copie' : ''}</div><div class="small muted">${num(W.length)} titoli in classifica${W.length ? ` · migliore ${Math.min(...W.map(r => r.rank_pos))}º` : ''}</div></div>
+            </div>
             <div class="sellout-fonti"><span>Arianna</span><b>da collegare</b><span>Amazon</span><b>da collegare</b></div></div>
           <div class="card"><h3>Top 10 titoli per sell-out</h3><p class="h-sub">Da inizio anno, ${VAL() ? 'valore' : 'copie'} in cassa (GfK)</p>
             ${top10.length ? `<ol class="top10">${top10.map(r => `<li><span class="pos">${r.rank_pos}º</span>${cop(r.ean)}<span class="tt"><b>${esc(titleCase(r.title))}</b><span class="small muted">${esc(titleCase(r.author || ''))}</span></span><span class="num t-tit">${fmtM(gM(r))}</span></li>`).join('')}</ol>`
@@ -2170,15 +2212,53 @@ S.stock = {
 };
 
 /* ---------- Alert approvvigionamento: titoli 1-1 a rischio rottura di stock entro 30 giorni e titoli a giacenza zero ---------- */
-// Esporta un elenco in CSV (separatore ; e BOM, così Excel lo apre bene con gli accenti)
-function scaricaCsv(nome, testa, righe){
-  const q = v => { const x = v == null ? '' : String(v); return /[";\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
-  const testo = '﻿' + [testa, ...righe].map(r => r.map(q).join(';')).join('\r\n');
+// Estrazioni in Excel formattato (ExcelJS, caricato solo al primo scarico)
+const COL_URG = { ko: ['FDE2E1', 'B3261E'], warn: ['FFF1D6', '8A5300'], info: ['E3F3FB', '005F87'] };
+const dataXl = d => { const x = typeof d === 'string' ? pd(d) : d; return x ? new Date(Date.UTC(x.getFullYear(), x.getMonth(), x.getDate())) : null; };
+async function scaricaExcel({ nome, foglio, titolo, sotto, riepilogo, colonne, righe, urgenza, nota }){
+  if (!window.ExcelJS) await caricaScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js');
+  const wb = new ExcelJS.Workbook(); wb.creator = 'BookUp Publisher Edition · PDE'; wb.created = new Date();
+  const ws = wb.addWorksheet(foglio, { views: [{ state: 'frozen', ySplit: 5, showGridLines: false }],
+    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9, margins: { left: .4, right: .4, top: .5, bottom: .5, header: .3, footer: .3 } } });
+  const n = colonne.length, ultima = String.fromCharCode(64 + n);
+  ws.columns = colonne.map(c => ({ width: c.w || 14 }));
+  const blu = '0B1F5C', ciano = '0090C8', bordo = { style: 'thin', color: { argb: 'FFD9E2EC' } };
+  // intestazione
+  ws.mergeCells(`A1:${ultima}1`); ws.mergeCells(`A2:${ultima}2`); ws.mergeCells(`A3:${ultima}3`);
+  Object.assign(ws.getCell('A1'), { value: titolo, font: { name: 'Calibri', size: 16, bold: true, color: { argb: 'FF' + blu } } });
+  Object.assign(ws.getCell('A2'), { value: sotto, font: { name: 'Calibri', size: 10.5, italic: true, color: { argb: 'FF5B6B82' } } });
+  Object.assign(ws.getCell('A3'), { value: riepilogo, font: { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF' + ciano } } });
+  ws.getRow(1).height = 26; ws.getRow(4).height = 6;
+  for (let c = 1; c <= n; c++) ws.getCell(4, c).border = { bottom: { style: 'medium', color: { argb: 'FF' + ciano } } };
+  // testata della tabella
+  const h = ws.getRow(5); h.height = 32;
+  colonne.forEach((c, k) => Object.assign(h.getCell(k + 1), { value: c.h, font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10.5 },
+    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + blu } }, alignment: { vertical: 'middle', horizontal: c.al || 'left', wrapText: true }, border: { top: bordo, bottom: bordo, left: bordo, right: bordo } }));
+  // righe
+  righe.forEach((r, i) => {
+    const row = ws.getRow(6 + i); row.height = 19;
+    r.forEach((v, k) => {
+      const c = colonne[k], cell = row.getCell(k + 1);
+      cell.value = v === '' || v == null ? null : v;
+      cell.font = { size: 10.5, bold: !!c.b, color: { argb: 'FF1F2A44' } };
+      cell.alignment = { vertical: 'middle', horizontal: c.al || 'left', wrapText: !!c.wrap };
+      cell.border = { bottom: bordo };
+      if (c.fmt) cell.numFmt = typeof c.fmt === 'function' ? c.fmt(i) : c.fmt;
+      if (i % 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF4F7FB' } };
+    });
+    if (urgenza){ const [k, tono] = urgenza(i), col = COL_URG[tono]; const cell = row.getCell(k + 1);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + col[0] } }; cell.font = { size: 10.5, bold: true, color: { argb: 'FF' + col[1] } }; cell.alignment = { vertical: 'middle', horizontal: 'center' }; }
+  });
+  ws.autoFilter = { from: { row: 5, column: 1 }, to: { row: 5 + righe.length, column: n } };
+  if (nota){ const r = 7 + righe.length; ws.mergeCells(`A${r}:${ultima}${r}`); Object.assign(ws.getCell(`A${r}`), { value: nota, font: { size: 9.5, italic: true, color: { argb: 'FF5B6B82' } }, alignment: { wrapText: true, vertical: 'top' } }); ws.getRow(r).height = 30; }
+  ws.headerFooter.oddFooter = `&L&8${ED.nome} · BookUp Publisher Edition&R&8Pagina &P di &N`;
+  const buf = await wb.xlsx.writeBuffer();
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([testo], { type: 'text/csv;charset=utf-8' }));
+  a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
   a.download = nome; document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
+async function estrai(b, f){ const t = b.innerHTML; b.disabled = true; b.textContent = 'Preparo il file…'; try { await f(); } catch (e) { alert('Estrazione non riuscita: ' + e.message); } finally { b.disabled = false; b.innerHTML = t; } }
 const ORIZZONTE = 30;   // la previsione anticipa di un mese la rottura di stock
 const nDec = n => String(Math.round(n * 10) / 10).replace('.', ',');
 S.alert = {
@@ -2215,7 +2295,7 @@ S.alert = {
       </div>
       <div class="grid g2e">
         <div class="card"><div class="card-head"><div><h3>A rischio rottura di stock</h3><p class="h-sub">Finiranno entro ${ORIZZONTE} giorni, dal più urgente</p></div>
-          <div class="dx"><button class="btn" type="button" id="b-csv-p" ${P.length ? '' : 'disabled'}>⬇ Estrai</button></div></div>
+          <div class="dx"><button class="btn" type="button" id="b-csv-p" ${P.length ? '' : 'disabled'}>⬇ Estrai in Excel</button></div></div>
           ${P.length ? `<div class="list-ev">${P.slice(0, 80).map(x => { const [k, l, p] = sevP(x.ggFine); return `<div class="alert-card">
             <div class="gg sev-${k}"><b>${Math.floor(x.ggFine)}</b><span>giorni</span></div>
             <div class="con-cop">${cop(x.ean, 'gr')}<div><div class="t-tit">${esc(x.tit)}</div><div class="t-sub">${sub(x)}</div>
@@ -2224,7 +2304,7 @@ S.alert = {
           ${P.length > 80 ? `<p class="note">Sono mostrati i primi 80 di ${num(P.length)}: l'estrazione li contiene tutti.</p>` : ''}`
           : `<div class="empty">Nessun titolo rischia di finire nei prossimi ${ORIZZONTE} giorni.</div>`}</div>
         <div class="card"><div class="card-head"><div><h3>A giacenza zero</h3><p class="h-sub">Da riassortire, dal più vecchio al più recente</p></div>
-          <div class="dx"><button class="btn" type="button" id="b-csv-z" ${A.length ? '' : 'disabled'}>⬇ Estrai</button></div></div>
+          <div class="dx"><button class="btn" type="button" id="b-csv-z" ${A.length ? '' : 'disabled'}>⬇ Estrai in Excel</button></div></div>
           ${A.length ? `<div class="list-ev">${A.slice(0, 80).map(x => { const [k, l, p] = sev(x.gg); return `<div class="alert-card">
             <div class="gg sev-${k}"><b>${x.almeno ? '≥' : ''}${x.gg}</b><span>giorni</span></div>
             <div class="con-cop">${cop(x.ean, 'gr')}<div><div class="t-tit">${esc(x.tit)}</div><div class="t-sub">${sub(x)}</div>
@@ -2237,14 +2317,36 @@ S.alert = {
   },
   init(){
     $('#b-meli')?.addEventListener('click', aggiornaMeli);
-    const oggi = iso(OGGI);
-    $('#b-csv-p')?.addEventListener('click', () => scaricaCsv(`titoli-a-rischio-${oggi}.csv`,
-      ['EAN', 'Titolo', 'Autore', 'Genere', 'Copie disponibili', 'Copie vendute ultimi 30 giorni', 'Copie al giorno', 'Giorni alla fine', 'Fine stimata', 'Prezzo'],
-      this._P.map(x => [x.ean, x.tit, titleCase(x.autore || ''), titleCase(x.genere || ''), x.disponibilita, x.ritmo, nDec(x.giorno), Math.floor(x.ggFine), fData(pd(x.fine)), x.prezzoT ? String(x.prezzoT).replace('.', ',') : ''])));
-    $('#b-csv-z')?.addEventListener('click', () => scaricaCsv(`titoli-a-giacenza-zero-${oggi}.csv`,
-      ['EAN', 'Titolo', 'Autore', 'Genere', 'A zero dal', 'Giorni a zero', 'Ultima fornitura', 'Copie vendute ultimi 30 giorni', 'Prezzo', 'Risposta editore'],
-      this._A.map(x => [x.ean, x.tit, titleCase(x.autore || ''), titleCase(x.genere || ''), x.zero_dal ? fData(pd(x.zero_dal)) : '', (x.almeno ? '>=' : '') + x.gg,
-        x.ultima_fornitura ? fData(pd(x.ultima_fornitura)) : '', x.ritmo, x.prezzoT ? String(x.prezzoT).replace('.', ',') : '', x.risposta_editore || ''])));
+    const oggi = iso(OGGI), file = `${ED.nome.replace(/[^\w]+/g, '-')}-${oggi}`;
+    const sotto = `${ED.nome} (codice editore ${ED.codice_editore}) · estratto il ${fData(OGGI)} · disponibilità di magazzino Messaggerie`;
+    const P = this._P, A = this._A;
+    const urgP = g => g <= 7 ? ['Entro 7 giorni', 'ko'] : g <= 15 ? ['Entro 15 giorni', 'warn'] : [`Entro ${ORIZZONTE} giorni`, 'info'];
+    const urgA = g => g > 30 ? ['Critico', 'ko'] : g >= 15 ? ['Attenzione', 'warn'] : ['Recente', 'info'];
+    const EUR = '#,##0.00 "€"', NUM = '#,##0', DATA = 'dd/mm/yyyy';
+    $('#b-csv-p')?.addEventListener('click', e => estrai(e.currentTarget, () => scaricaExcel({
+      nome: `titoli-a-rischio-${file}.xlsx`, foglio: 'A rischio rottura',
+      titolo: 'Alert approvvigionamento · Titoli a rischio rottura di stock', sotto,
+      riepilogo: `${num(P.length)} titoli finiranno entro ${ORIZZONTE} giorni · ${num(P.filter(x => x.ggFine <= 7).length)} entro 7 giorni · ${num(P.filter(x => x.ggFine > 7 && x.ggFine <= 15).length)} entro 15 giorni`,
+      colonne: [{ h: 'Urgenza', w: 16 }, { h: 'EAN', w: 16 }, { h: 'Titolo', w: 46, b: true, wrap: true }, { h: 'Autore', w: 24, wrap: true }, { h: 'Genere', w: 18 },
+        { h: 'Copie disponibili', w: 12, al: 'right', fmt: NUM }, { h: 'Vendute ultimi 30 gg', w: 12, al: 'right', fmt: NUM }, { h: 'Copie al giorno', w: 11, al: 'right', fmt: '#,##0.0' },
+        { h: 'Giorni alla fine', w: 11, al: 'center', fmt: NUM, b: true }, { h: 'Fine stimata', w: 13, al: 'center', fmt: DATA }, { h: 'Prezzo', w: 11, al: 'right', fmt: EUR }],
+      righe: P.map(x => [urgP(x.ggFine)[0], x.ean, x.tit, titleCase(x.autore || ''), titleCase(x.genere || ''), +x.disponibilita, +x.ritmo, Math.round(x.giorno * 10) / 10,
+        Math.floor(x.ggFine), dataXl(x.fine), x.prezzoT || null]),
+      urgenza: i => [0, urgP(P[i].ggFine)[1]],
+      nota: `Giorni alla fine = copie disponibili ÷ copie vendute al giorno negli ultimi 30 giorni (fornito meno rese). Compaiono solo i titoli in stato 1-1 che finiranno entro ${ORIZZONTE} giorni.`,
+    })));
+    $('#b-csv-z')?.addEventListener('click', e => estrai(e.currentTarget, () => scaricaExcel({
+      nome: `titoli-a-giacenza-zero-${file}.xlsx`, foglio: 'A giacenza zero',
+      titolo: 'Alert approvvigionamento · Titoli a giacenza zero', sotto,
+      riepilogo: `${num(A.length)} titoli in stato 1-1 senza copie disponibili · ${num(A.filter(x => x.gg > 30).length)} da oltre 30 giorni · ${num(A.filter(x => x.ritmo > 0).length)} con vendite negli ultimi 30 giorni`,
+      colonne: [{ h: 'Stato', w: 13 }, { h: 'EAN', w: 16 }, { h: 'Titolo', w: 46, b: true, wrap: true }, { h: 'Autore', w: 24, wrap: true }, { h: 'Genere', w: 18 },
+        { h: 'A zero dal', w: 13, al: 'center', fmt: DATA }, { h: 'Giorni a zero', w: 11, al: 'center', b: true, fmt: i => A[i].almeno ? '"≥ "0' : '0' }, { h: 'Ultima fornitura', w: 13, al: 'center', fmt: DATA },
+        { h: 'Vendute ultimi 30 gg', w: 12, al: 'right', fmt: NUM }, { h: 'Prezzo', w: 11, al: 'right', fmt: EUR }, { h: 'Risposta editore', w: 30, wrap: true }],
+      righe: A.map(x => [urgA(x.gg)[0], x.ean, x.tit, titleCase(x.autore || ''), titleCase(x.genere || ''), x.zero_dal ? dataXl(x.zero_dal) : null, x.gg,
+        x.ultima_fornitura ? dataXl(x.ultima_fornitura) : null, +x.ritmo, x.prezzoT || null, x.risposta_editore || '']),
+      urgenza: i => [0, urgA(A[i].gg)[1]],
+      nota: 'Stato: Critico = a zero da oltre 30 giorni, Attenzione = da 15 a 30 giorni, Recente = meno di 15. "≥" indica titoli già a zero all\'inizio dei controlli giornalieri.',
+    })));
   },
 };
 
