@@ -196,6 +196,34 @@
   .ac-v:hover{background:var(--cyan-dim)} .ac-vuoto{padding:10px 12px;font-size:13px;color:var(--text-dim)}
   .ev-piede{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px dashed var(--border);padding-top:8px}
   .ev-piede .btn{padding:4px 10px;font-size:12.5px}
+  /* interruttore valore / copie */
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--card)}
+  .seg button{border:0;background:transparent;padding:7px 12px;font-size:13px;font-weight:700;color:var(--text-dim);cursor:pointer}
+  .seg button.on{background:var(--cyan);color:#fff}
+  /* finestra "In sintesi" */
+  .modale{position:fixed;inset:0;z-index:90;background:rgba(10,18,40,.45);display:grid;place-items:center;padding:16px}
+  .modale-box{width:min(620px,100%);max-height:85vh;overflow-y:auto}
+  /* sell-out e top 10 in panoramica */
+  .sellout .lab{font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em}
+  .sellout .val{font-size:30px;font-weight:800;margin:4px 0}
+  .sellout-fonti{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin-top:10px;font-size:13px;padding-top:10px;border-top:1px dashed var(--border)}
+  .sellout-fonti b{color:var(--text-dim);font-weight:600}
+  .top10{list-style:none;margin:0;padding:0}
+  .top10 li{display:grid;grid-template-columns:34px auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border)}
+  .top10 li:last-child{border-bottom:none} .top10 .pos{font-weight:800;color:var(--text-dim);text-align:right;font-size:13px}
+  .top10 .tt{display:flex;flex-direction:column;min-width:0} .top10 .tt b{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ranking .lab{font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em} .ranking .val{font-size:26px;font-weight:800;margin:4px 0}
+  /* piantina agenti */
+  .mappa-it{position:relative;max-width:440px;margin:0 auto}
+  .mappa-it svg{width:100%;height:auto;display:block}
+  .mappa-it .reg{stroke:var(--card);stroke-width:1.2;cursor:pointer;transition:opacity .15s}
+  .mappa-it .reg:hover{opacity:.8} .mappa-it .reg.vuota{cursor:default}
+  .mappa-it .reg.on{stroke:var(--text);stroke-width:2.4}
+  .mappa-tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.12);white-space:nowrap}
+  .list-ag{display:flex;flex-direction:column;gap:8px}
+  .ag-reg{display:flex;align-items:center;gap:12px;border:1px solid var(--border);background:var(--card);border-radius:12px;padding:10px 12px;cursor:pointer;font:inherit;color:inherit}
+  .ag-reg:hover{background:var(--card-2)} .ag-reg.on{border-color:var(--cyan);background:var(--cyan-dim)}
+  .ag-ini{width:36px;height:36px;border-radius:50%;background:var(--cyan);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
   .leg{list-style:none;margin:6px 0 0;padding:0;font-size:13.5px}
   .leg li{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border)}
   .leg li:last-child{border-bottom:none} .leg li.tot{font-weight:700}
@@ -277,6 +305,7 @@
         <label class="sel" id="sel-editore" hidden>Editore
           <select id="f-editore"></select>
         </label>
+        <div class="seg" id="seg-misura" role="group" aria-label="Valore o copie"><button type="button" data-m="valore" class="on">€ Valore</button><button type="button" data-m="copie">Copie</button></div>
         <span class="dati-al" id="dati-al"></span>
         <span class="utente"><span id="utente"></span><button class="btn" type="button" id="b-esci">Esci</button></span>
       </div>
@@ -1007,52 +1036,90 @@ async function salvaCon(btn, fn){
   finally { btn.disabled = false; btn.textContent = t; }
 }
 
+/* ---------- Valore o copie: interruttore in alto, si parte sempre dal valore ---------- */
+let MISURA = 'valore';
+const VAL = () => MISURA === 'valore';
+const fM = v => VAL() ? v.lf - v.lr : v.cf - v.cr;          // venduto (righe vendite)
+const fMF = v => VAL() ? v.lf : v.cf;                        // fornito
+const fMR = v => VAL() ? v.lr : v.cr;                        // reso
+const tM = t => VAL() ? t.lf - t.lr : t.cf - t.cr;          // venduto di un titolo nel periodo
+const tM1 = t => VAL() ? t.lf1 - t.lr1 : t.cf1 - t.cr1;     // stesso periodo anno prima
+const gM = r => VAL() ? +r.value : +r.units;                 // riga GfK
+const fmtM = n => VAL() ? eurK(n) : numK(n);
+const fmtMF = n => VAL() ? eur(n) : num(n);
+const tickM = () => VAL() ? tickEur : tickNum;
+const ttM = () => VAL() ? ttEur : ttNum;
+const unitaM = () => VAL() ? 'a prezzo di copertina' : 'in copie';
+function disegnaMisura(){
+  const s = $('#seg-misura'); if (!s) return;
+  s.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.m === MISURA));
+}
+
 /* ---------- Panoramica ---------- */
+function apriSintesi(html){
+  const m = document.createElement('div'); m.className = 'modale';
+  m.innerHTML = `<div class="card insight modale-box" role="dialog" aria-label="In sintesi"><div class="card-head" style="margin:0"><h3>In sintesi</h3><div class="dx"><button class="btn" type="button" data-chiudi>Chiudi ✕</button></div></div>${html}</div>`;
+  const chiudi = () => { m.remove(); document.removeEventListener('keydown', esc_); };
+  const esc_ = e => { if (e.key === 'Escape') chiudi(); };
+  m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-chiudi]')) chiudi(); });
+  document.addEventListener('keydown', esc_);
+  document.body.appendChild(m);
+}
 S.dashboard = {
   titolo: 'Panoramica', sub: () => `${PER.etichetta} a confronto con le ${etichettaConfronto()}`,
   html(){
     const V = VF(), Y = PER.Y;
-    const f = totP(V, false, fVen), f1 = totP(V, true, fVen);
-    const n = totP(V, false, fNet), n1 = totP(V, true, fNet);
-    const c = totP(V, false, fCop), c1 = totP(V, true, fCop);
+    const F = totP(V, false, fMF), F1 = totP(V, true, fMF), Rr = totP(V, false, fMR), R1 = totP(V, true, fMR);
+    const f = F - Rr, f1 = F1 - R1;
     const cf = totP(V, false, v => v.cf), cr = totP(V, false, v => v.cr), cf1 = totP(V, true, v => v.cf), cr1 = totP(V, true, v => v.cr);
     const rp = cf ? cr / cf : 0, rp1 = cf1 ? cr1 / cf1 : 0;
     const lf = totP(V, false, v => v.lf), nf = totP(V, false, v => v.nf), lf1 = totP(V, true, v => v.lf), nf1 = totP(V, true, v => v.nf);
     const sc = lf ? 1 - nf / lf : 0, sc1 = lf1 ? 1 - nf1 / lf1 : 0;
-    const s0 = serieP(V, false, fVen), s1 = serieP(V, true, fVen);
+    const s0 = serieP(V, false, fM), s1 = serieP(V, true, fM);
     const mb = s0.reduce((b, v, i) => v != null && v > (s0[b] ?? -Infinity) ? i : b, 0);
     const gen = generiAgg();
-    const tipi = Object.keys(TIPI).map(k => ({ k, f: totP(V.filter(v => v.tipo === k), false, fVen) }));
+    const tipi = Object.keys(TIPI).map(k => ({ k, f: totP(V.filter(v => v.tipo === k), false, fM) }));
     const inCorso = R.giri.filter(g => g.stato === 'in corso');
     const pc = sum(inCorso.map(g => g.prenotato)), oc = sum(inCorso.map(g => g.obiettivo));
-    const week = (R.gfk.righe || []).filter(r => r.tipo === 'WEEK');
+    const T = (R.gfk.righe || []).filter(r => r.tipo === 'TOTALE' && r.week_key === R.gfk.settimana);
+    const week = (R.gfk.righe || []).filter(r => r.tipo === 'WEEK' && r.week_key === R.gfk.settimana);
     const bestW = week.length ? week.reduce((a, b) => a.rank_pos < b.rank_pos ? a : b) : null;
     const zeri = (R.meli.righe || []).filter(m => m.stato_articolo_cod === '1' && m.stato_vendita_cod === '1' && m.disponibilita <= 0);
     const prossimi = R.giri.filter(g => g.stato !== 'chiuso');
-    this._d = { s0, s1, gen, tipi };
+    const top10 = [...T].sort((a, b) => gM(b) - gM(a)).slice(0, 10);
+    const w = settimaneGfk();
     const li = [];
-    li.push(`Nel periodo il venduto a prezzo di copertina è <b>${eurK(f)}</b>${f1 ? `, ${f >= f1 ? 'in crescita' : 'in calo'} del <b>${pct(Math.abs(varr(f, f1)))}</b> sulle stesse date del ${Y - 1}` : ''}.`);
-    if (PER.chiavi.length > 1) li.push(`${{ giorno: 'Il giorno migliore è stato il', settimana: 'La settimana migliore è stata quella del', mese: 'Il mese migliore è stato' }[PER.grana]} <b>${PER.grana === 'mese' ? MESI_L[pd(PER.chiavi[mb]).getMonth()] + ' ' + PER.chiavi[mb].slice(0, 4) : fData(pd(PER.chiavi[mb]))}</b> con ${eurK(s0[mb])}.`);
+    li.push(`Nel periodo il venduto ${unitaM()} è <b>${fmtM(f)}</b>${f1 ? `, ${f >= f1 ? 'in crescita' : 'in calo'} del <b>${pct(Math.abs(varr(f, f1)))}</b> sulle stesse date del ${Y - 1}` : ''}.`);
+    if (PER.chiavi.length > 1) li.push(`${{ giorno: 'Il giorno migliore è stato il', settimana: 'La settimana migliore è stata quella del', mese: 'Il mese migliore è stato' }[PER.grana]} <b>${PER.grana === 'mese' ? MESI_L[pd(PER.chiavi[mb]).getMonth()] + ' ' + PER.chiavi[mb].slice(0, 4) : fData(pd(PER.chiavi[mb]))}</b> con ${fmtM(s0[mb])}.`);
     const gg = gen.rilevati ? gen.righe.filter(x => x.f1 > 0 && x.quota >= .03).sort((a, b) => varr(b.f, b.f1) - varr(a.f, a.f1))[0] : null;
     if (gg) li.push(`Il genere che cresce di più è <b>${esc(gg.n)}</b> (${pctS(varr(gg.f, gg.f1))}).`);
     if (inCorso.length) li.push(`${inCorso.length > 1 ? 'Sono in corso' : 'È in corso il'} <b>${inCorso.map(g => esc(nomeGiro(g))).join(', ')}</b>: prenotate <b>${num(pc)}</b> copie${oc ? `, il ${pct(pc / oc, 0)} dell'obiettivo` : ''}.`);
     if (bestW) li.push(`Nella classifica GfK dell'ultima settimana il titolo più alto è <b>${esc(titleCase(bestW.title))}</b>, al <b>${bestW.rank_pos}º posto</b>.`);
-    if (zeri.length) li.push(`<b>${zeri.length} titoli</b> disponibili in catalogo sono a giacenza zero su Messaggerie: <a href="#alert">vedi gli alert</a>.`);
-    li.push(`La resa è al <b>${pct(rp)}</b> del fornito, ${rp <= rp1 ? 'meglio' : 'peggio'} del ${pct(rp1)} del ${Y - 1}.`);
+    if (zeri.length) li.push(`<b>${zeri.length} titoli</b> disponibili in catalogo sono a giacenza zero su Messaggerie: <a href="#alert">vedi l'alert approvvigionamento</a>.`);
+    li.push(`La resa è al <b>${pct(rp)}</b> del fornito, ${rp <= rp1 ? 'meglio' : 'peggio'} del ${pct(rp1)} del ${Y - 1}. Lo sconto medio è del <b>${pct(sc)}</b> (era ${pct(sc1)}).`);
+    this._d = { s0, s1, gen, tipi, sintesi: `<ul>${li.map((x, i) => `<li data-i="${i + 1}">${x}</li>`).join('')}</ul>` };
     return `
-      <p class="lead">Il colpo d'occhio su ${esc(ED.nome)}: quanto si vende, come va rispetto all'anno scorso e cosa sta succedendo nei giri.
-      Il venduto è a prezzo di copertina, al netto delle rese, per tutto il codice editore.</p>
+      <p class="lead">Il colpo d'occhio su ${esc(ED.nome)}: fornito, reso e venduto rispetto all'anno scorso, il sell-out in cassa e i titoli che vendono di più.
+      Con l'interruttore in alto vedi i dati ${VAL() ? 'in copie invece che in valore' : 'in valore invece che in copie'}.</p>
       <div class="grid g-kpi">
-        ${kpi('Venduto', eurK(f), `${delta(f, f1)} <span>a prezzo di copertina</span>`, '--s1')}
-        ${kpi('Fatturato netto', eurK(n), `${delta(n, n1)} <span>dopo lo sconto ai clienti</span>`, '--s3')}
-        ${kpi('Copie vendute', numK(c), `${delta(c, c1)} <span>fornite meno rese</span>`, '--s7')}
-        ${kpi('Resa', pct(rp), `${delta(rp, rp1, true)} <span>sul fornito</span>`, '--s2')}
+        ${kpi('Fornito', fmtM(F), `${delta(F, F1)} <span>${unitaM()}</span>`, '--s1')}
+        ${kpi('Reso', fmtM(Rr), `${delta(Rr, R1, true)} <span>${unitaM()}</span>`, '--s2')}
+        ${kpi('Venduto', fmtM(f), `${delta(f, f1)} <span>fornito meno reso</span>`, '--s3')}
+        ${kpi('Resa', pct(rp), `${delta(rp, rp1, true)} <span>reso sul fornito</span>`, '--s7')}
         ${kpi('Sconto medio', pct(sc), `<span>era ${pct(sc1)} nel ${Y - 1}</span>`, '--s4')}
-        ${kpi('Giri in corso', inCorso.length ? numK(pc) : '—', inCorso.length ? `<span>copie prenotate${oc ? ' · ' + pct(pc / oc, 0) + ' dell\'obiettivo' : ''}</span>` : '<span>nessun giro aperto</span>', '--s8')}
       </div>
       <div class="grid g2">
-        <div class="card"><h3>Andamento del venduto</h3><p class="h-sub">Per ${PER.granaNome}, a prezzo di copertina, a confronto con le stesse date del ${Y - 1}</p><div class="ch lg"><canvas id="c-trend"></canvas></div></div>
-        <div class="card insight"><h3>In sintesi</h3><ul>${li.map((x, i) => `<li data-i="${i + 1}">${x}</li>`).join('')}</ul></div>
+        <div class="card"><div class="card-head"><div><h3>Andamento del venduto</h3><p class="h-sub">Per ${PER.granaNome}, ${unitaM()}, a confronto con le stesse date del ${Y - 1}</p></div>
+          <div class="dx"><button class="btn pri" type="button" id="b-sintesi">💡 In sintesi</button></div></div><div class="ch lg"><canvas id="c-trend"></canvas></div></div>
+        <div>
+          <div class="card sellout" style="margin-bottom:16px"><div class="lab">Sell-out totale</div>
+            <div class="val">${T.length ? fmtM(sum(T.map(gM))) : '—'}</div>
+            <div class="small muted">GfK, titoli in classifica ${w ? `(settimane ${w.da}–${w.a} del ${w.anno})` : ''}</div>
+            <div class="sellout-fonti"><span>Arianna</span><b>da collegare</b><span>Amazon</span><b>da collegare</b></div></div>
+          <div class="card"><h3>Top 10 titoli per sell-out</h3><p class="h-sub">Da inizio anno, ${VAL() ? 'valore' : 'copie'} in cassa (GfK)</p>
+            ${top10.length ? `<ol class="top10">${top10.map(r => `<li><span class="pos">${r.rank_pos}º</span>${cop(r.ean)}<span class="tt"><b>${esc(titleCase(r.title))}</b><span class="small muted">${esc(titleCase(r.author || ''))}</span></span><span class="num t-tit">${fmtM(gM(r))}</span></li>`).join('')}</ol>`
+              : '<div class="empty">Nessun titolo dell\'editore nelle classifiche GfK</div>'}</div>
+        </div>
       </div>
       <div class="grid g3">
         <div class="card"><h3>Venduto per ${gen.rilevati ? 'genere' : 'collana'}</h3><p class="h-sub">${PER.etichetta}${gen.rilevati ? ' · genere Messaggerie' : ''}</p><div class="ch sm"><canvas id="c-gen"></canvas></div></div>
@@ -1063,17 +1130,18 @@ S.dashboard = {
       </div>`;
   },
   init(){
-    const { s0, s1, gen, tipi } = this._d, s = SER();
+    const { s0, s1, gen, tipi, sintesi } = this._d, s = SER();
+    $('#b-sintesi').addEventListener('click', () => apriSintesi(sintesi));
     mk('c-trend', { type: PER.chiavi.length > 1 ? 'line' : 'bar', data: { labels: PER.labels, datasets: [
       linea(String(PER.Y), s0, s[0], { fill: { target: 'origin', above: s[0] + '14' }, pointRadius: 3 }),
       linea(String(PER.Y - 1), s1, css('--prev'), { borderDash: [5, 4] }),
-    ] }, options: lineOpts(tickEur, ttEur) });
+    ] }, options: lineOpts(tickM(), ttM()) });
     const g = gen.rilevati ? gen.righe : collaneAgg();
     let top = g.filter(x => x.f > 0).slice(0, 6);
     const altri = sum(g.filter(x => x.f > 0).slice(6).map(x => x.f));
     if (altri > 0) top = [...top, { n: 'Altri', f: altri }];
-    torta('c-gen', top.map(x => x.n), top.map(x => Math.round(x.f)), { eur: true, legenda: 'bottom' });
-    torta('c-tipi', tipi.map(x => TIPI[x.k]), tipi.map(x => Math.max(0, Math.round(x.f))), { eur: true, legenda: 'bottom' });
+    torta('c-gen', top.map(x => x.n), top.map(x => Math.round(x.f)), { eur: VAL(), centroSub: VAL() ? 'totale' : 'copie' });
+    torta('c-tipi', tipi.map(x => TIPI[x.k]), tipi.map(x => Math.max(0, Math.round(x.f))), { eur: VAL(), centroSub: VAL() ? 'totale' : 'copie' });
   },
 };
 
@@ -1082,47 +1150,47 @@ S.analisi = {
   titolo: 'Analisi dati', sub: () => `Fornito, reso e venduto dei titoli · ${PER.etichetta}`,
   html(){
     const V = VF(), L = TF(), Y = PER.Y;
-    const cf = totP(V, false, v => v.cf), cr = totP(V, false, v => v.cr), cf1 = totP(V, true, v => v.cf), cr1 = totP(V, true, v => v.cr);
-    const tot = totP(V, false, fVen), nov = totP(V.filter(v => v.tipo === 'lancio'), false, fVen);
-    const ord = [...L].filter(t => t.cf || t.cr || t.cf1 || t.cr1).sort((a, b) => (b.lf - b.lr) - (a.lf - a.lr));
+    const F = totP(V, false, fMF), Rr = totP(V, false, fMR), F1 = totP(V, true, fMF), R1 = totP(V, true, fMR);
+    const cf = totP(V, false, v => v.cf), cr = totP(V, false, v => v.cr);
+    const tot = totP(V, false, fM), nov = totP(V.filter(v => v.tipo === 'lancio'), false, fM);
+    const ord = [...L].filter(t => t.cf || t.cr || t.cf1 || t.cr1).sort((a, b) => tM(b) - tM(a));
     this._d = { V, ord };
     return `
       <p class="lead">Il venduto è il fornito meno le rese. La resa si legge al contrario: se scende è una buona notizia.</p>
       <div class="grid g-kpi">
-        ${kpi('Fornito', numK(cf), `${delta(cf, cf1)} <span>copie</span>`, '--s1')}
-        ${kpi('Reso', numK(cr), `${delta(cr, cr1, true)} <span>${pct(cf ? cr / cf : 0)} del fornito</span>`, '--s2')}
-        ${kpi('Venduto', numK(cf - cr), `${delta(cf - cr, cf1 - cr1)} <span>copie</span>`, '--s3')}
-        ${kpi('Peso delle novità', pct(tot ? nov / tot : 0), '<span>lanci sul venduto a copertina</span>', '--s7')}
+        ${kpi('Fornito', fmtM(F), `${delta(F, F1)} <span>${unitaM()}</span>`, '--s1')}
+        ${kpi('Reso', fmtM(Rr), `${delta(Rr, R1, true)} <span>${pct(cf ? cr / cf : 0)} del fornito in copie</span>`, '--s2')}
+        ${kpi('Venduto', fmtM(F - Rr), `${delta(F - Rr, F1 - R1)} <span>${unitaM()}</span>`, '--s3')}
+        ${kpi('Peso delle novità', pct(tot ? nov / tot : 0), '<span>lanci sul venduto</span>', '--s7')}
         ${kpi('Titoli movimentati', num(L.filter(t => t.cf > 0).length), '<span>con forniture nel periodo</span>', '--s4')}
       </div>
       <div class="grid g2">
-        <div class="card"><h3>Fornito e reso</h3><p class="h-sub">Copie per ${PER.granaNome}</p><div class="ch"><canvas id="c-vr"></canvas></div></div>
-        <div class="card"><h3>I 10 titoli più venduti</h3><p class="h-sub">Venduto a prezzo di copertina</p><div class="ch"><canvas id="c-top"></canvas></div></div>
+        <div class="card"><h3>Fornito e reso</h3><p class="h-sub">${VAL() ? 'Valore' : 'Copie'} per ${PER.granaNome}</p><div class="ch"><canvas id="c-vr"></canvas></div></div>
+        <div class="card"><h3>I 10 titoli più venduti</h3><p class="h-sub">Venduto ${unitaM()}</p><div class="ch"><canvas id="c-top"></canvas></div></div>
       </div>
       <div class="grid g2e">
-        <div class="card"><h3>Andamento della resa</h3><p class="h-sub">Reso sul fornito per ${PER.granaNome}, a confronto con il ${Y - 1}</p><div class="ch sm"><canvas id="c-resa"></canvas></div></div>
-        <div class="card"><h3>Novità, rifornimenti da novità e rifornimenti</h3><p class="h-sub">Venduto per ${PER.granaNome}</p><div class="ch sm"><canvas id="c-tipom"></canvas></div></div>
+        <div class="card"><h3>Percentuale di resa</h3><p class="h-sub">Quanta parte del fornito torna indietro (copie rese ÷ copie fornite), per ${PER.granaNome}, a confronto con il ${Y - 1}. Più è bassa, meglio è.</p><div class="ch sm"><canvas id="c-resa"></canvas></div></div>
+        <div class="card"><h3>Novità, rifornimenti da novità e rifornimenti</h3><p class="h-sub">Venduto per ${PER.granaNome}, ${unitaM()}</p><div class="ch sm"><canvas id="c-tipom"></canvas></div></div>
       </div>
       <div class="card">
-        <div class="card-head"><div><h3>Classifica titoli</h3><p class="h-sub">${num(ord.length)} titoli movimentati, ordinati per venduto · ${PER.etichetta}</p></div>
+        <div class="card-head"><div><h3>Classifica titoli</h3><p class="h-sub">${num(ord.length)} titoli movimentati, ordinati per venduto ${unitaM()} · ${PER.etichetta}</p></div>
           <div class="dx"><input type="search" id="q-tit" placeholder="Cerca titolo o EAN"></div></div>
-        <div class="tw scroll"><table class="tbl"><thead><tr><th>#</th><th>Titolo</th><th>Genere</th><th>Uscita</th><th class="r">Copie vendute</th><th class="r">Venduto</th><th class="r">vs ${Y - 1}</th><th class="r">Resa</th></tr></thead>
+        <div class="tw scroll"><table class="tbl"><thead><tr><th>#</th><th>Titolo</th><th>Genere</th><th>Uscita</th><th class="r">Copie vendute</th><th class="r">Valore venduto</th><th class="r">vs ${Y - 1}</th><th class="r">Resa</th></tr></thead>
         <tbody id="tb-tit">${righeTitoli(ord.slice(0, 200), ord)}</tbody></table></div>
         <p class="note">Sono mostrati i primi 200: la ricerca trova tutti i titoli.</p>
       </div>`;
   },
   init(){
     const { V, ord } = this._d, s = SER(), Y = PER.Y;
-    const cf = serieP(V, false, v => v.cf), cr = serieP(V, false, v => v.cr);
-    mk('c-vr', { type: 'bar', data: { labels: PER.labels, datasets: [barre('Fornito', cf, s[0]), barre('Reso', cr, s[1])] }, options: lineOpts(tickNum, ttNum) });
+    mk('c-vr', { type: 'bar', data: { labels: PER.labels, datasets: [barre('Fornito', serieP(V, false, fMF), s[0]), barre('Reso', serieP(V, false, fMR), s[1])] }, options: lineOpts(tickM(), ttM()) });
     const top = ord.slice(0, 10);
-    mk('c-top', { type: 'bar', data: { labels: top.map(t => { const x = titleCase(t.titolo); return x.length > 28 ? x.slice(0, 27) + '…' : x; }), datasets: [barre('Venduto', top.map(t => t.lf - t.lr), s[0], { maxBarThickness: 16 })] },
-      options: { indexAxis: 'y', scales: { x: { ticks: tickEur }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => titleCase(top[i[0].dataIndex].titolo), label: c => ` ${eur(c.parsed.x)}` } } } } });
+    mk('c-top', { type: 'bar', data: { labels: top.map(t => { const x = titleCase(t.titolo); return x.length > 28 ? x.slice(0, 27) + '…' : x; }), datasets: [barre('Venduto', top.map(tM), s[0], { maxBarThickness: 16 })] },
+      options: { indexAxis: 'y', scales: { x: { ticks: tickM() }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => titleCase(top[i[0].dataIndex].titolo), label: c => ` ${fmtMF(c.parsed.x)}` } } } } });
     const rp = prima => { const a = serieP(V, prima, v => v.cr), b = serieP(V, prima, v => v.cf); return a.map((x, i) => x == null || !b[i] ? null : x / b[i] * 100); };
     mk('c-resa', { type: 'line', data: { labels: PER.labels, datasets: [linea(String(Y), rp(false), s[1], { pointRadius: 3 }), linea(String(Y - 1), rp(true), css('--prev'), { borderDash: [5, 4] })] },
-      options: { ...lineOpts({ callback: x => x + '%' }, { callbacks: { label: c => ` ${c.dataset.label}: ${fDec.format(c.parsed.y)}%` } }) } });
-    mk('c-tipom', { type: 'bar', data: { labels: PER.labels, datasets: Object.keys(TIPI).map((k, i) => barre(TIPI[k], serieP(V.filter(v => v.tipo === k), false, fVen), s[i], { stack: 't' })) },
-      options: { interaction: { mode: 'index', intersect: false }, scales: { y: { stacked: true, ticks: tickEur }, x: { stacked: true, grid: { display: false } } }, plugins: { tooltip: ttEur, legend: { position: 'top', align: 'end' } } } });
+      options: { ...lineOpts({ callback: x => x + '%' }, { callbacks: { label: c => ` ${c.dataset.label}: ${fDec.format(c.parsed.y)}% del fornito è tornato in resa` } }) } });
+    mk('c-tipom', { type: 'bar', data: { labels: PER.labels, datasets: Object.keys(TIPI).map((k, i) => barre(TIPI[k], serieP(V.filter(v => v.tipo === k), false, fM), s[i], { stack: 't' })) },
+      options: { interaction: { mode: 'index', intersect: false }, scales: { y: { stacked: true, ticks: tickM() }, x: { stacked: true, grid: { display: false } } }, plugins: { tooltip: ttM(), legend: { position: 'top', align: 'end' } } } });
     $('#q-tit').addEventListener('input', e => {
       const q = e.target.value.toLowerCase().trim();
       $('#tb-tit').innerHTML = righeTitoli(q ? ord.filter(t => (t.titolo + ' ' + t.ean).toLowerCase().includes(q)).slice(0, 300) : ord.slice(0, 200), ord);
@@ -1133,20 +1201,20 @@ function righeTitoli(L, ordine){
   if (!L.length) return '<tr><td colspan="8" class="empty">Nessun titolo trovato</td></tr>';
   const pos = new Map(ordine.map((t, i) => [t.ean, i + 1]));
   return L.map(t => {
-    const f = t.lf - t.lr, f1 = t.lf1 - t.lr1;
+    const f = tM(t), f1 = tM1(t);
     return `<tr><td class="muted">${pos.get(t.ean)}</td><td><div class="con-cop">${cop(t.ean)}<div><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">EAN ${esc(t.ean)}${t.collana ? ' · ' + esc(t.collana) : ''}${t.novita ? ' · <span class="pill info">Rifornimento da novità</span>' : ''}</div></div></div></td>
-      <td class="small">${esc(genereDi(t.ean) || '—')}</td><td class="small">${t.uscita ? fData(pd(t.uscita)) : '—'}</td><td class="r">${num(t.cf - t.cr)}</td><td class="r">${eur(f)}</td>
+      <td class="small">${esc(genereDi(t.ean) || '—')}</td><td class="small">${t.uscita ? fData(pd(t.uscita)) : '—'}</td><td class="r">${num(t.cf - t.cr)}</td><td class="r">${eur(t.lf - t.lr)}</td>
       <td class="r">${f1 > 0 ? delta(f, f1) : '<span class="pill mut">nuovo</span>'}</td><td class="r">${t.cf ? pct(t.cr / t.cf) : '—'}</td></tr>`;
   }).join('');
 }
 
-/* ---------- Settori: generi Messaggerie e collane ---------- */
+/* ---------- Settori: generi Messaggerie e collane, con il confronto col mercato GfK ---------- */
 function aggPer(chiave){
   const map = {};
   TF().forEach(t => {
     const k = chiave(t);
     const x = map[k] ||= { n: k, f: 0, f1: 0, cf: 0, cr: 0, nt: 0 };
-    x.f += t.lf - t.lr; x.f1 += t.lf1 - t.lr1; x.cf += t.cf; x.cr += t.cr; if (t.cf > 0) x.nt++;
+    x.f += tM(t); x.f1 += tM1(t); x.cf += t.cf; x.cr += t.cr; if (t.cf > 0) x.nt++;
   });
   const righe = Object.values(map).sort((a, b) => b.f - a.f);
   const tot = sum(righe.map(x => Math.max(0, x.f)));
@@ -1161,81 +1229,117 @@ function generiAgg(){
 function tabellaSettori(righe, nome, Y){
   const maxQ = righe[0] ? righe[0].quota || 1 : 1;
   return `<div class="tw scroll"><table class="tbl"><thead><tr><th>${nome}</th><th class="r">Titoli</th><th class="r">Venduto</th><th>Quota</th><th class="r">vs ${Y - 1}</th><th class="r">Resa</th></tr></thead>
-    <tbody>${righe.map(x => `<tr><td class="t-tit">${esc(x.n)}</td><td class="r">${x.nt}</td><td class="r">${eur(x.f)}</td>
+    <tbody>${righe.map(x => `<tr><td class="t-tit">${esc(x.n)}</td><td class="r">${x.nt}</td><td class="r">${fmtMF(x.f)}</td>
       <td><div style="display:flex;align-items:center;gap:8px"><div class="bar-in" style="flex:1"><i style="width:${x.quota / maxQ * 100}%"></i></div><span class="small num">${pct(x.quota)}</span></div></td>
       <td class="r">${x.var == null ? '<span class="pill mut">nuovo</span>' : delta(x.f, x.f1)}</td><td class="r">${pct(x.resa)}</td></tr>`).join('')}</tbody></table></div>`;
 }
+// Confronto col mercato: generi GfK del mercato (qdm_generi, tipo MERCATO) e dei titoli dell'editore in classifica (stesso genere GfK)
+function confrontoMercato(){
+  const M = ((R.mercato || {}).generi || []).filter(g => g.tipo === 'MERCATO' && !/unknown/i.test(g.genere));
+  const T = (R.gfk.righe || []).filter(r => r.tipo === 'TOTALE' && r.week_key === R.gfk.settimana);
+  const totE = sum(T.map(gM));
+  return M.map(g => {
+    const mie = T.filter(r => String(r.genre || '').toUpperCase() === String(g.genere).toUpperCase());
+    const e = sum(mie.map(gM));
+    return { n: titleCase(g.genere), quotaM: +g.quota, varM: VAL() ? +g.var_valore : +g.var_copie, e, quotaE: totE ? e / totE : 0, titoli: mie.length,
+             pesoSulGenere: (VAL() ? +g.valore : +g.copie) ? e / (VAL() ? +g.valore : +g.copie) : 0 };
+  });
+}
 S.settori = {
-  titolo: 'Analisi per settore', sub: () => `Generi e collane · ${PER.etichetta}`,
+  titolo: 'Analisi per settore', sub: () => `Generi e collane, con il confronto col mercato GfK · ${PER.etichetta}`,
+  async prepara(){ if (!R.mercato) R.mercato = await rpc('ed_gfk_mercato', { p_editore: ED.codice_editore, p_week: R.gfk.settimana || null }); },
   html(){
     const Y = PER.Y, gen = generiAgg(), col = collaneAgg();
     const princ = gen.rilevati ? gen.righe : col;
-    this._d = { princ };
+    const cm = confrontoMercato();
+    this._d = { princ, cm };
     return `
       <p class="lead">${gen.rilevati ? 'Il settore è il genere con cui Messaggerie classifica ogni titolo (lo stesso che vedi in BookUp, Consultazione titoli).' : 'Il genere dei titoli arriva da Messaggerie con l\'aggiornamento di <a href="#stock">Stock MeLi</a>: finché non c\'è, i settori sono le collane.'}
-      Tutto è per codice editore.</p>
-      <div class="grid g-kpi">${princ.filter(x => x.f > 0).slice(0, 4).map((x, i) => kpi(esc(x.n), eurK(x.f), `${x.f1 > 0 ? delta(x.f, x.f1) : ''} <span>quota ${pct(x.quota)}</span>`, '--s' + (i + 1))).join('')}</div>
+      In fondo il confronto con il mercato secondo GfK.</p>
+      <div class="grid g-kpi">${princ.filter(x => x.f > 0).slice(0, 4).map((x, i) => kpi(esc(x.n), fmtM(x.f), `${x.f1 > 0 ? delta(x.f, x.f1) : ''} <span>quota ${pct(x.quota)}</span>`, '--s' + (i + 1))).join('')}</div>
       <div class="grid g2e">
-        <div class="card"><h3>Venduto per ${gen.rilevati ? 'genere' : 'collana'}</h3><p class="h-sub">${PER.etichetta}</p><div class="ch"><canvas id="c-sm"></canvas></div></div>
+        <div class="card"><h3>Venduto per ${gen.rilevati ? 'genere' : 'collana'}</h3><p class="h-sub">${PER.etichetta}, ${unitaM()}</p><div class="ch"><canvas id="c-sm"></canvas></div></div>
         <div class="card"><h3>Variazione rispetto al ${Y - 1}</h3><p class="h-sub">Venduto nello stesso periodo, ${gen.rilevati ? 'generi' : 'collane'} principali</p><div class="ch"><canvas id="c-sv"></canvas></div></div>
       </div>
+      ${cm.length ? `<div class="card" style="margin-bottom:16px"><div class="grid" style="margin:0;grid-template-columns:minmax(0,1fr)">
+        <div><h3>Confronto con il mercato (GfK)</h3><p class="h-sub">Generi GfK da inizio anno, ${VAL() ? 'valore' : 'copie'} in cassa. Per l'editore contano i titoli presenti nelle classifiche GfK.</p>
+          <div class="tw"><table class="tbl"><thead><tr><th>Genere GfK</th><th class="r">Peso nel mercato</th><th class="r">Mercato vs ${Y - 1}</th><th class="r">Peso nell'editore</th><th class="r">Sell-out editore</th><th class="r">Quota del genere</th></tr></thead>
+          <tbody>${cm.map(x => `<tr><td class="t-tit">${esc(x.n)}</td><td class="r">${pct(x.quotaM)}</td><td class="r"><span class="pill ${x.varM >= 0 ? 'ok' : 'ko'}">${pctS(x.varM)}</span></td>
+            <td class="r t-tit">${pct(x.quotaE)}</td><td class="r">${fmtMF(x.e)}<div class="t-sub">${num(x.titoli)} titoli</div></td><td class="r">${pct(x.pesoSulGenere, 2)}</td></tr>`).join('')}</tbody></table></div>
+          <p class="note">"Peso nell'editore" confrontato con "Peso nel mercato" dice in quali generi l'editore è più forte o più debole del mercato; "Quota del genere" è la parte del genere venduta dai titoli dell'editore in classifica.</p></div>
+        <div><h3>Editore e mercato a confronto</h3><p class="h-sub">Peso di ogni genere sul totale</p><div class="ch"><canvas id="c-cm"></canvas></div></div>
+      </div></div>` : ''}
       ${gen.rilevati ? `<div class="card" style="margin-bottom:16px"><h3>Generi</h3><p class="h-sub">Ordinati per venduto</p>${tabellaSettori(gen.righe, 'Genere', Y)}</div>` : ''}
       <div class="card"><h3>Collane</h3><p class="h-sub">Ordinate per venduto</p>${tabellaSettori(col, 'Collana', Y)}</div>`;
   },
   init(){
-    const { princ } = this._d, s = SER(), Y = PER.Y;
+    const { princ, cm } = this._d, s = SER(), Y = PER.Y;
     let top = princ.filter(x => x.f > 0).slice(0, 7);
     const altri = sum(princ.filter(x => x.f > 0).slice(7).map(x => x.f));
     if (altri > 0) top = [...top, { n: 'Altri', f: altri }];
-    torta('c-sm', top.map(x => x.n), top.map(x => Math.round(x.f)), { eur: true });
+    torta('c-sm', top.map(x => x.n), top.map(x => Math.round(x.f)), { eur: VAL(), centroSub: VAL() ? 'totale' : 'copie' });
     const v = princ.filter(x => x.var != null && x.quota >= .01).slice(0, 12).sort((a, b) => b.var - a.var);
     mk('c-sv', { type: 'bar', data: { labels: v.map(x => x.n.length > 30 ? x.n.slice(0, 29) + '…' : x.n), datasets: [barre('Variazione', v.map(x => +(x.var * 100).toFixed(1)), v.map(x => x.var >= 0 ? s[0] : s[1]))] },
       options: { indexAxis: 'y', scales: { x: { ticks: { callback: x => (x > 0 ? '+' : '') + x + '%' } }, y: { grid: { display: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => v[i[0].dataIndex].n, label: c => ` ${c.parsed.x > 0 ? '+' : ''}${fDec.format(c.parsed.x)}% sul ${Y - 1}` } } } } });
+    if (cm.length) mk('c-cm', { type: 'bar', data: { labels: cm.map(x => x.n), datasets: [barre('Mercato', cm.map(x => +(x.quotaM * 100).toFixed(1)), css('--prev')), barre(ED.nome, cm.map(x => +(x.quotaE * 100).toFixed(1)), s[0])] },
+      options: { interaction: { mode: 'index', intersect: false }, scales: { y: { ticks: { callback: x => x + '%' } }, x: { grid: { display: false } } }, plugins: { legend: { position: 'top', align: 'end' }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fDec.format(c.parsed.y)}%` } } } } });
   },
 };
 
 /* ---------- GfK ---------- */
-function settimaneGfk(){
-  const m = /(\d{4})_CW(\d+)-CW(\d+)/.exec(R.gfk.settimana || '');
+function settimaneGfk(k){
+  const m = /(\d{4})_CW(\d+)-CW(\d+)/.exec(k || R.gfk.settimana || '');
   return m ? { anno: +m[1], da: +m[2], a: +m[3] } : null;
 }
+const etiSettimana = k => { const w = settimaneGfk(k); return w ? (w.da === w.a ? `settimana ${w.a} del ${w.anno}` : `settimane ${w.da}–${w.a} del ${w.anno}`) : k; };
 S.gfk = {
-  titolo: 'GfK e sell-out', sub: () => { const w = settimaneGfk(); return w ? `Classifiche GfK · settimane ${w.da}–${w.a} del ${w.anno}` : 'Classifiche GfK'; },
+  titolo: 'GfK e sell-out', sub: () => `Classifiche GfK · ${etiSettimana(STATO.gfkWeek || R.gfk.settimana)}`,
   html(){
-    const rr = R.gfk.righe || [];
-    if (!rr.length) return vuoto('Nessun titolo dell\'editore nelle classifiche GfK disponibili.');
+    const tutte = R.gfk.righe || [];
+    if (!tutte.length) return vuoto('Nessun titolo dell\'editore nelle classifiche GfK disponibili.');
+    const weeks = [...new Set(tutte.map(r => r.week_key))].sort().reverse();
+    if (!weeks.includes(STATO.gfkWeek)) STATO.gfkWeek = weeks[0];
+    const rr = tutte.filter(r => r.week_key === STATO.gfkWeek);
     const W = rr.filter(r => r.tipo === 'WEEK'), T = rr.filter(r => r.tipo === 'TOTALE');
-    const w = settimaneGfk();
+    const w = settimaneGfk(STATO.gfkWeek);
     STATO.gfkTipo ||= 'TOTALE';
     this._d = { W, T };
+    const pesoV = sum(T.map(r => +r.value_pct || 0)), pesoC = sum(T.map(r => +r.units_pct || 0));
     return `
-      <p class="lead">Il sell-out sono le copie vendute in cassa al lettore, rilevate da GfK. Qui compaiono i titoli dell'editore presenti nelle classifiche:
-      quella dell'ultima settimana${w ? ` (la ${w.a}ª)` : ''} e quella da inizio anno.</p>
+      <div class="card-head" style="margin-bottom:14px"><p class="lead" style="margin:0;flex:1">Il sell-out sono le copie vendute in cassa al lettore, rilevate da GfK. Qui compaiono i titoli dell'editore presenti nelle classifiche:
+      quella della settimana${w ? ` (la ${w.a}ª)` : ''} e quella da inizio anno.</p>
+        <div class="dx"><label class="sel">Settimana <select id="f-week">${weeks.map(k => `<option value="${esc(k)}" ${k === STATO.gfkWeek ? 'selected' : ''}>${esc(etiSettimana(k))}</option>`).join('')}</select></label></div></div>
       <div class="grid g-kpi">
-        ${kpi('In classifica questa settimana', num(W.length), '<span>titoli dell\'editore</span>', '--s1')}
-        ${kpi('Miglior posizione', W.length ? Math.min(...W.map(r => r.rank_pos)) + 'º' : '—', '<span>nella settimana</span>', '--s3')}
-        ${kpi('Sell-out della settimana', numK(sum(W.map(r => +r.units))), '<span>copie dei titoli in classifica</span>', '--s7')}
+        ${kpi('In classifica questa settimana', num(W.length), `<span>miglior posizione ${W.length ? Math.min(...W.map(r => r.rank_pos)) + 'º' : '—'}</span>`, '--s1')}
+        ${kpi('Sell-out della settimana', fmtM(sum(W.map(gM))), '<span>titoli in classifica</span>', '--s7')}
         ${kpi('In classifica da inizio anno', num(T.length), `<span>miglior posizione ${T.length ? Math.min(...T.map(r => r.rank_pos)) + 'º' : '—'}</span>`, '--s4')}
-        ${kpi('Sell-out da inizio anno', numK(sum(T.map(r => +r.units))), `<span>${eurK(sum(T.map(r => +r.value)))} · quota ${pct(sum(T.map(r => +r.value_pct || 0)), 2)}</span>`, '--s2')}
+        ${kpi('Sell-out da inizio anno', fmtM(sum(T.map(gM))), '<span>titoli in classifica</span>', '--s2')}
       </div>
+      <div class="card ranking" style="margin-bottom:16px"><div class="card-head" style="margin:0"><div><h3>Ranking e peso sul mercato</h3><p class="h-sub" style="margin:0">Da inizio anno · ${esc(etiSettimana(STATO.gfkWeek))}</p></div></div>
+        <div class="grid g3" style="margin:12px 0 0">
+          <div><div class="lab">Ranking editore</div><div class="val">—</div><div class="small muted">serve il dato GfK per editore: oggi l'import GfK salva solo i totali per promozione</div></div>
+          <div><div class="lab">Peso sul mercato in valore</div><div class="val">${pct(pesoV, 2)}</div><div class="small muted">somma dei titoli dell'editore in classifica</div></div>
+          <div><div class="lab">Peso sul mercato in copie</div><div class="val">${pct(pesoC, 2)}</div><div class="small muted">somma dei titoli dell'editore in classifica</div></div>
+        </div></div>
       <div class="grid g2">
-        <div class="card"><h3>Copie vendute da inizio anno</h3><p class="h-sub">I 15 titoli più alti in classifica</p><div class="ch lg"><canvas id="c-gt"></canvas></div></div>
-        <div class="card"><h3>Sell-out per genere</h3><p class="h-sub">Copie da inizio anno, titoli in classifica</p><div class="ch lg"><canvas id="c-gg"></canvas></div></div>
+        <div class="card"><h3>${VAL() ? 'Valore venduto' : 'Copie vendute'} da inizio anno</h3><p class="h-sub">I 15 titoli più alti in classifica</p><div class="ch lg"><canvas id="c-gt"></canvas></div></div>
+        <div class="card"><h3>Sell-out per genere</h3><p class="h-sub">${VAL() ? 'Valore' : 'Copie'} da inizio anno, titoli in classifica</p><div class="ch lg"><canvas id="c-gg"></canvas></div></div>
       </div>
       <div class="card"><div class="card-head"><div><h3>Classifica</h3><p class="h-sub">Posizione nella classifica generale GfK</p></div>
-        <div class="dx chips" id="ch-g">${[['TOTALE', 'Da inizio anno'], ['WEEK', 'Ultima settimana']].map(([k, l]) => `<button class="chip ${STATO.gfkTipo === k ? 'on' : ''}" data-k="${k}">${l}</button>`).join('')}</div></div>
+        <div class="dx chips" id="ch-g">${[['TOTALE', 'Da inizio anno'], ['WEEK', 'Settimana']].map(([k, l]) => `<button class="chip ${STATO.gfkTipo === k ? 'on' : ''}" data-k="${k}">${l}</button>`).join('')}</div></div>
         <div class="tw scroll"><table class="tbl"><thead><tr><th class="r">Pos.</th><th>Titolo</th><th>Genere</th><th class="r">Prezzo</th><th class="r">Copie</th><th class="r">Valore</th></tr></thead><tbody id="tb-g"></tbody></table></div></div>`;
   },
   init(){
+    $('#f-week')?.addEventListener('change', e => { STATO.gfkWeek = e.target.value; render(); });
     if (!this._d) return;
     const { W, T } = this._d, s = SER();
     const top = [...T].sort((a, b) => a.rank_pos - b.rank_pos).slice(0, 15);
-    mk('c-gt', { type: 'bar', data: { labels: top.map(r => { const x = titleCase(r.title); return x.length > 28 ? x.slice(0, 27) + '…' : x; }), datasets: [barre('Copie', top.map(r => +r.units), s[0], { maxBarThickness: 16 })] },
-      options: { indexAxis: 'y', scales: { x: { ticks: tickNum }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => `${top[i[0].dataIndex].rank_pos}º · ${titleCase(top[i[0].dataIndex].title)}`, label: c => ` ${num(c.parsed.x)} copie` } } } } });
-    const gen = {}; T.forEach(r => gen[titleCase(r.genre || 'Altro')] = (gen[titleCase(r.genre || 'Altro')] || 0) + +r.units);
+    mk('c-gt', { type: 'bar', data: { labels: top.map(r => { const x = titleCase(r.title); return x.length > 28 ? x.slice(0, 27) + '…' : x; }), datasets: [barre(VAL() ? 'Valore' : 'Copie', top.map(gM), s[0], { maxBarThickness: 16 })] },
+      options: { indexAxis: 'y', scales: { x: { ticks: tickM() }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => `${top[i[0].dataIndex].rank_pos}º · ${titleCase(top[i[0].dataIndex].title)}`, label: c => ` ${fmtMF(c.parsed.x)}` } } } } });
+    const gen = {}; T.forEach(r => gen[titleCase(r.genre || 'Altro')] = (gen[titleCase(r.genre || 'Altro')] || 0) + gM(r));
     let g = Object.entries(gen).sort((a, b) => b[1] - a[1]);
     if (g.length > 7) g = [...g.slice(0, 6), ['Altri generi', sum(g.slice(6).map(x => x[1]))]];
-    torta('c-gg', g.map(x => x[0]), g.map(x => x[1]), { centroSub: 'copie', legenda: 'bottom' });
+    torta('c-gg', g.map(x => x[0]), g.map(x => Math.round(x[1])), { eur: VAL(), centroSub: VAL() ? 'totale' : 'copie' });
     const draw = () => {
       const L = (STATO.gfkTipo === 'WEEK' ? W : T).sort((a, b) => a.rank_pos - b.rank_pos);
       $('#tb-g').innerHTML = L.map(r => `<tr><td class="r t-tit">${r.rank_pos}º</td><td><div class="con-cop">${cop(r.ean)}<div><div class="t-tit">${esc(titleCase(r.title))}</div><div class="t-sub">${esc(titleCase(r.author || ''))} · EAN ${esc(r.ean || '')}</div></div></div></td>
@@ -1299,7 +1403,10 @@ S.giri = {
       ${P ? `<div class="grid g2">
         <div class="card"><h3>Prenotato per agente</h3><p class="h-sub">Copie raccolte dagli agenti PDE sul territorio${dir ? ` · i clienti direzionali hanno prenotato ${num(dir.copie)} copie in ${num(dir.clienti)} punti vendita` : ''}</p><div class="ch" style="height:${Math.max(260, (D.per_agente || []).length * 24 + 60)}px"><canvas id="c-ga"></canvas></div></div>
         <div class="card"><h3>Prenotato per zona</h3><p class="h-sub">Dove si trovano i punti vendita</p><div class="ch"><canvas id="c-gz"></canvas></div></div>
-      </div>` : ''}`;
+      </div>
+      <div class="card"><div class="card-head"><div><h3>Media del prenotato</h3><p class="h-sub">Copie prenotate in media da ogni punto vendita${sel.length > 1 ? `, per giro (${sel.length} giri sommati)` : ''} · ${esc(nomeSel)}</p></div>
+        <div class="dx chips" id="ch-media">${[['gruppo', 'Per gruppo'], ['canale', 'Per canale'], ['cliente', 'Per cliente']].map(([k, l]) => `<button class="chip ${(STATO.mediaPren || 'gruppo') === k ? 'on' : ''}" data-k="${k}">${l}</button>`).join('')}</div></div>
+        <div id="box-media"></div></div>` : ''}`;
   },
   init(){
     document.querySelectorAll('#ch-anno .chip').forEach(b => b.addEventListener('click', () => { STATO.annoGiri = b.dataset.a; render(); }));
@@ -1325,8 +1432,46 @@ S.giri = {
     const z = {}; (D.per_zona || []).forEach(r => { const k = zonaDi(r.provincia, r.regione); z[k] = (z[k] || 0) + +r.copie; });
     const zl = ZONE_ND.filter(k => z[k]);
     torta('c-gz', zl, zl.map(k => z[k]), { centroSub: 'copie' });
+    mediePrenotato(D, this._sel.length);
   },
 };
+// Media del prenotato: copie / punti vendita che hanno prenotato, per gruppo, per canale o per singolo cliente
+const pillMedia = r => `<span class="pill ${r >= 1.1 ? 'ok' : r >= .9 ? 'mut' : 'ko'}">${r >= 1 ? '+' : ''}${pct(r - 1, 0)}</span>`;
+function mediePrenotato(D, nGiri){
+  STATO.mediaPren ||= 'gruppo';
+  const box = $('#box-media'); if (!box) return;
+  const can = (D.per_canale || []).filter(c => +c.copie > 0);
+  const totC = sum(can.map(c => +c.copie)), totP = D.clienti || 0, mediaTot = totP ? totC / totP / nGiri : 0;
+  const riga = (n, copie, pv, extra = '') => { const m = pv ? copie / pv / nGiri : 0; return `<tr><td class="t-tit">${esc(n)}</td>${extra}<td class="r">${num(pv)}</td><td class="r">${num(copie)}</td>
+    <td class="r t-tit">${fDec.format(m)}</td><td class="r">${mediaTot && pv ? pillMedia(m / mediaTot) : '—'}</td></tr>`; };
+  const testa = (n, extra = '') => `<thead><tr><th>${n}</th>${extra}<th class="r">Punti vendita</th><th class="r">Copie</th><th class="r">Media a punto vendita</th><th class="r">Rispetto alla media</th></tr></thead>`;
+  const piede = `<p class="note">Media complessiva: <b>${fDec.format(mediaTot)}</b> copie a punto vendita${nGiri > 1 ? ' per giro' : ''} (${num(totC)} copie da ${num(totP)} punti vendita). "Rispetto alla media" confronta ogni riga con questo valore.</p>`;
+  const draw = () => {
+    const k = STATO.mediaPren;
+    if (k === 'gruppo'){
+      const g = {}; can.forEach(c => { const n = nomeGruppo(c.gruppo); g[n] ||= { copie: 0, pv: 0 }; g[n].copie += +c.copie; g[n].pv += +c.clienti; });
+      const L = Object.entries(g).sort((a, b) => b[1].copie - a[1].copie);
+      box.innerHTML = `<div class="tw"><table class="tbl">${testa('Gruppo')}<tbody>${L.map(([n, x]) => riga(n, x.copie, x.pv)).join('')}</tbody></table></div>${piede}`;
+    } else if (k === 'canale'){
+      const L = [...can].sort((a, b) => b.copie - a.copie);
+      box.innerHTML = `<div class="tw scroll"><table class="tbl">${testa('Canale', '<th>Gruppo</th>')}<tbody>${L.map(c => riga(c.canale, +c.copie, +c.clienti, `<td class="small">${esc(nomeGruppo(c.gruppo))}</td>`)).join('')}</tbody></table></div>${piede}`;
+    } else {
+      const C = D.per_cliente || [];
+      const medCan = {}; can.forEach(c => medCan[c.canale] = +c.clienti ? c.copie / c.clienti / nGiri : 0);
+      box.innerHTML = `<div class="card-head" style="margin:0 0 10px"><div class="small muted">${num(C.length)} punti vendita, dal più alto</div><div class="dx"><input type="search" id="q-media" placeholder="Cerca cliente, codice o città"></div></div>
+        <div class="tw scroll"><table class="tbl"><thead><tr><th>Cliente</th><th>Città</th><th>Canale</th><th class="r">Copie</th>${nGiri > 1 ? '<th class="r">Media per giro</th>' : ''}<th class="r">Media del suo canale</th></tr></thead><tbody id="tb-media"></tbody></table></div>
+        <p class="note">Sono mostrati i primi 300: la ricerca trova tutti i punti vendita.</p>`;
+      const righe = q => { const L = q ? C.filter(c => `${c.nome} ${c.cc} ${c.citta || ''}`.toLowerCase().includes(q)) : C;
+        $('#tb-media').innerHTML = L.slice(0, 300).map(c => { const m = +c.copie / nGiri, mc = medCan[c.canale];
+          return `<tr><td><div class="t-tit">${esc(titleCase(c.nome || ''))}</div><div class="t-sub">${esc(c.cc)}${c.gruppo ? ' · ' + esc(c.gruppo) : ''}</div></td><td class="small">${esc(titleCase(c.citta || ''))}${c.provincia ? ' (' + esc(c.provincia) + ')' : ''}</td>
+            <td class="small">${esc(c.canale || '—')}</td><td class="r t-tit">${num(+c.copie)}</td>${nGiri > 1 ? `<td class="r t-tit">${fDec.format(m)}</td>` : ''}<td class="r">${mc ? `${fDec.format(mc)} ${pillMedia(m / mc)}` : '—'}</td></tr>`; }).join('') || '<tr><td colspan="${nGiri > 1 ? 6 : 5}" class="empty">Nessun punto vendita trovato</td></tr>'; };
+      righe('');
+      $('#q-media').addEventListener('input', e => righe(e.target.value.toLowerCase().trim()));
+    }
+  };
+  draw();
+  document.querySelectorAll('#ch-media .chip').forEach(b => b.addEventListener('click', () => { STATO.mediaPren = b.dataset.k; document.querySelectorAll('#ch-media .chip').forEach(x => x.classList.toggle('on', x === b)); draw(); }));
+}
 
 /* ---------- Fine giro: il giro in lavorazione (o, a giro chiuso, l'ultimo lavorato) con avanzamento e consuntivo ---------- */
 const giroInLavorazione = () => R.giri.find(g => g.stato === 'in corso') || R.giri.find(g => g.stato === 'chiuso') || null;
@@ -1388,10 +1533,26 @@ S.finegiri = {
 };
 
 /* ---------- Agenti e zone: solo chi segue chi, nessun dato di vendita ---------- */
+// Piantina delle regioni (openpolis, dati ISTAT) disegnata con d3: si carica solo quando serve
+const caricaScript = src => new Promise((ok, ko) => { const x = document.createElement('script'); x.src = src; x.onload = ok; x.onerror = () => ko(new Error('script non caricato')); document.head.appendChild(x); });
+let MAPPA = null;
+async function mappaItalia(){
+  if (MAPPA) return MAPPA;
+  MAPPA = (async () => {
+    if (!window.d3) await caricaScript('https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js');
+    if (!window.topojson) await caricaScript('https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js');
+    const tj = await fetch('https://cdn.jsdelivr.net/gh/openpolis/geojson-italy@master/topojson/limits_IT_regions.topo.json').then(r => { if (!r.ok) throw new Error('mappa non disponibile'); return r.json(); });
+    return topojson.feature(tj, tj.objects.regions);
+  })().catch(e => { MAPPA = null; console.warn('Piantina:', e); return null; });
+  return MAPPA;
+}
+const nomeRegione = r => String(r || '').split('/')[0].toUpperCase().replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
 S.agenti = {
   titolo: 'Agenti e zone', sub: () => 'Gli agenti PDE sul territorio, le zone e i punti vendita che possono seguire',
   async prepara(){
-    if (!R.copertura) R.copertura = await rpc('ed_agenti_copertura', { p_editore: ED.codice_editore });
+    const [cop] = await Promise.all([R.copertura ? R.copertura : rpc('ed_agenti_copertura', { p_editore: ED.codice_editore }), mappaItalia()]);
+    R.copertura = cop;
+    this._geo = await mappaItalia();
   },
   html(){
     // agenti uniti per nome (uno stesso agente può avere più codici); punti vendita senza doppioni
@@ -1414,12 +1575,30 @@ S.agenti = {
     const a = ag.find(x => x.nome === STATO.agente);
     const tutti = new Map(); ag.forEach(x => x.cl.forEach(c => tutti.set(c.cc, c)));
     const zone = ZONE_ND.map(z => ({ z, ag: ag.filter(x => x.zona === z), pv: [...tutti.values()].filter(c => c.zona === z).length })).filter(x => x.ag.length || x.pv);
-    this._d = { ag, zone };
+    // per regione: agenti e punti vendita
+    const perReg = {};
+    ag.forEach(x => x.cl.forEach(c => { const r = nomeRegione(c.regione); if (!r) return; const y = perReg[r] ||= { pv: new Set(), ag: {} }; y.pv.add(c.cc); y.ag[x.nome] = (y.ag[x.nome] || 0) + 1; }));
+    const reg = STATO.regione && perReg[STATO.regione] ? STATO.regione : null;
+    const agReg = reg ? Object.entries(perReg[reg].ag).sort((a, b) => b[1] - a[1]) : [];
+    this._d = { ag, zone, perReg };
     if (!ag.length) return vuoto('Nessun agente PDE sul territorio risulta assegnato ai punti vendita dell\'editore.');
+    const nRegTit = r => titleCase(r).replace(/\bD'aosta\b/i, "d'Aosta");
     return `
       <p class="lead">Gli agenti PDE sul territorio e i punti vendita che possono seguire per ${esc(ED.nome)}, zona per zona.
-      Non compaiono i clienti direzionali, seguiti dalla sede. Clicca un agente per vedere i suoi punti vendita.</p>
+      Non compaiono i clienti direzionali, seguiti dalla sede. Clicca una regione sulla piantina o un agente nell'elenco per vedere i suoi punti vendita.</p>
       <div class="grid g-kpi">${zone.map((z, i) => kpi(z.z, `${num(z.ag.length)} ${z.ag.length === 1 ? 'agente' : 'agenti'}`, `<span>${num(z.pv)} punti vendita</span>`, '--s' + (i + 1))).join('')}</div>
+      <div class="grid g2e">
+        <div class="card"><h3>Seleziona una regione</h3><p class="h-sub">Il colore indica quanti punti vendita seguono gli agenti</p>
+          ${this._geo ? '<div id="mappa-it" class="mappa-it"></div>' : '<div class="empty">La piantina non si è caricata: scegli l\'agente dall\'elenco.</div>'}</div>
+        <div class="card">${reg ? `<div class="card-head"><div><h3>${esc(nRegTit(reg))}</h3><p class="h-sub">${num(perReg[reg].pv.size)} punti vendita · ${num(agReg.length)} ${agReg.length === 1 ? 'agente' : 'agenti'}</p></div>
+            <div class="dx"><button class="btn" type="button" id="b-reg-tutte">Tutte le regioni</button></div></div>
+            <div class="list-ag">${agReg.map(([n, k]) => `<button type="button" class="ag-reg ${n === (a && a.nome) ? 'on' : ''}" data-ar="${esc(n)}"><span class="ag-ini">${esc(n.split(' ').map(w => w[0]).slice(0, 2).join(''))}</span>
+              <span style="flex:1;text-align:left"><b>${esc(n)}</b><span class="t-sub" style="display:block">${num(k)} punti vendita in regione${(ag.find(x => x.nome === n) || {}).reg?.length > 1 ? ` · segue anche ${esc(ag.find(x => x.nome === n).reg.filter(r => nomeRegione(r) !== reg).join(', '))}` : ''}</span></span>
+              <span class="pill ${n === (a && a.nome) ? 'info' : 'mut'}">${n === (a && a.nome) ? 'selezionato' : 'vedi'}</span></button>`).join('') || '<div class="empty">Nessun agente in questa regione</div>'}</div>`
+          : `<h3>Agenti per regione</h3><p class="h-sub">Clicca una regione sulla piantina: compare in automatico l'agente che la segue</p>
+            <div class="tw"><table class="tbl"><tbody>${Object.entries(perReg).sort((a, b) => b[1].pv.size - a[1].pv.size).map(([r, y]) => `<tr class="click" data-r="${esc(r)}"><td class="t-tit">${esc(nRegTit(r))}</td>
+              <td class="small">${Object.entries(y.ag).sort((a, b) => b[1] - a[1]).map(x => esc(x[0])).join(', ')}</td><td class="r">${num(y.pv.size)}</td></tr>`).join('')}</tbody></table></div>`}</div>
+      </div>
       <div class="grid g2">
         <div class="card"><h3>Agenti per zona</h3><p class="h-sub">${num(ag.length)} agenti · ${num(tutti.size)} punti vendita</p>
           <div class="tw scroll"><table class="tbl"><thead><tr><th>Agente</th><th>Zona</th><th>Regioni e province</th><th class="r">Punti vendita</th></tr></thead>
@@ -1429,24 +1608,46 @@ S.agenti = {
             <td class="r t-tit">${num(x.cl.length)}${x.attivi < x.cl.length ? `<div class="t-sub">${num(x.cl.length - x.attivi)} sospesi</div>` : ''}</td></tr>`).join('')}</tbody></table></div></div>
         <div class="card"><h3>Punti vendita per zona</h3><p class="h-sub">Quanti punti vendita seguono gli agenti in ogni zona</p><div class="ch"><canvas id="c-zo"></canvas></div></div>
       </div>
-      ${a ? `<div class="card"><div class="card-head"><div><h3>${esc(a.nome)}</h3><p class="h-sub">${esc(a.zona)} · ${num(a.cl.length)} punti vendita · ${esc(a.reg.join(', '))}</p></div>
+      ${a ? `<div class="card" id="card-agente"><div class="card-head"><div><h3>${esc(a.nome)}</h3><p class="h-sub">${esc(a.zona)} · ${num(a.cl.length)} punti vendita · ${esc(a.reg.join(', '))}${reg ? ` · in elenco solo quelli in ${esc(nRegTit(reg))}` : ''}</p></div>
           <div class="dx"><input type="search" id="q-pv" placeholder="Cerca punto vendita, città o provincia"></div></div>
         <div class="tw scroll"><table class="tbl"><thead><tr><th>Punto vendita</th><th>Città</th><th>Provincia</th><th>Zona</th><th>Canale</th><th>Gruppo</th><th>Stato</th></tr></thead>
-        <tbody id="tb-pv">${righePv(a.cl)}</tbody></table></div></div>` : ''}`;
+        <tbody id="tb-pv">${righePv(reg ? a.cl.filter(c => nomeRegione(c.regione) === reg) : a.cl)}</tbody></table></div></div>` : ''}`;
   },
   init(){
     if (!this._d || !this._d.ag.length) return;
-    const { ag, zone } = this._d, s = SER();
+    const { ag, zone, perReg } = this._d, s = SER();
+    const scegliReg = r => { STATO.regione = r; const top = r && perReg[r] ? Object.entries(perReg[r].ag).sort((a, b) => b[1] - a[1])[0] : null; if (top) STATO.agente = top[0]; render(); };
+    if (this._geo && $('#mappa-it')) disegnaMappa($('#mappa-it'), this._geo, perReg, STATO.regione, scegliReg);
+    document.querySelectorAll('tr[data-r]').forEach(tr => tr.addEventListener('click', () => scegliReg(tr.dataset.r)));
+    $('#b-reg-tutte')?.addEventListener('click', () => { STATO.regione = null; render(); });
+    document.querySelectorAll('[data-ar]').forEach(b => b.addEventListener('click', () => { STATO.agente = b.dataset.ar; render(); setTimeout(() => $('#card-agente')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }));
     const col = z => ZONE.includes(z) ? s[ZONE.indexOf(z)] : css('--prev');
     torta('c-zo', zone.map(z => z.z), zone.map(z => z.pv), { centroSub: 'punti vendita', colori: zone.map(z => col(z.z)) });
-    document.querySelectorAll('tr[data-a]').forEach(tr => tr.addEventListener('click', () => { STATO.agente = tr.dataset.a; render(); }));
+    document.querySelectorAll('tr[data-a]').forEach(tr => tr.addEventListener('click', () => { STATO.agente = tr.dataset.a; STATO.regione = null; render(); }));
     const a = ag.find(x => x.nome === STATO.agente);
+    const base = () => STATO.regione && perReg[STATO.regione] ? a.cl.filter(c => nomeRegione(c.regione) === STATO.regione) : a.cl;
     $('#q-pv')?.addEventListener('input', e => {
       const q = e.target.value.toLowerCase().trim();
-      $('#tb-pv').innerHTML = righePv(q ? a.cl.filter(c => `${c.nome} ${c.citta || ''} ${c.provincia || ''} ${c.cc}`.toLowerCase().includes(q)) : a.cl);
+      $('#tb-pv').innerHTML = righePv(q ? base().filter(c => `${c.nome} ${c.citta || ''} ${c.provincia || ''} ${c.cc}`.toLowerCase().includes(q)) : base());
     });
   },
 };
+function disegnaMappa(box, geo, perReg, sel, click){
+  const W = 420, H = 500;
+  const max = Math.max(1, ...Object.values(perReg).map(y => y.pv.size));
+  const proj = d3.geoMercator().fitSize([W, H], geo), path = d3.geoPath(proj);
+  const c0 = css('--cyan') || '#1aa3c9';
+  const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Piantina delle regioni italiane');
+  const tip = d3.select(box).append('div').attr('class', 'mappa-tip').style('opacity', 0);
+  svg.selectAll('path').data(geo.features).join('path')
+    .attr('d', path).attr('class', d => 'reg' + (nomeRegione(d.properties.reg_name) === sel ? ' on' : '') + (perReg[nomeRegione(d.properties.reg_name)] ? '' : ' vuota'))
+    .attr('fill', d => { const y = perReg[nomeRegione(d.properties.reg_name)]; return y ? d3.interpolateRgb(css('--card-2') || '#eef3f8', c0)(.18 + .82 * Math.sqrt(y.pv.size / max)) : (css('--card-2') || '#eef3f8'); })
+    .on('mousemove', (e, d) => { const n = nomeRegione(d.properties.reg_name), y = perReg[n]; const [x, yy] = d3.pointer(e, box);
+      tip.style('opacity', 1).style('left', x + 12 + 'px').style('top', yy + 12 + 'px')
+        .html(`<b>${esc(d.properties.reg_name.split('/')[0])}</b><br>${y ? `${num(y.pv.size)} punti vendita · ${Object.keys(y.ag).length} agenti` : 'nessun punto vendita seguito'}`); })
+    .on('mouseleave', () => tip.style('opacity', 0))
+    .on('click', (e, d) => { const n = nomeRegione(d.properties.reg_name); if (perReg[n]) click(n); });
+}
 function righePv(L){
   if (!L.length) return '<tr><td colspan="7" class="empty">Nessun punto vendita</td></tr>';
   return L.map(c => `<tr><td><div class="t-tit">${esc(c.nome)}</div><div class="t-sub">cod. ${esc(c.cc)}</div></td><td class="small">${esc(c.citta || '—')}</td><td class="small">${esc(c.provincia || '—')}</td>
@@ -1464,6 +1665,8 @@ S.sconti = {
     const cl = D.clienti.filter(c => c.lf > 0).sort((a, b) => b.f - a.f);
     const LF = sum(cl.map(c => c.lf)), NF = sum(cl.map(c => c.nf));
     const media = LF ? 1 - NF / LF : 0;
+    const NR = sum(cl.map(c => c.nr)), FV = sum(cl.map(c => c.f)), NV = sum(cl.map(c => c.n));
+    const netto = FV ? 1 - NV / FV : 0;
     const signif = cl.filter(c => c.lf >= 300);
     const semplice = signif.length ? sum(signif.map(c => c.sconto)) / signif.length : 0;
     const perSc = [...signif].sort((a, b) => b.sconto - a.sconto);
@@ -1473,12 +1676,14 @@ S.sconti = {
     const sopra = signif.filter(c => c.sconto > media + .02 && c.f >= (signif[Math.floor(signif.length * .1)]?.f || 0));
     this._d = { signif, media, gruppi, fasce };
     return `
-      <div class="card-head" style="margin-bottom:14px"><p class="lead" style="margin:0;flex:1">Lo sconto è la differenza tra prezzo di copertina e fatturato, sul fornito. La media ponderata pesa ogni cliente per quanto acquista: è quella che incide davvero sul margine.</p><div class="dx">${selPerCli()}</div></div>
+      <div class="card-head" style="margin-bottom:14px"><p class="lead" style="margin:0;flex:1">Lo sconto è la differenza tra prezzo di copertina e fatturato, sul fornito. La media ponderata pesa ogni cliente per quanto acquista: è quella che incide davvero sul margine.
+      Il riaccredito è quanto si restituisce al cliente sulle rese; lo sconto netto è lo sconto calcolato su venduto e fatturato già al netto delle rese.</p><div class="dx">${selPerCli()}</div></div>
       <div class="grid g-kpi">
         ${kpi('Sconto medio ponderato', pct(media), `<span>${num(cl.length)} clienti con forniture</span>`, '--s1')}
+        ${kpi('Sconto netto', pct(netto), '<span>sul venduto, al netto delle rese</span>', '--s7')}
+        ${kpi('Riaccredito', eurK(NR), `<span>${eur(NR)} restituiti sulle rese · ${pct(NF ? NR / NF : 0)} del fatturato</span>`, '--s2')}
         ${kpi('Sconto medio semplice', pct(semplice), '<span>clienti con almeno 300 € di fornito</span>', '--s3')}
-        ${kpi('Sconto più alto', perSc[0] ? pct(perSc[0].sconto) : '—', `<span>${esc(perSc[0]?.nome || '')}</span>`, '--s2')}
-        ${kpi('Sconto più basso', perSc.length ? pct(perSc[perSc.length - 1].sconto) : '—', `<span>${esc(perSc[perSc.length - 1]?.nome || '')}</span>`, '--s4')}
+        ${kpi('Sconto più alto', perSc[0] ? pct(perSc[0].sconto) : '—', `<span>${esc(perSc[0]?.nome || '')}</span>`, '--s4')}
         ${kpi('Grandi clienti sopra la media', num(sopra.length), '<span>tra i primi 10% per venduto, oltre 2 punti</span>', '--s8')}
       </div>
       <div class="grid g2">
@@ -1510,7 +1715,7 @@ S.sconti = {
         </div>
       </div>
       <div class="card"><div class="card-head"><div><h3>Tutti i clienti</h3><p class="h-sub">Sconto, venduto e scostamento dalla media</p></div><div class="dx"><input type="search" id="q-cl" placeholder="Cerca cliente, città o codice"></div></div>
-        <div class="tw scroll"><table class="tbl"><thead><tr><th>Cliente</th><th>Canale</th><th>Agente</th><th class="r">Copie</th><th class="r">Venduto</th><th class="r">Fatturato netto</th><th class="r">Sconto</th><th class="r">Rispetto alla media</th></tr></thead><tbody id="tb-cl">${righeClienti(cl.slice(0, 200), media)}</tbody></table></div>
+        <div class="tw scroll"><table class="tbl"><thead><tr><th>Cliente</th><th>Canale</th><th>Agente</th><th class="r">Copie</th><th class="r">Venduto</th><th class="r">Fatturato netto</th><th class="r">Riaccredito</th><th class="r">Sconto</th><th class="r">Sconto netto</th><th class="r">Rispetto alla media</th></tr></thead><tbody id="tb-cl">${righeClienti(cl.slice(0, 200), media)}</tbody></table></div>
         <p class="note">Sono mostrati i primi 200 clienti per venduto: la ricerca li trova tutti.</p></div>${notaCopertura()}`;
   },
   init(){
@@ -1527,11 +1732,11 @@ S.sconti = {
   },
 };
 function righeClienti(cl, media){
-  if (!cl.length) return '<tr><td colspan="8" class="empty">Nessun cliente trovato</td></tr>';
+  if (!cl.length) return '<tr><td colspan="10" class="empty">Nessun cliente trovato</td></tr>';
   return cl.map(c => {
     const d = c.sconto - media;
     return `<tr><td><div class="t-tit">${esc(c.nome)}</div><div class="t-sub">${esc(c.citta || '')}${c.provincia ? ' (' + esc(c.provincia) + ')' : ''} · cod. ${esc(c.cc)}</div></td><td class="small">${esc(c.canale || nomeGruppo(c.canale_gruppo))}</td>
-      <td class="small">${c.agente ? esc(nomeAgente(c.agente)) : c.direzionale ? '<span class="pill mut">Direzionale</span>' : '—'}</td><td class="r">${num(c.cf - c.cr)}</td><td class="r">${eur(c.f)}</td><td class="r">${eur(c.n)}</td><td class="r t-tit">${pct(c.sconto)}</td>
+      <td class="small">${c.agente ? esc(nomeAgente(c.agente)) : c.direzionale ? '<span class="pill mut">Direzionale</span>' : '—'}</td><td class="r">${num(c.cf - c.cr)}</td><td class="r">${eur(c.f)}</td><td class="r">${eur(c.n)}</td><td class="r">${c.nr ? eur(c.nr) : '—'}</td><td class="r t-tit">${pct(c.sconto)}</td><td class="r">${c.f > 0 ? pct(1 - c.n / c.f) : '—'}</td>
       <td class="r"><span class="pill ${d > .02 ? 'warn' : d < -.02 ? 'info' : 'mut'}">${d > 0 ? '+' : ''}${fDec.format(d * 100)} punti</span></td></tr>`;
   }).join('');
 }
@@ -1656,11 +1861,59 @@ S.investimenti = {
 };
 
 /* ---------- Investimenti confermati ---------- */
+// Periodo dei clienti per l'effetto sullo sconto: i mesi coperti dell'anno in corso (l'ultimo blocco continuo)
+function periodoEffetto(){
+  const ms = R.mesiCli.filter(x => +x.copertura >= .98).map(x => x.mese.slice(0, 10)).sort();
+  if (!ms.length) return null;
+  const al = ms[ms.length - 1], anno = al.slice(0, 4);
+  let dal = al;
+  for (let i = ms.length - 2; i >= 0; i--){ const d = pd(dal), p = pd(ms[i]);
+    if (ms[i].slice(0, 4) === anno && d.getFullYear() * 12 + d.getMonth() === p.getFullYear() * 12 + p.getMonth() + 1) dal = ms[i]; else break; }
+  return dal + '|' + al;
+}
+// Effetto di un investimento sullo sconto: il costo dell'investimento, tolto dal fatturato dei clienti coinvolti, fa salire lo sconto effettivo
+function effettoInvestimenti(I, D){
+  const anag = new Map((R.anag || []).map(c => [c.cc, c]));
+  const cl = (D.clienti || []).filter(c => c.lf > 0);
+  const norm = x => String(x || '').trim().toUpperCase();
+  const LT = sum(cl.map(c => c.lf)), NT = sum(cl.map(c => c.nf));
+  const righe = I.map(i => {
+    const L = i.destinatario === 'Cliente' ? cl.filter(c => c.cc === i.codice_cliente)
+      : i.destinatario === 'Gruppo' ? cl.filter(c => norm((anag.get(c.cc) || {}).gruppo || c.gruppo) === norm(i.gruppo))
+      : i.destinatario === 'Canale' ? cl.filter(c => norm(c.canale || (anag.get(c.cc) || {}).canale) === norm(i.canale)) : cl;
+    const lf = sum(L.map(c => c.lf)), nf = sum(L.map(c => c.nf)), inv = +i.importo || 0;
+    return { i, n: L.length, lf, nf, inv, sc: lf ? 1 - nf / lf : null, eff: lf ? 1 - (nf - inv) / lf : null };
+  });
+  const INV = sum(righe.filter(r => r.lf).map(r => r.inv));
+  return { righe, LT, NT, INV, sc: LT ? 1 - NT / LT : 0, eff: LT ? 1 - (NT - INV) / LT : 0 };
+}
 S.invconf = {
   titolo: 'Investimenti confermati', sub: () => 'Gli investimenti decisi, dell\'editore e di PDE, con il loro stato di rendicontazione',
+  async prepara(){
+    this._E = null;
+    const I = R.inv.filter(i => CONFERMATI.includes(i.stato) && i.chi === 'Editore'), k = periodoEffetto();
+    if (!I.length || !k) return;
+    await anagrafica();
+    this._E = { k, ...effettoInvestimenti(I, await clientiPer(k)) };
+  },
   html(){
     const I = R.inv.filter(i => CONFERMATI.includes(i.stato));
     this._I = I;
+    const E_ = this._E;
+    const effetto = E_ ? (() => { const [a, b] = E_.k.split('|').map(pd), per = a.getMonth() === b.getMonth() ? `${MESI_L[a.getMonth()]} ${a.getFullYear()}` : `${MESI_L[a.getMonth()]}–${MESI_L[b.getMonth()]} ${b.getFullYear()}`;
+      return `<div class="card" style="margin-bottom:16px"><h3>Effetto degli investimenti sullo sconto</h3>
+        <p class="h-sub">L'investimento dell'editore è un costo: tolto dal fatturato del cliente (o del gruppo, del canale) fa salire lo sconto effettivo. Fornito e fatturato dei clienti: ${per}.</p>
+        <div class="grid g-kpi" style="margin:12px 0">
+          ${kpi('Sconto medio', pct(E_.sc), '<span>senza investimenti</span>', '--s1')}
+          ${kpi('Sconto medio effettivo', pct(E_.eff), `<span>+${fDec.format((E_.eff - E_.sc) * 100)} punti con gli investimenti</span>`, '--s2')}
+          ${kpi('Investimenti dell\'editore', eurK(E_.INV), `<span>su ${eurK(E_.LT)} di fornito a copertina</span>`, '--s7')}
+        </div>
+        <div class="tw scroll"><table class="tbl"><thead><tr><th>Investimento</th><th>Su chi</th><th class="r">Clienti</th><th class="r">Fornito a copertina</th><th class="r">Fatturato</th><th class="r">Investimento</th><th class="r">Sconto</th><th class="r">Sconto effettivo</th></tr></thead>
+        <tbody>${E_.righe.map(r => `<tr><td><div class="t-tit">${esc(r.i.tipologia)}</div><div class="t-sub">${r.i.dal ? fData(pd(r.i.dal)) : ''}${r.i.al ? ' – ' + fData(pd(r.i.al)) : ''}</div></td>
+          <td><div class="t-tit">${esc(titleCase(destInv(r.i)))}</div><div class="t-sub">${esc(r.i.destinatario)}</div></td><td class="r">${num(r.n)}</td>
+          <td class="r">${r.lf ? eur(r.lf) : '—'}</td><td class="r">${r.lf ? eur(r.nf) : '—'}</td><td class="r t-tit">${eur(r.inv)}</td>
+          <td class="r">${r.sc != null ? pct(r.sc) : '—'}</td><td class="r">${r.eff != null ? `<b>${pct(r.eff)}</b> <span class="pill warn">+${fDec.format((r.eff - r.sc) * 100)} punti</span>` : '<span class="small muted">nessuna fornitura nel periodo</span>'}</td></tr>`).join('')}</tbody></table></div>
+        <p class="note">Sconto = 1 − fatturato ÷ fornito a prezzo di copertina. Sconto effettivo = 1 − (fatturato − investimento) ÷ fornito a prezzo di copertina. Contano gli investimenti confermati dell'editore.</p></div>`; })() : '';
     if (!I.length) return vuoto('Nessun investimento confermato. Si confermano dalla sezione <a href="#investimenti">Investimenti</a>.');
     const E = sum(I.filter(i => i.chi === 'Editore').map(i => +i.importo)), P = sum(I.filter(i => i.chi === 'PDE').map(i => +i.importo));
     const rend = I.filter(i => i.stato === 'Rendicontato');
@@ -1672,6 +1925,7 @@ S.invconf = {
         ${kpi('Totale confermato', eurK(E + P), `<span>${num(I.length)} iniziative</span>`, '--s7')}
         ${kpi('Rendicontati', num(rend.length), `<span>${eurK(sum(rend.map(i => +i.importo)))} · ${num(I.length - rend.length)} in corso</span>`, '--s4')}
       </div>
+      ${effetto}
       <div class="grid g3">
         <div class="card"><h3>Chi investe</h3><p class="h-sub">Editore e PDE</p><div class="ch sm"><canvas id="c-chi"></canvas></div></div>
         <div class="card"><h3>Per tipologia</h3><p class="h-sub">Editore + PDE</p><div class="ch sm"><canvas id="c-tipo"></canvas></div></div>
@@ -1876,7 +2130,7 @@ S.stock = {
         ${kpi('Copie disponibili', numK(disp), '<span>magazzini 11 e 21</span>', '--s3')}
         ${kpi('Valore a copertina', eurK(val), '<span>della disponibilità</span>', '--s7')}
         ${kpi('Copertura bassa', num(bassi.length), '<span>titoli 1-1 sotto 4 settimane</span>', '--s4')}
-        ${kpi('A giacenza zero', num(zero.length), '<span><a href="#alert">titoli 1-1: vedi gli alert</a></span>', '--s8')}
+        ${kpi('A giacenza zero', num(zero.length), '<span><a href="#alert">titoli 1-1: vedi alert approvvigionamento</a></span>', '--s8')}
       </div>
       <div class="grid g2e">
         <div class="card"><h3>Stato dei titoli</h3><p class="h-sub">Stato articolo – stato vendita Messaggerie</p><div class="ch"><canvas id="c-sst"></canvas></div></div>
@@ -1915,52 +2169,82 @@ S.stock = {
   },
 };
 
-/* ---------- Alert giacenza zero: titoli 1-1 con disponibilità a zero ---------- */
+/* ---------- Alert approvvigionamento: titoli 1-1 a rischio rottura di stock entro 30 giorni e titoli a giacenza zero ---------- */
+// Esporta un elenco in CSV (separatore ; e BOM, così Excel lo apre bene con gli accenti)
+function scaricaCsv(nome, testa, righe){
+  const q = v => { const x = v == null ? '' : String(v); return /[";\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
+  const testo = '﻿' + [testa, ...righe].map(r => r.map(q).join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([testo], { type: 'text/csv;charset=utf-8' }));
+  a.download = nome; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+const ORIZZONTE = 30;   // la previsione anticipa di un mese la rottura di stock
+const nDec = n => String(Math.round(n * 10) / 10).replace('.', ',');
 S.alert = {
-  titolo: 'Alert giacenza zero', sub: () => 'Titoli in stato 1-1 (attivi e in vendita) senza copie disponibili in Messaggerie',
+  titolo: 'Alert approvvigionamento', sub: () => `Titoli in stato 1-1 che finiranno entro ${ORIZZONTE} giorni e titoli già a giacenza zero in Messaggerie`,
   html(){
     const M = R.meli.righe || [];
     if (!M.length) return boxAggiornaMeli() + vuoto('Per gli alert servono i dati di magazzino: aggiornali dalla sezione Stock MeLi.');
     const dal = pd(R.meli.monitorato_dal);
+    const base = m => { const t = R.titoliMap.get(m.ean); const ritmo = t ? Math.max(0, t.v_ult) : 0;
+      return { ...m, t, ritmo, giorno: ritmo / 30, prezzoT: +m.prezzo || (t ? +t.prezzo : 0), tit: titleCase(m.titolo || (t || {}).titolo || '') }; };
+    // a rischio: disponibilità che, al ritmo di vendita degli ultimi 30 giorni, finisce entro l'orizzonte
+    const P = M.filter(m => attivo11(m) && m.disponibilita > 0).map(base).filter(x => x.giorno > 0)
+      .map(x => { const gg = x.disponibilita / x.giorno; return { ...x, ggFine: gg, fine: piuGg(iso(OGGI), Math.floor(gg)) }; })
+      .filter(x => x.ggFine <= ORIZZONTE).sort((a, b) => a.ggFine - b.ggFine);
     const A = M.filter(m => attivo11(m) && m.disponibilita <= 0).map(m => {
-      const t = R.titoliMap.get(m.ean);
-      const zd = pd(m.zero_dal);
-      const gg = zd ? diffGg(OGGI, zd) : 0;
-      return { ...m, t, gg, almeno: zd && dal && zd.getTime() <= dal.getTime(), ritmo: t ? Math.max(0, t.v_ult) : 0, prezzoT: +m.prezzo || (t ? +t.prezzo : 0) };
+      const x = base(m), zd = pd(m.zero_dal);
+      return { ...x, gg: zd ? diffGg(OGGI, zd) : 0, almeno: zd && dal && zd.getTime() <= dal.getTime() };
     }).sort((a, b) => b.gg - a.gg || b.ritmo - a.ritmo);
-    this._A = A;
-    if (!A.length) return boxAggiornaMeli() + vuoto('Nessun titolo in stato 1-1 a giacenza zero. Ottimo così.');
-    const perse = x => Math.round(x.ritmo / 30 * Math.max(1, x.gg) * .6);
+    this._A = A; this._P = P;
+    const perse = x => Math.round(x.giorno * Math.max(1, x.gg) * .6);
     const tot = sum(A.map(x => perse(x) * x.prezzoT));
     const sev = g => g > 30 ? ['alta', 'Critico', 'ko'] : g >= 15 ? ['media', 'Attenzione', 'warn'] : ['bassa', 'Recente', 'info'];
+    const sevP = g => g <= 7 ? ['alta', 'Entro 7 giorni', 'ko'] : g <= 15 ? ['media', 'Entro 15 giorni', 'warn'] : ['bassa', `Entro ${ORIZZONTE} giorni`, 'info'];
+    const sub = x => `${esc(titleCase(x.autore || ''))} · EAN ${esc(x.ean)}${x.genere ? ' · ' + esc(titleCase(x.genere)) : ''}`;
     return `${boxAggiornaMeli()}
-      <p class="lead">Un titolo attivo e in vendita (stato 1-1) senza disponibilità non può essere spedito: gli ordini dei librai restano inevasi.
-      I giorni a zero si contano dai controlli giornalieri${dal ? `, iniziati il ${fData(dal)}: per i titoli già a zero quel giorno il dato è "almeno"` : ''}.
-      Le vendite perse sono stimate sul venduto degli ultimi 30 giorni.</p>
+      <p class="lead">Un titolo attivo e in vendita (stato 1-1) che resta senza copie non può essere spedito: gli ordini dei librai restano inevasi.
+      La previsione divide la disponibilità in Messaggerie per le copie vendute al giorno negli ultimi 30 giorni (fornito meno rese): se un titolo ha 1.000 copie e ne vende 100 al giorno, finisce in 10 giorni.
+      Qui compaiono solo i titoli che finiranno entro ${ORIZZONTE} giorni, così c'è un mese di anticipo per ristampare o riassortire.</p>
       <div class="grid g-kpi">
-        ${kpi('Titoli a giacenza zero', num(A.length), '<span>in stato 1-1</span>', '--s8')}
-        ${kpi('Critici', num(A.filter(x => x.gg > 30).length), '<span>a zero da oltre 30 giorni</span>', '--s2')}
-        ${kpi('Con vendite recenti', num(A.filter(x => x.ritmo > 0).length), '<span>venduti negli ultimi 30 giorni</span>', '--s4')}
-        ${kpi('Vendite perse stimate', eurK(tot), `<span>${num(sum(A.map(perse)))} copie</span>`, '--s7')}
+        ${kpi(`A rischio entro ${ORIZZONTE} giorni`, num(P.length), `<span>${num(P.filter(x => x.ggFine <= 7).length)} entro una settimana</span>`, '--s2')}
+        ${kpi('A giacenza zero', num(A.length), `<span>${num(A.filter(x => x.gg > 30).length)} da oltre 30 giorni</span>`, '--s8')}
+        ${kpi('Con vendite recenti a zero', num(A.filter(x => x.ritmo > 0).length), '<span>venduti negli ultimi 30 giorni</span>', '--s4')}
+        ${kpi('Vendite perse stimate', eurK(tot), `<span>${num(sum(A.map(perse)))} copie sui titoli a zero</span>`, '--s7')}
       </div>
-      <div class="grid g2">
-        <div class="card"><h3>Titoli da riassortire</h3><p class="h-sub">Dal più vecchio al più recente</p>
-          <div class="list-ev">${A.slice(0, 80).map(x => { const [k, l, p] = sev(x.gg); return `<div class="alert-card">
-            <div class="gg sev-${k}"><b>${x.almeno ? '≥' : ''}${x.gg}</b><span>giorni</span></div>
-            <div class="con-cop">${cop(x.ean, 'gr')}<div><div class="t-tit">${esc(titleCase(x.titolo || (x.t || {}).titolo || ''))}</div><div class="t-sub">${esc(titleCase(x.autore || ''))} · EAN ${esc(x.ean)}${x.genere ? ' · ' + esc(titleCase(x.genere)) : ''}</div>
-              <div class="t-sub">${x.zero_dal ? 'A zero dal ' + fData(pd(x.zero_dal)) : ''}${x.ultima_fornitura ? ' · ultima fornitura Messaggerie il ' + fData(pd(x.ultima_fornitura)) : ''} · ${x.ritmo ? `${num(x.ritmo)} copie vendute negli ultimi 30 giorni` : 'nessuna vendita negli ultimi 30 giorni'}${x.risposta_editore ? ' · ' + esc(x.risposta_editore) : ''}</div></div></div>
+      <div class="grid g2e">
+        <div class="card"><div class="card-head"><div><h3>A rischio rottura di stock</h3><p class="h-sub">Finiranno entro ${ORIZZONTE} giorni, dal più urgente</p></div>
+          <div class="dx"><button class="btn" type="button" id="b-csv-p" ${P.length ? '' : 'disabled'}>⬇ Estrai</button></div></div>
+          ${P.length ? `<div class="list-ev">${P.slice(0, 80).map(x => { const [k, l, p] = sevP(x.ggFine); return `<div class="alert-card">
+            <div class="gg sev-${k}"><b>${Math.floor(x.ggFine)}</b><span>giorni</span></div>
+            <div class="con-cop">${cop(x.ean, 'gr')}<div><div class="t-tit">${esc(x.tit)}</div><div class="t-sub">${sub(x)}</div>
+              <div class="t-sub"><b>${num(x.disponibilita)}</b> copie disponibili · vende ${nDec(x.giorno)} copie al giorno · finisce verso il <b>${fData(pd(x.fine))}</b></div></div></div>
             <span class="pill ${p}">${l}</span></div>`; }).join('')}</div>
-          ${A.length > 80 ? `<p class="note">Sono mostrati i primi 80 di ${num(A.length)}.</p>` : ''}</div>
-        <div class="card"><h3>Giorni a giacenza zero</h3><p class="h-sub">I 20 titoli da più tempo a zero</p><div class="ch" style="height:${Math.min(20, A.length) * 24 + 70}px"><canvas id="c-al"></canvas></div>
-          <p class="note"><span class="pill ko">Critico</span> oltre 30 giorni · <span class="pill warn">Attenzione</span> 15–30 · <span class="pill info">Recente</span> meno di 15</p></div>
+          ${P.length > 80 ? `<p class="note">Sono mostrati i primi 80 di ${num(P.length)}: l'estrazione li contiene tutti.</p>` : ''}`
+          : `<div class="empty">Nessun titolo rischia di finire nei prossimi ${ORIZZONTE} giorni.</div>`}</div>
+        <div class="card"><div class="card-head"><div><h3>A giacenza zero</h3><p class="h-sub">Da riassortire, dal più vecchio al più recente</p></div>
+          <div class="dx"><button class="btn" type="button" id="b-csv-z" ${A.length ? '' : 'disabled'}>⬇ Estrai</button></div></div>
+          ${A.length ? `<div class="list-ev">${A.slice(0, 80).map(x => { const [k, l, p] = sev(x.gg); return `<div class="alert-card">
+            <div class="gg sev-${k}"><b>${x.almeno ? '≥' : ''}${x.gg}</b><span>giorni</span></div>
+            <div class="con-cop">${cop(x.ean, 'gr')}<div><div class="t-tit">${esc(x.tit)}</div><div class="t-sub">${sub(x)}</div>
+              <div class="t-sub">${x.zero_dal ? 'A zero dal ' + fData(pd(x.zero_dal)) : ''}${x.ultima_fornitura ? ' · ultima fornitura il ' + fData(pd(x.ultima_fornitura)) : ''} · ${x.ritmo ? `${num(x.ritmo)} copie vendute negli ultimi 30 giorni` : 'nessuna vendita negli ultimi 30 giorni'}${x.risposta_editore ? ' · ' + esc(x.risposta_editore) : ''}</div></div></div>
+            <span class="pill ${p}">${l}</span></div>`; }).join('')}</div>
+          ${A.length > 80 ? `<p class="note">Sono mostrati i primi 80 di ${num(A.length)}: l'estrazione li contiene tutti.</p>` : ''}`
+          : '<div class="empty">Nessun titolo in stato 1-1 a giacenza zero. Ottimo così.</div>'}
+          <p class="note">I giorni a zero si contano dai controlli giornalieri${dal ? `, iniziati il ${fData(dal)}: per i titoli già a zero quel giorno il dato è "almeno"` : ''}.</p></div>
       </div>`;
   },
   init(){
     $('#b-meli')?.addEventListener('click', aggiornaMeli);
-    const A = (this._A || []).slice(0, 20); if (!A.length) return;
-    const s = SER();
-    mk('c-al', { type: 'bar', data: { labels: A.map(x => { const n = titleCase(x.titolo || ''); return n.length > 24 ? n.slice(0, 23) + '…' : n; }), datasets: [barre('Giorni a zero', A.map(x => x.gg), A.map(x => x.gg > 30 ? css('--ko') : x.gg >= 15 ? s[3] : s[0]), { maxBarThickness: 18 })] },
-      options: { indexAxis: 'y', scales: { x: { beginAtZero: true, title: { display: true, text: 'giorni' } }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => titleCase(A[i[0].dataIndex].titolo || ''), label: c => ` a zero da ${A[c.dataIndex].almeno ? 'almeno ' : ''}${c.parsed.x} giorni` } } } } });
+    const oggi = iso(OGGI);
+    $('#b-csv-p')?.addEventListener('click', () => scaricaCsv(`titoli-a-rischio-${oggi}.csv`,
+      ['EAN', 'Titolo', 'Autore', 'Genere', 'Copie disponibili', 'Copie vendute ultimi 30 giorni', 'Copie al giorno', 'Giorni alla fine', 'Fine stimata', 'Prezzo'],
+      this._P.map(x => [x.ean, x.tit, titleCase(x.autore || ''), titleCase(x.genere || ''), x.disponibilita, x.ritmo, nDec(x.giorno), Math.floor(x.ggFine), fData(pd(x.fine)), x.prezzoT ? String(x.prezzoT).replace('.', ',') : ''])));
+    $('#b-csv-z')?.addEventListener('click', () => scaricaCsv(`titoli-a-giacenza-zero-${oggi}.csv`,
+      ['EAN', 'Titolo', 'Autore', 'Genere', 'A zero dal', 'Giorni a zero', 'Ultima fornitura', 'Copie vendute ultimi 30 giorni', 'Prezzo', 'Risposta editore'],
+      this._A.map(x => [x.ean, x.tit, titleCase(x.autore || ''), titleCase(x.genere || ''), x.zero_dal ? fData(pd(x.zero_dal)) : '', (x.almeno ? '>=' : '') + x.gg,
+        x.ultima_fornitura ? fData(pd(x.ultima_fornitura)) : '', x.ritmo, x.prezzoT ? String(x.prezzoT).replace('.', ',') : '', x.risposta_editore || ''])));
   },
 };
 
@@ -2369,7 +2653,7 @@ const MENU = [
   { g: 'Catalogo e magazzino' },
   { id: 'anagrafiche', l: 'Anagrafiche titoli', ic: 'book', a: ['#6366f1', '#4338ca'], admin: true },
   { id: 'stock', l: 'Stock MeLi', ic: 'box', a: ['#8a94a6', '#56607a'] },
-  { id: 'alert', l: 'Alert giacenza zero', ic: 'alert', a: ['#f06b6b', '#c62828'] },
+  { id: 'alert', l: 'Alert approvvigionamento', ic: 'alert', a: ['#f06b6b', '#c62828'] },
   { g: 'Attività' },
   { id: 'eventi', l: 'Eventi', ic: 'cal', a: ['#16b3c9', '#0a7f91'] },
   { id: 'materiali', l: 'Materiali giri', ic: 'up', a: ['#7c4dbe', '#552f94'] },
@@ -2382,11 +2666,15 @@ function disegnaMenu(attiva){
 }
 const BANNER_DEMO = `<div class="banner-demo"><b>Sezione di esempio.</b> Questi numeri sono inventati e servono a mostrare come sarà la sezione: i dati veri arriveranno quando la fonte sarà collegata.</div>`;
 let TOKEN = 0;
+let ULTIMA_SEZ = null;
+const SEZ_MISURA = ['dashboard', 'analisi', 'settori', 'gfk'];
 async function render(){
   const t = ++TOKEN;
   const id = location.hash.slice(1) || 'dashboard';
   const key = S[id] ? id : 'dashboard';
   const sez = S[key];
+  if (key !== ULTIMA_SEZ){ MISURA = 'valore'; ULTIMA_SEZ = key; }   // ogni sezione si apre sul valore
+  const segM = $('#seg-misura'); if (segM){ segM.hidden = !SEZ_MISURA.includes(key); disegnaMisura(); }
   CHARTS.forEach(c => c.destroy()); CHARTS = [];
   setupChart();
   disegnaMenu(key);
@@ -2504,6 +2792,7 @@ async function avvio(){
   });
   $('#b-esci').addEventListener('click', esci);
   $('#b-periodo').addEventListener('click', apriPannelloPeriodo);
+  document.querySelectorAll('#seg-misura button').forEach(b => b.addEventListener('click', () => { MISURA = b.dataset.m; disegnaMisura(); render(); }));
   document.addEventListener('click', e => { const i = e.target.closest('[data-cop]'); if (i) { e.stopPropagation(); apriCopertina(i.dataset.cop); } }, true);
   // chiude il pannello solo per un clic davvero fuori: il pannello si ridisegna a ogni scelta, e il pulsante cliccato non è più nella pagina
   document.addEventListener('click', e => { const p = $('#pan-per'); if (p && !p.hidden && e.target.isConnected && !e.target.closest('.periodo-wrap')) p.hidden = true; });
