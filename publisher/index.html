@@ -208,6 +208,12 @@
   .sellout .val{font-size:30px;font-weight:800;margin:4px 0}
   .sellout-fonti{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin-top:10px;font-size:13px;padding-top:10px;border-top:1px dashed var(--border)}
   .sellout-fonti b{color:var(--text-dim);font-weight:600}
+    .ch.alta{height:330px}
+  .giri-ap{display:flex;flex-direction:column;gap:10px}
+  .giro-ap{display:block;padding:11px 13px;border:1px solid var(--border);border-radius:12px;color:inherit;text-decoration:none;transition:background .12s}
+  .giro-ap:hover{background:var(--card-2)} .giro-ap .row{display:flex;align-items:center;gap:8px;margin:0 0 6px}
+  .giro-ap .dx-n{margin-left:auto;font-weight:800;font-size:16px} .giro-ap .bar-in{margin-bottom:6px}
+  .ga-top{margin-top:3px}
   .so-griglia{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
   .so-griglia > div + div{border-left:1px dashed var(--border);padding-left:14px}
   .so-per{font-size:12px;color:var(--text-dim);font-weight:600}
@@ -249,6 +255,7 @@
   .leg li:last-child{border-bottom:none} .leg li.tot{font-weight:700}
   .leg i{width:12px;height:12px;border-radius:4px} .leg b{font-variant-numeric:tabular-nums;white-space:nowrap}
   .leg span:not(.p){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .g-pano .leg span:not(.p){white-space:normal;line-height:1.25} .g-pano .leg{font-size:13px} .g-pano .leg li{gap:8px}
   .leg span.p{color:var(--text-dim);font-variant-numeric:tabular-nums;min-width:48px;text-align:right}
   .periodo-wrap{position:relative}
   .per-btn{font-weight:700;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1163,17 +1170,22 @@ S.dashboard = {
               : '<div class="empty">Nessun titolo dell\'editore nelle classifiche GfK</div>'}</div>
         </div>
       </div>
-      <div class="grid g3">
-        <div class="card"><h3>Venduto per ${gen.rilevati ? 'genere' : 'collana'}</h3><p class="h-sub">${PER.etichetta}${gen.rilevati ? ' · genere Messaggerie' : ''}</p><div class="ch sm"><canvas id="c-gen"></canvas></div></div>
-        <div class="card"><h3>Novità, rifornimenti da novità e rifornimenti</h3><p class="h-sub">${PER.etichetta}</p><div class="ch sm"><canvas id="c-tipi"></canvas></div></div>
-        <div class="card"><h3>Giri aperti</h3><p class="h-sub">Prenotato sull'obiettivo</p>
-          ${prossimi.length ? prossimi.map(g => `<div class="check"><span style="flex:1"><b>${esc(nomeGiro(g))}</b><br><span class="small muted">${g.inizio ? fData(g.inizio) + ' – ' + fData(g.fine) : ''}</span></span>${pillGiro(g.stato)}<b class="num" style="min-width:56px;text-align:right">${g.obiettivo ? pct(g.prenotato / g.obiettivo, 0) : num(g.prenotato)}</b></div>`).join('') : '<div class="empty">Nessun giro aperto</div>'}
+      <div class="grid g2 g-pano"><div class="grid g2e" style="margin:0">
+        <div class="card"><h3>Venduto per ${gen.rilevati ? 'genere' : 'collana'}</h3><p class="h-sub">${PER.etichetta}${gen.rilevati ? ' · genere Messaggerie' : ''}</p><div class="ch alta"><canvas id="c-gen"></canvas></div></div>
+        <div class="card"><h3>Novità e rifornimenti</h3><p class="h-sub">${PER.etichetta}</p><div class="ch alta"><canvas id="c-tipi"></canvas></div></div></div>
+        <div class="card"><h3>Giri aperti</h3><p class="h-sub">Prenotato sull'obiettivo, giro per giro</p>
+          ${prossimi.length ? `<div class="giri-ap">${prossimi.map(g => { const q = g.obiettivo ? g.prenotato / g.obiettivo : null; return `<a class="giro-ap" href="#giri" data-gk="${esc(g.chiave)}">
+            <div class="row"><b>${esc(nomeGiro(g))}</b>${pillGiro(g.stato)}<span class="dx-n">${q != null ? pct(q, 0) : '—'}</span></div>
+            <div class="bar-in"><i style="width:${q != null ? Math.min(100, q * 100) : 0}%"></i></div>
+            <div class="t-sub">${num(g.prenotato)} copie prenotate${g.obiettivo ? ' su ' + num(g.obiettivo) : ''} · ${num(g.titoli.length)} titoli${g.inizio ? ' · ' + fData(g.inizio) + ' – ' + fData(g.fine) : ''}${g.stato === 'in corso' && g.inizio ? ` · giorno ${diffGg(OGGI, g.inizio) + 1} di ${diffGg(g.fine, g.inizio) + 1}` : ''}</div>
+            ${g.titoli.length ? `<div class="t-sub ga-top">Più prenotato: <b>${esc(titleCase([...g.titoli].sort((a, b) => b.prenotato - a.prenotato)[0].titolo))}</b> (${num(+[...g.titoli].sort((a, b) => b.prenotato - a.prenotato)[0].prenotato)} copie)</div>` : ''}</a>`; }).join('')}</div>` : '<div class="empty">Nessun giro aperto</div>'}
           <p class="note"><a href="#giri">Vai ai giri vendita →</a></p></div>
       </div>`;
   },
   init(){
     const { s0, s1, gen, tipi, sintesi } = this._d, s = SER();
     $('#b-sintesi').addEventListener('click', () => apriSintesi(sintesi));
+    document.querySelectorAll('.giro-ap[data-gk]').forEach(x => x.addEventListener('click', () => { STATO.giriSel = [x.dataset.gk]; }));
     mk('c-trend', { type: PER.chiavi.length > 1 ? 'line' : 'bar', data: { labels: PER.labels, datasets: [
       linea(String(PER.Y), s0, s[0], { fill: { target: 'origin', above: s[0] + '14' }, pointRadius: 3 }),
       linea(String(PER.Y - 1), s1, css('--prev'), { borderDash: [5, 4] }),
