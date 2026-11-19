@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BookUp Events Edition</title>
+<link rel="icon" href="assets/bookup-logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bree+Serif&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f7fb; --card:#ffffff; --card-2:#eef4fa; --cyan:#0090c8; --cyan-dim:#e3f3fb;
+    --text:#132033; --text-dim:#5b6b7d; --border:#d7e0ea;
+    --ok:#15803d; --ok-bg:#e9f7ee; --ko:#b91c1c; --ko-bg:#fdeceb; --warn:#9a5b00; --warn-bg:#fff4e0; --info:#005f86; --info-bg:#e3f3fb;
+    --c-ed:#2a78d6; --c-sa:#eb6834; --c-bc:#1baf7a; --c-pde:#6250d6;
+    --shadow:0 12px 26px -18px rgba(20,45,90,.45);
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0d1334; --card:#161f47; --card-2:#1c2754; --cyan:#33c3f0; --cyan-dim:#1c2f5e;
+      --text:#e8ecf8; --text-dim:#97a3c9; --border:#2a3666;
+      --ok:#4fd18b; --ok-bg:#14382f; --ko:#ff7a7a; --ko-bg:#40202f; --warn:#f0b84c; --warn-bg:#3a3020; --info:#33c3f0; --info-bg:#1c2f5e;
+      --c-ed:#3987e5; --c-sa:#d95926; --c-bc:#199e70; --c-pde:#9085e9;
+      --shadow:none; color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d1334; --card:#161f47; --card-2:#1c2754; --cyan:#33c3f0; --cyan-dim:#1c2f5e;
+    --text:#e8ecf8; --text-dim:#97a3c9; --border:#2a3666;
+    --ok:#4fd18b; --ok-bg:#14382f; --ko:#ff7a7a; --ko-bg:#40202f; --warn:#f0b84c; --warn-bg:#3a3020; --info:#33c3f0; --info-bg:#1c2f5e;
+    --c-ed:#3987e5; --c-sa:#d95926; --c-bc:#199e70; --c-pde:#9085e9;
+    --shadow:none; color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html{font-size:16px;scrollbar-gutter:stable}
+  body{margin:0;font-family:'DM Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+  button,input,select,textarea{font:inherit;color:inherit}
+  [hidden]{display:none !important}
+  .app{display:grid;grid-template-columns:272px minmax(0,1fr);min-height:100vh}
+
+  /* ---------- menu laterale ---------- */
+  .side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;background:var(--card);border-right:1px solid var(--border);padding:18px 12px 0}
+  .brand{padding:4px 8px 14px;border-bottom:1px solid var(--border);margin-bottom:6px}
+  /* Logo BookUp Events Edition: logo BookUp con la dicitura larga quanto tutto il logo, lettere distribuite (come Publisher Edition) */
+  .bu-logo{container-type:inline-size;width:100%;background:#fff;border-radius:12px}
+  .bu-logo img{display:block;width:100%;height:auto}
+  .bu-ed{display:flex;justify-content:space-between;margin:-.6cqw 1.6% 0 1.1%;padding-bottom:2.5cqw;font-family:Montserrat,'Segoe UI',sans-serif;font-size:5.6cqw;font-weight:700;line-height:1}
+  .bu-ed b{font-weight:700;color:#13297a} .bu-ed i{font-style:normal;font-weight:700;color:#1a8ff0} .bu-ed s{width:3cqw;text-decoration:none}
+  .brand .bu-logo{width:220px;max-width:220px}
+  .nav{flex:1 1 auto;overflow-y:auto;padding:0 0 24px}
+  .nav-g{display:block;margin:16px 10px 6px;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-dim)}
+  .nav a{display:flex;align-items:center;gap:10px;padding:5px 10px 5px 5px;margin:1px 0;border-radius:12px;color:var(--text);text-decoration:none;font-size:14.5px;font-weight:600;min-height:42px;white-space:nowrap}
+  .nav a .ic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex-shrink:0;background:linear-gradient(140deg,var(--a1),var(--a2));color:#fff}
+  .nav a .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .nav a:hover{background:var(--card-2)}
+  .nav a.active{background:linear-gradient(140deg,var(--a1),var(--a2));color:#fff}
+  .nav a.active .ic{background:rgba(255,255,255,.22)}
+  .nav a .cnt{margin-left:auto;min-width:22px;padding:1px 7px;border-radius:999px;background:var(--ko);color:#fff;font-size:11.5px;font-weight:800;text-align:center}
+  .nav a.active .cnt{background:rgba(255,255,255,.3)}
+  .side-foot{border-top:1px solid var(--border);padding:10px 8px 14px;font-size:12.5px;color:var(--text-dim);display:flex;align-items:center;gap:8px}
+  .side-foot span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .side-foot .btn{margin-left:auto;padding:4px 10px;font-size:12.5px}
+
+  /* ---------- testata ---------- */
+  .main{min-width:0}
+  .top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:16px 28px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+  .top h1{margin:0;font-family:'Bree Serif',serif;font-weight:400;font-size:26px;line-height:1.1}
+  .top .sub{color:var(--text-dim);font-size:14px;margin-top:3px}
+  .top .dx{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  select,input[type=text],input[type=search],input[type=date],input[type=email],input[type=number],textarea{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:7px 10px;font-size:14px;min-width:0}
+  select:focus,input:focus,textarea:focus{outline:2px solid var(--cyan);outline-offset:0}
+  .btn{border:1px solid var(--border);background:var(--card);border-radius:10px;padding:7px 12px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .btn:hover{background:var(--card-2)}
+  .btn.pri{background:var(--cyan);border-color:var(--cyan);color:#fff}
+  .btn.pri:hover{filter:brightness(1.08)}
+  .btn.sm{padding:4px 9px;font-size:12.5px;border-radius:8px}
+  .btn.ok{color:var(--ok)} .btn.ko{color:var(--ko)}
+  .btn:disabled{opacity:.5;cursor:default}
+
+  /* ---------- contenuti ---------- */
+  .content{padding:22px 28px 48px;max-width:1480px}
+  .lead{margin:0 0 18px;color:var(--text-dim);font-size:15px;max-width:900px;line-height:1.5}
+  .grid{display:grid;gap:16px;margin-bottom:16px}
+  .g-kpi{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+  .g-home{grid-template-columns:minmax(0,1.75fr) minmax(0,1fr)}
+  .g-cards{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+  @media (max-width:1150px){.g-home{grid-template-columns:minmax(0,1fr)}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 18px 16px;box-shadow:var(--shadow);min-width:0}
+  .card h3{margin:0 0 2px;font-size:16px;font-weight:700}
+  .card .h-sub{margin:0 0 12px;font-size:13px;color:var(--text-dim)}
+  .card-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .card-head .dx{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .empty{color:var(--text-dim);text-align:center;padding:28px 12px}
+  .kpi{position:relative;overflow:hidden;cursor:pointer;text-align:left}
+  .kpi::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--k,var(--cyan))}
+  .kpi .lab{font-size:12.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em}
+  .kpi .val{font-size:28px;font-weight:800;margin:6px 0 2px;font-variant-numeric:tabular-nums}
+  .kpi .foot{font-size:13px;color:var(--text-dim)}
+  .pill{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.ko{background:var(--ko-bg);color:var(--ko)} .pill.warn{background:var(--warn-bg);color:var(--warn)} .pill.mut{background:var(--card-2);color:var(--text-dim)}
+  .sez{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text-dim);white-space:nowrap}
+  .sez::before{content:"";width:9px;height:9px;border-radius:3px;background:var(--sc)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{border:1px solid var(--border);background:var(--card);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer;color:var(--text-dim);display:inline-flex;align-items:center;gap:6px}
+  .chip i{width:9px;height:9px;border-radius:3px;background:var(--sc)}
+  .chip.on{background:var(--card-2);border-color:var(--text-dim);color:var(--text)}
+  .chip:not(.on) i{opacity:.35}
+
+  /* ---------- calendario ---------- */
+  .cal-nav{display:flex;align-items:center;gap:6px}
+  .cal-nav h3{min-width:150px;text-align:center;font-family:'Bree Serif',serif;font-weight:400;font-size:20px;text-transform:capitalize}
+  .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .cal .dow{padding:7px 8px;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);background:var(--card-2);border-bottom:1px solid var(--border)}
+  .cal .day{min-height:104px;padding:5px 5px 6px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);cursor:pointer;min-width:0;display:flex;flex-direction:column;gap:3px;background:var(--card)}
+  .cal .day:nth-child(7n){border-right:none}
+  .cal .day:hover{background:var(--card-2)}
+  .cal .day.fuori{background:color-mix(in srgb,var(--card-2) 55%,var(--card))} .cal .day.fuori .n{opacity:.45}
+  .cal .day.sel{outline:2px solid var(--cyan);outline-offset:-2px}
+  .cal .n{font-size:12.5px;font-weight:700;width:24px;height:24px;display:grid;place-items:center;border-radius:999px}
+  .cal .day.oggi .n{background:var(--cyan);color:#fff}
+  .ev{display:block;font-size:11.5px;font-weight:600;line-height:1.25;padding:2px 6px;border-radius:6px;background:color-mix(in srgb,var(--sc) 16%,var(--card));color:var(--text);border-left:3px solid var(--sc);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;border-top:0;border-right:0;border-bottom:0;cursor:pointer;width:100%}
+  .ev.prop{border-left-style:dashed;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--sc) 14%,var(--card)) 0 6px,var(--card) 6px 10px)}
+  .ev.ann{text-decoration:line-through;opacity:.55}
+  .ev.span{background:var(--sc);color:#fff;border-left:0}
+  .ev-piu{font-size:11px;color:var(--text-dim);font-weight:700;padding-left:4px}
+  @media (max-width:700px){
+    .cal .day{min-height:58px;padding:3px}
+    .cal .ev{font-size:0;padding:0;height:6px;border-left-width:0;background:var(--sc)}
+    .cal .ev-piu{font-size:10px}
+  }
+
+  /* ---------- elenchi ---------- */
+  .lista{display:flex;flex-direction:column}
+  .riga{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--border);cursor:pointer}
+  .riga:last-child{border-bottom:none}
+  .riga:hover{background:var(--card-2)}
+  .data-box{border-radius:10px;text-align:center;padding:5px 0;background:color-mix(in srgb,var(--sc) 14%,var(--card));border:1px solid color-mix(in srgb,var(--sc) 40%,var(--border))}
+  .data-box b{display:block;font-size:20px;line-height:1;font-weight:800}
+  .data-box span{font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text-dim)}
+  .riga .tit{font-weight:700;font-size:14.5px;overflow:hidden;text-overflow:ellipsis}
+  .riga .meta{font-size:12.5px;color:var(--text-dim);margin-top:2px;display:flex;gap:4px 10px;flex-wrap:wrap}
+  .riga .azioni{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+  .filtri{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .filtri input[type=search]{flex:1 1 220px}
+  .anag{cursor:pointer;display:flex;flex-direction:column;gap:6px}
+  .anag:hover{border-color:var(--cyan)}
+  .anag .nome{font-family:'Bree Serif',serif;font-size:19px}
+  .anag .info{font-size:13px;color:var(--text-dim);line-height:1.45}
+  .anag .num{margin-top:auto;font-size:12.5px;font-weight:700;color:var(--text-dim)}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px}
+  .tabs button{border:0;background:none;padding:9px 14px;font-weight:700;color:var(--text-dim);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px}
+  .tabs button.on{color:var(--text);border-bottom-color:var(--cyan)}
+
+  /* ---------- finestra modale ---------- */
+  dialog{border:1px solid var(--border);border-radius:18px;padding:0;background:var(--card);color:var(--text);width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 32px);box-shadow:0 30px 60px -20px rgba(0,0,0,.45)}
+  dialog::backdrop{background:rgba(10,20,40,.45)}
+  dialog form{display:flex;flex-direction:column;max-height:calc(100vh - 34px)}
+  .m-head{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}
+  .m-head h2{margin:0;font-family:'Bree Serif',serif;font-weight:400;font-size:22px}
+  .m-head .x{margin-left:auto;border:0;background:none;font-size:22px;cursor:pointer;color:var(--text-dim)}
+  .m-body{padding:16px 20px;overflow-y:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .m-body label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:700;color:var(--text-dim)}
+  .m-body label.w{grid-column:1/-1}
+  .m-body label.ck{flex-direction:row;align-items:center;gap:8px}
+  .m-body textarea{min-height:70px;resize:vertical}
+  @media (max-width:560px){.m-body{grid-template-columns:minmax(0,1fr)}}
+  .m-foot{display:flex;gap:8px;align-items:center;padding:14px 20px;border-top:1px solid var(--border);flex-wrap:wrap}
+  .m-foot .dx{margin-left:auto;display:flex;gap:8px}
+  .m-err{color:var(--ko);font-size:13px}
+  .m-note{grid-column:1/-1;font-size:12.5px;color:var(--text-dim);background:var(--card-2);border-radius:10px;padding:8px 10px;line-height:1.45}
+
+  /* ---------- accesso ---------- */
+  .login{min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:var(--bg)}
+  .login form{width:100%;max-width:380px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 24px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px}
+  .login h2{margin:8px 0 0;font-family:'Bree Serif',serif;font-weight:400;font-size:24px}
+  .login p{margin:0;color:var(--text-dim);font-size:14px}
+  .login label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:700;color:var(--text-dim)}
+  .login input{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 11px;font-size:15px}
+  .login .err{color:var(--ko);font-size:13px;min-height:1em}
+  .login-logo .bu-logo{max-width:300px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;z-index:50;box-shadow:var(--shadow)}
+
+  /* ---------- telefono ---------- */
+  @media (max-width:900px){
+    .app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr}
+    .side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--border);padding:12px 16px 0}
+    .brand{display:flex;justify-content:center;border:0;padding:0 0 6px}
+    .brand .bu-logo{width:180px}
+    .nav{display:flex;flex:none;align-items:center;overflow-x:auto;gap:4px;padding:0 0 10px}
+    .nav a{flex:none}
+    .nav-g{display:none}
+    .nav a{min-height:36px;padding:3px 10px 3px 3px;font-size:13.5px}
+    .nav a .ic{width:28px;height:28px}
+    .side-foot{display:none}
+    .top{position:static;padding:14px 16px}
+    .top h1{font-size:22px}
+    .content{padding:16px 16px 40px}
+    .riga{grid-template-columns:52px minmax(0,1fr)}
+    .riga .azioni{grid-column:1/-1;justify-content:flex-start}
+  }
+</style>
+</head>
+<body>
+
+<div class="login" id="login" hidden>
+  <form id="f-login" autocomplete="on">
+    <div class="login-logo"><div class="bu-logo" role="img" aria-label="BookUp Events Edition"><img src="assets/bookup-logo.jpg" alt=""><div class="bu-ed" aria-hidden="true"><b>E</b><b>V</b><b>E</b><b>N</b><b>T</b><b>S</b><s></s><i>E</i><i>D</i><i>I</i><i>T</i><i>I</i><i>O</i><i>N</i></div></div></div>
+    <h2>Accedi</h2>
+    <p>La regia PDE degli eventi di editori, saloni e bookclub.</p>
+    <label>Email<input type="email" name="email" required autocomplete="username"></label>
+    <label>Password<input type="password" name="password" required autocomplete="current-password"></label>
+    <p class="err" id="login-err"></p>
+    <button class="btn pri" type="submit">Entra</button>
+  </form>
+</div>
+
+<div class="app" id="app" hidden>
+  <aside class="side">
+    <div class="brand"><div class="bu-logo" role="img" aria-label="BookUp Events Edition"><img src="assets/bookup-logo.jpg" alt=""><div class="bu-ed" aria-hidden="true"><b>E</b><b>V</b><b>E</b><b>N</b><b>T</b><b>S</b><s></s><i>E</i><i>D</i><i>I</i><i>T</i><i>I</i><i>O</i><i>N</i></div></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot"><span id="utente"></span><button class="btn" id="b-esci" type="button">Esci</button></div>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <div><h1 id="h-tit">Panoramica</h1><div class="sub" id="h-sub"></div></div>
+      <div class="dx"><button class="btn pri" id="b-nuovo" type="button">+ Nuovo evento</button></div>
+    </header>
+    <div class="content" id="content"><div class="card empty">Caricamento…</div></div>
+  </div>
+</div>
+
+<dialog id="dlg"><form id="f-dlg" method="dialog"></form></dialog>
+
+<script>
+const SUPABASE_URL = 'https://tdflwenlylhctxssatax.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZmx3ZW5seWxoY3R4c3NhdGF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMzgyNzYsImV4cCI6MjA5MTkxNDI3Nn0.l35qEL7LOvyYuI1McQlVqj4vbyTqmlevcmqWbTGYi2Q';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* Le sezioni: "Editori" arriva dalla BookUp Publisher Edition (tabella ed_eventi), le altre sono gestite qui (ev_eventi). */
+const SEZ = {
+  Editori:  { nome: 'Editori',  col: 'var(--c-ed)' },
+  Salone:   { nome: 'Saloni',   col: 'var(--c-sa)' },
+  Bookclub: { nome: 'Bookclub', col: 'var(--c-bc)' },
+  PDE:      { nome: 'PDE',      col: 'var(--c-pde)' },
+};
+const TIPI = ['Presentazione', 'Firmacopie', 'Incontro con l\'autore', 'Reading', 'Laboratorio', 'Tavola rotonda', 'Incontro bookclub', 'Fiera / Salone', 'Altro'];
+const MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+const MESI_B = ['GEN','FEB','MAR','APR','MAG','GIU','LUG','AGO','SET','OTT','NOV','DIC'];
+const ICONE = {
+  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+  appr: '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>',
+  ed:   '<path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/>',
+  sa:   '<path d="M3 21h18"/><path d="M5 21V10l7-5 7 5v11"/><path d="M10 21v-6h4v6"/>',
+  bc:   '<circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2 20c0-3 3-5 6-5s6 2 6 5"/><path d="M14 15c3 0 8 1 8 5"/>',
+  all:  '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+};
+const PAGINE = [
+  { id: 'home', tit: 'Panoramica', ic: 'home', a: ['#0090c8', '#2a78d6'], g: 'Generale' },
+  { id: 'approvare', tit: 'Da approvare', ic: 'appr', a: ['#e34948', '#eb6834'], g: 'Generale' },
+  { id: 'editori', tit: 'Eventi editori', ic: 'ed', a: ['#2a78d6', '#13297a'], g: 'Sezioni' },
+  { id: 'saloni', tit: 'Saloni e fiere', ic: 'sa', a: ['#eb6834', '#eda100'], g: 'Sezioni' },
+  { id: 'bookclub', tit: 'Bookclub', ic: 'bc', a: ['#1baf7a', '#008300'], g: 'Sezioni' },
+  { id: 'tutti', tit: 'Tutti gli eventi', ic: 'all', a: ['#6250d6', '#2a78d6'], g: 'Sezioni' },
+];
+
+let D = { eventi: [], saloni: [], bookclub: [], editori: [] };
+const ST = { mese: null, giorno: null, filtri: new Set(Object.keys(SEZ)), cerca: '', periodo: 'futuri', tab: 'eventi' };
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pd = s => { if (!s) return null; const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d || 1); };
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const oggi = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+const fmt = d => d ? d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }) : '';
+const fmtB = d => d ? d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : '';
+const rpc = async (fn, args) => { const { data, error } = await sb.rpc(fn, args); if (error) throw new Error(error.message); return data; };
+function toast(t){ const el = document.createElement('div'); el.className = 'toast'; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2600); }
+
+/* ---------- dati ---------- */
+async function carica(){
+  const r = await rpc('ev_panoramica');
+  D = {
+    eventi: (r.eventi || []).map(e => ({ ...e, d: pd(e.data), df: pd(e.data_fine) })),
+    saloni: (r.saloni || []).map(s => ({ ...s, d: pd(s.data_inizio), df: pd(s.data_fine) })),
+    bookclub: r.bookclub || [], editori: r.editori || [], email: r.email,
+  };
+}
+const salone = id => D.saloni.find(s => s.id === id);
+const club = id => D.bookclub.find(b => b.id === id);
+const daApprovare = () => D.eventi.filter(e => e.stato === 'Proposto');
+// Voci del calendario: eventi + saloni (come barra su tutti i giorni dell'edizione)
+function vociGiorno(d){
+  const t = d.getTime(), out = [];
+  for (const s of D.saloni) if (s.d && ST.filtri.has('Salone')) { const f = (s.df || s.d).getTime(); if (t >= s.d.getTime() && t <= f) out.push({ salone: s }); }
+  for (const e of D.eventi) {
+    if (!ST.filtri.has(e.sezione) || !e.d) continue;
+    const f = (e.df || e.d).getTime();
+    if (t >= e.d.getTime() && t <= f) out.push({ ev: e });
+  }
+  return out;
+}
+function dove(e){
+  const s = e.salone_id && salone(e.salone_id), b = e.bookclub_id && club(e.bookclub_id);
+  return [s && s.nome, b && b.nome, e.luogo, e.citta && (e.citta + (e.provincia ? ` (${e.provincia})` : ''))].filter(Boolean).join(' · ');
+}
+const pillStato = s => s === 'Confermato' ? '<span class="pill ok">Confermato</span>' : s === 'Annullato' ? '<span class="pill ko">Annullato</span>' : '<span class="pill warn">Da approvare</span>';
+
+/* ---------- menu ---------- */
+function disegnaNav(){
+  const cur = pagina().id, n = daApprovare().length;
+  let g = '', h = '';
+  for (const p of PAGINE) {
+    if (p.g !== g) { g = p.g; h += `<span class="nav-g">${g}</span>`; }
+    h += `<a href="#${p.id}" class="${p.id === cur ? 'active' : ''}" style="--a1:${p.a[0]};--a2:${p.a[1]}"><span class="ic"><svg viewBox="0 0 24 24">${ICONE[p.ic]}</svg></span><span>${p.tit}</span>${p.id === 'approvare' && n ? `<span class="cnt">${n}</span>` : ''}</a>`;
+  }
+  $('#nav').innerHTML = h;
+}
+const pagina = () => PAGINE.find(p => '#' + p.id === location.hash) || PAGINE[0];
+
+function render(){
+  const p = pagina();
+  disegnaNav();
+  $('#h-tit').textContent = p.tit;
+  const sub = { home: 'Tutti gli eventi del libro, in un unico calendario', approvare: 'Proposte arrivate dagli editori dalla BookUp Publisher Edition',
+    editori: 'Eventi proposti dagli editori: qui si modificano, confermano o annullano', saloni: 'Saloni, fiere e festival con i loro eventi',
+    bookclub: 'I club del libro e i loro incontri', tutti: 'Elenco completo con ricerca' }[p.id];
+  $('#h-sub').textContent = sub;
+  ({ home: pHome, approvare: pApprovare, editori: pEditori, saloni: pSaloni, bookclub: pBookclub, tutti: pTutti })[p.id]();
+}
+
+/* ---------- Panoramica ---------- */
+function pHome(){
+  const o = oggi(), tra30 = new Date(o); tra30.setDate(o.getDate() + 30);
+  const prossimi = D.eventi.filter(e => e.stato !== 'Annullato' && e.d >= o).sort((a, b) => a.d - b.d);
+  const p30 = prossimi.filter(e => e.d <= tra30).length;
+  const saloniProssimi = D.saloni.filter(s => s.d && (s.df || s.d) >= o).length;
+  const kpi = (lab, val, foot, col, href) => `<a class="card kpi" style="--k:${col};text-decoration:none;color:inherit" href="${href}"><div class="lab">${lab}</div><div class="val">${val}</div><div class="foot">${foot}</div></a>`;
+  if (!ST.mese) ST.mese = new Date(o.getFullYear(), o.getMonth(), 1);
+  $('#content').innerHTML = `
+    <div class="grid g-kpi">
+      ${kpi('Prossimi 30 giorni', p30, 'eventi in calendario', 'var(--cyan)', '#tutti')}
+      ${kpi('Da approvare', daApprovare().length, 'proposte degli editori', 'var(--ko)', '#approvare')}
+      ${kpi('Saloni in arrivo', saloniProssimi, 'fiere e festival', 'var(--c-sa)', '#saloni')}
+      ${kpi('Bookclub', D.bookclub.filter(b => b.attivo !== false).length, 'club in anagrafica', 'var(--c-bc)', '#bookclub')}
+    </div>
+    <div class="grid g-home">
+      <div class="card">
+        <div class="card-head">
+          <div class="cal-nav"><button class="btn sm" data-m="-1" aria-label="Mese precedente">‹</button><h3 id="cal-tit"></h3><button class="btn sm" data-m="1" aria-label="Mese successivo">›</button><button class="btn sm" data-m="0">Oggi</button></div>
+          <div class="dx chips" id="cal-filtri"></div>
+        </div>
+        <div class="cal" id="cal"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3 id="side-tit">Prossimi eventi</h3><div class="dx" id="side-az"></div></div>
+        <div class="lista" id="side-lista"></div>
+      </div>
+    </div>`;
+  document.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => {
+    const m = +b.dataset.m;
+    ST.mese = m === 0 ? new Date(o.getFullYear(), o.getMonth(), 1) : new Date(ST.mese.getFullYear(), ST.mese.getMonth() + m, 1);
+    if (m === 0) ST.giorno = null;
+    disegnaCal();
+  }));
+  disegnaCal();
+}
+function disegnaFiltri(el, dopo){
+  el.innerHTML = Object.entries(SEZ).map(([k, s]) => `<button type="button" class="chip ${ST.filtri.has(k) ? 'on' : ''}" data-f="${k}" style="--sc:${s.col}" aria-pressed="${ST.filtri.has(k)}"><i></i>${s.nome}</button>`).join('');
+  el.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.f; ST.filtri.has(k) ? ST.filtri.delete(k) : ST.filtri.add(k); dopo();
+  }));
+}
+function disegnaCal(){
+  const m = ST.mese, o = oggi();
+  $('#cal-tit').textContent = `${MESI[m.getMonth()]} ${m.getFullYear()}`;
+  disegnaFiltri($('#cal-filtri'), disegnaCal);
+  const inizio = new Date(m); inizio.setDate(1 - ((m.getDay() + 6) % 7));
+  let h = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(x => `<div class="dow">${x}</div>`).join('');
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(inizio); d.setDate(inizio.getDate() + i);
+    if (i === 35 && d.getMonth() !== m.getMonth()) break;
+    const v = vociGiorno(d), max = 3;
+    const cls = ['day', d.getMonth() !== m.getMonth() && 'fuori', d.getTime() === o.getTime() && 'oggi', ST.giorno && d.getTime() === ST.giorno.getTime() && 'sel'].filter(Boolean).join(' ');
+    h += `<div class="${cls}" data-g="${iso(d)}"><span class="n">${d.getDate()}</span>${v.slice(0, max).map(voceCal).join('')}${v.length > max ? `<span class="ev-piu">+${v.length - max} altri</span>` : ''}</div>`;
+  }
+  $('#cal').innerHTML = h;
+  $('#cal').querySelectorAll('[data-g]').forEach(c => c.addEventListener('click', e => {
+    const b = e.target.closest('[data-ev],[data-sal]');
+    if (b) { e.stopPropagation(); b.dataset.ev ? apriEvento(b.dataset.ev) : apriAnagrafica('salone', b.dataset.sal); return; }
+    const g = pd(c.dataset.g);
+    ST.giorno = ST.giorno && ST.giorno.getTime() === g.getTime() ? null : g;
+    disegnaCal();
+  }));
+  disegnaLato();
+}
+function voceCal(v){
+  if (v.salone) return `<button type="button" class="ev span" style="--sc:${SEZ.Salone.col}" data-sal="${v.salone.id}" title="${esc(v.salone.nome)}">${esc(v.salone.nome)}</button>`;
+  const e = v.ev, cls = e.stato === 'Proposto' ? 'prop' : e.stato === 'Annullato' ? 'ann' : '';
+  return `<button type="button" class="ev ${cls}" style="--sc:${SEZ[e.sezione].col}" data-ev="${e.id}" title="${esc(e.titolo)}">${e.ora ? esc(e.ora) + ' ' : ''}${esc(e.titolo)}</button>`;
+}
+function disegnaLato(){
+  const o = oggi();
+  let lista;
+  if (ST.giorno) {
+    $('#side-tit').textContent = fmt(ST.giorno);
+    $('#side-az').innerHTML = `<button class="btn sm" id="b-nuovo-g">+ Evento in questo giorno</button>`;
+    $('#b-nuovo-g').addEventListener('click', () => apriEvento(null, { data: iso(ST.giorno) }));
+    const v = vociGiorno(ST.giorno);
+    lista = v.filter(x => x.ev).map(x => x.ev);
+    const sal = v.filter(x => x.salone).map(x => x.salone);
+    $('#side-lista').innerHTML = sal.map(s => `<div class="riga" data-sal="${s.id}" style="--sc:${SEZ.Salone.col}"><div class="data-box"><b>${s.d.getDate()}</b><span>${MESI_B[s.d.getMonth()]}</span></div><div><div class="tit">${esc(s.nome)}</div><div class="meta"><span class="sez">Salone in corso</span><span>${esc([s.sede, s.citta].filter(Boolean).join(' · '))}</span></div></div><div></div></div>`).join('')
+      + (lista.length ? lista.map(e => rigaEvento(e, { compatta: true })).join('') : (sal.length ? '' : '<div class="empty">Nessun evento in questo giorno.</div>'));
+  } else {
+    $('#side-tit').textContent = 'Prossimi eventi';
+    $('#side-az').innerHTML = '';
+    lista = D.eventi.filter(e => ST.filtri.has(e.sezione) && e.stato !== 'Annullato' && (e.df || e.d) >= o).sort((a, b) => a.d - b.d).slice(0, 10);
+    $('#side-lista').innerHTML = lista.length ? lista.map(e => rigaEvento(e, { compatta: true })).join('') : '<div class="empty">Nessun evento in programma. Inizia con “+ Nuovo evento”.</div>';
+  }
+  collegaRighe($('#side-lista'));
+}
+
+/* ---------- righe evento ---------- */
+function rigaEvento(e, { compatta = false, azioni = false } = {}){
+  const s = SEZ[e.sezione];
+  const meta = [
+    `<span class="sez" style="--sc:${s.col}">${s.nome}</span>`,
+    e.editore && `<span>${esc(e.editore)}</span>`,
+    e.autore && `<span>con ${esc(e.autore)}</span>`,
+    dove(e) && `<span>${esc(dove(e))}</span>`,
+    e.da_individuare && '<span class="pill warn">Libreria da individuare</span>',
+  ].filter(Boolean).join('');
+  const az = azioni && e.stato === 'Proposto'
+    ? `<button class="btn sm ok" data-st="Confermato" data-id="${e.id}" data-sz="${e.sezione}">✓ Conferma</button><button class="btn sm ko" data-st="Annullato" data-id="${e.id}" data-sz="${e.sezione}">Annulla</button>`
+    : '';
+  return `<div class="riga" data-ev="${e.id}" style="--sc:${s.col}">
+    <div class="data-box"><b>${e.d.getDate()}</b><span>${MESI_B[e.d.getMonth()]}${compatta ? '' : ' ' + String(e.d.getFullYear()).slice(2)}</span></div>
+    <div style="min-width:0"><div class="tit">${e.ora ? esc(e.ora) + ' · ' : ''}${esc(e.titolo)}${e.df ? ` <span class="pill mut">fino al ${fmtB(e.df)}</span>` : ''}</div><div class="meta">${meta}</div></div>
+    <div class="azioni">${compatta ? (e.stato !== 'Confermato' ? pillStato(e.stato) : '') : pillStato(e.stato)}${az}</div>
+  </div>`;
+}
+function collegaRighe(el){
+  el.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', async ev => {
+    ev.stopPropagation(); b.disabled = true;
+    try { await rpc('ev_evento_stato', { p_sezione: b.dataset.sz, p_id: b.dataset.id, p_stato: b.dataset.st }); await carica(); toast(b.dataset.st === 'Confermato' ? 'Evento confermato' : 'Evento annullato'); render(); }
+    catch (e) { alert(e.message); b.disabled = false; }
+  }));
+  el.querySelectorAll('.riga[data-ev]').forEach(r => r.addEventListener('click', () => apriEvento(r.dataset.ev)));
+  el.querySelectorAll('.riga[data-sal]').forEach(r => r.addEventListener('click', () => apriAnagrafica('salone', r.dataset.sal)));
+}
+
+/* ---------- Da approvare ---------- */
+function pApprovare(){
+  const l = daApprovare().sort((a, b) => a.d - b.d);
+  $('#content').innerHTML = `<p class="lead">Gli editori propongono gli eventi dalla <b>BookUp Publisher Edition</b>. Qui li controllate, li correggete se serve (aprendoli) e li confermate o annullate: l'editore vede subito lo stato aggiornato.</p>
+    <div class="card"><div class="lista" id="l">${l.length ? l.map(e => rigaEvento(e, { azioni: true })).join('') : '<div class="empty">Nessuna proposta in attesa. 🎉</div>'}</div></div>`;
+  collegaRighe($('#l'));
+}
+
+/* ---------- elenco con filtri (Editori, Tutti) ---------- */
+function elencoFiltrato(base, { conEditore = false } = {}){
+  const o = oggi();
+  const opzEd = conEditore ? `<select id="f-ed"><option value="">Tutti gli editori</option>${D.editori.map(x => `<option value="${esc(x.codice_editore)}" ${ST.editore === x.codice_editore ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</select>` : '';
+  $('#content').insertAdjacentHTML('beforeend', `<div class="card">
+    <div class="filtri"><input type="search" id="f-cerca" placeholder="Cerca titolo, autore, luogo, editore…" value="${esc(ST.cerca)}">${opzEd}
+      <select id="f-per"><option value="futuri">Da oggi in poi</option><option value="passati">Passati</option><option value="tutti">Tutti</option></select>
+      <select id="f-stato"><option value="">Tutti gli stati</option><option>Proposto</option><option>Confermato</option><option>Annullato</option></select>
+      ${conEditore ? '' : '<span class="chips" id="f-sez"></span>'}
+      <button class="btn sm" id="b-csv">Esporta CSV</button></div>
+    <div class="lista" id="l"></div></div>`);
+  $('#f-per').value = ST.periodo; $('#f-stato').value = ST.stato || '';
+  const disegna = () => {
+    const q = ST.cerca.trim().toLowerCase();
+    let l = base().filter(e => {
+      if (!conEditore && !ST.filtri.has(e.sezione)) return false;
+      if (conEditore && ST.editore && e.codice_editore !== ST.editore) return false;
+      if (ST.stato && e.stato !== ST.stato) return false;
+      const fine = e.df || e.d;
+      if (ST.periodo === 'futuri' && fine < o) return false;
+      if (ST.periodo === 'passati' && fine >= o) return false;
+      return !q || [e.titolo, e.autore, e.editore, dove(e), e.tipo, e.note].join(' ').toLowerCase().includes(q);
+    }).sort((a, b) => ST.periodo === 'passati' ? b.d - a.d : a.d - b.d);
+    $('#l').innerHTML = l.length ? l.map(e => rigaEvento(e, { azioni: true })).join('') : '<div class="empty">Nessun evento con questi filtri.</div>';
+    collegaRighe($('#l'));
+    $('#b-csv').onclick = () => esportaCsv(l);
+  };
+  $('#f-cerca').addEventListener('input', e => { ST.cerca = e.target.value; disegna(); });
+  $('#f-per').addEventListener('change', e => { ST.periodo = e.target.value; disegna(); });
+  $('#f-stato').addEventListener('change', e => { ST.stato = e.target.value; disegna(); });
+  if (conEditore) $('#f-ed').addEventListener('change', e => { ST.editore = e.target.value; disegna(); });
+  else { const f = () => { disegnaFiltri($('#f-sez'), f); disegna(); }; f(); return; }
+  disegna();
+}
+function pEditori(){
+  $('#content').innerHTML = `<p class="lead">Ogni evento inserito qui finisce anche nella sezione Eventi della <b>BookUp Publisher Edition</b> dell'editore, e viceversa: è lo stesso archivio.</p>`;
+  elencoFiltrato(() => D.eventi.filter(e => e.sezione === 'Editori'), { conEditore: true });
+}
+function pTutti(){ $('#content').innerHTML = ''; elencoFiltrato(() => D.eventi); }
+function esportaCsv(l){
+  const c = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const righe = [['Data', 'Fine', 'Ora', 'Sezione', 'Titolo', 'Tipo', 'Autore', 'Editore', 'Dove', 'Stato', 'Note'].join(';')]
+    .concat(l.map(e => [e.data, e.data_fine, e.ora, SEZ[e.sezione].nome, e.titolo, e.tipo, e.autore, e.editore, dove(e), e.stato, e.note].map(c).join(';')));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + righe.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  a.download = `bookup-events-${iso(new Date())}.csv`; a.click();
+}
+
+/* ---------- Saloni e Bookclub: anagrafica + eventi ---------- */
+function pSaloni(){ pAnagrafica('salone'); }
+function pBookclub(){ pAnagrafica('bookclub'); }
+function pAnagrafica(tipo){
+  const sal = tipo === 'salone', sez = sal ? 'Salone' : 'Bookclub', arr = sal ? D.saloni : D.bookclub, k = sal ? 'salone_id' : 'bookclub_id';
+  const o = oggi();
+  $('#content').innerHTML = `<div class="tabs"><button class="${ST.tab === 'eventi' ? 'on' : ''}" data-t="eventi">${sal ? 'Saloni' : 'Club'} (${arr.length})</button><button class="${ST.tab === 'inc' ? 'on' : ''}" data-t="inc">${sal ? 'Eventi ai saloni' : 'Incontri'} (${D.eventi.filter(e => e.sezione === sez).length})</button>
+    <span style="margin-left:auto;align-self:center"><button class="btn" id="b-nuova-an">+ ${sal ? 'Nuovo salone' : 'Nuovo bookclub'}</button></span></div><div id="an"></div>`;
+  document.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => { ST.tab = b.dataset.t; pAnagrafica(tipo); }));
+  $('#b-nuova-an').addEventListener('click', () => apriAnagrafica(tipo));
+  if (ST.tab === 'eventi') {
+    const l = sal ? [...arr].sort((a, b) => (a.d && b.d) ? a.d - b.d : a.d ? -1 : 1) : arr;
+    $('#an').innerHTML = l.length ? `<div class="grid g-cards">${l.map(x => {
+      const n = D.eventi.filter(e => e[k] === x.id).length;
+      const info = sal
+        ? [x.d && `📅 ${fmtB(x.d)}${x.df && x.df.getTime() !== x.d.getTime() ? ' – ' + fmtB(x.df) : ''} ${x.d.getFullYear()}`, [x.sede, x.citta && x.citta + (x.provincia ? ` (${x.provincia})` : '')].filter(Boolean).join(' · ') && '📍 ' + [x.sede, x.citta && x.citta + (x.provincia ? ` (${x.provincia})` : '')].filter(Boolean).join(' · '), x.referente && '👤 ' + x.referente]
+        : [[x.libreria, x.citta && x.citta + (x.provincia ? ` (${x.provincia})` : '')].filter(Boolean).join(' · ') && '📍 ' + [x.libreria, x.citta && x.citta + (x.provincia ? ` (${x.provincia})` : '')].filter(Boolean).join(' · '), x.frequenza && '🗓 ' + x.frequenza, x.referente && '👤 ' + x.referente, x.iscritti && `👥 ${x.iscritti} iscritti`];
+      const passato = sal && x.d && (x.df || x.d) < o;
+      return `<div class="card anag" data-an="${x.id}" style="${passato ? 'opacity:.6' : ''}"><div class="nome">${esc(x.nome)}</div><div class="info">${info.filter(Boolean).map(esc).join('<br>')}</div><div class="num">${n} ${n === 1 ? 'evento' : 'eventi'}${passato ? ' · edizione conclusa' : ''}</div></div>`;
+    }).join('')}</div>` : `<div class="card empty">Nessun ${sal ? 'salone' : 'bookclub'} ancora. Aggiungi il primo con “+ ${sal ? 'Nuovo salone' : 'Nuovo bookclub'}”.</div>`;
+    document.querySelectorAll('[data-an]').forEach(c => c.addEventListener('click', () => apriAnagrafica(tipo, c.dataset.an)));
+  } else {
+    const l = D.eventi.filter(e => e.sezione === sez).sort((a, b) => a.d - b.d);
+    $('#an').innerHTML = `<div class="card"><div class="card-head"><div class="dx"><button class="btn sm" id="b-nuovo-inc">+ ${sal ? 'Evento a un salone' : 'Incontro bookclub'}</button></div></div><div class="lista" id="l">${l.length ? l.map(e => rigaEvento(e, { azioni: true })).join('') : '<div class="empty">Nessun evento.</div>'}</div></div>`;
+    $('#b-nuovo-inc').addEventListener('click', () => apriEvento(null, { sezione: sez, tipo: sal ? 'Presentazione' : 'Incontro bookclub' }));
+    collegaRighe($('#l'));
+  }
+}
+
+/* ---------- modale evento ---------- */
+const opz = (arr, v, vuota) => (vuota !== undefined ? `<option value="">${vuota}</option>` : '') + arr.map(([val, txt]) => `<option value="${esc(val)}" ${String(v ?? '') === String(val) ? 'selected' : ''}>${esc(txt)}</option>`).join('');
+function apriEvento(id, pre = {}){
+  const e = id ? D.eventi.find(x => x.id === id) : { sezione: 'PDE', stato: 'Confermato', tipo: 'Presentazione', ...pre };
+  if (!e) return;
+  const f = $('#f-dlg');
+  f.innerHTML = `<div class="m-head"><h2>${id ? 'Modifica evento' : 'Nuovo evento'}</h2><button class="x" value="x" aria-label="Chiudi">×</button></div>
+    <div class="m-body">
+      <label>Sezione<select name="sezione" ${id && e.sezione === 'Editori' ? 'disabled' : ''}>${opz(Object.entries(SEZ).map(([k, s]) => [k, k === 'PDE' ? 'PDE (interno)' : s.nome]), e.sezione)}</select></label>
+      <label>Stato<select name="stato">${opz([['Proposto', 'Da approvare'], ['Confermato', 'Confermato'], ['Annullato', 'Annullato']], e.stato)}</select></label>
+      <label class="w">Titolo *<input type="text" name="titolo" required value="${esc(e.titolo)}"></label>
+      <label>Data *<input type="date" name="data" required value="${esc(e.data)}"></label>
+      <label data-solo="Salone Bookclub PDE">Fino al (se dura più giorni)<input type="date" name="data_fine" value="${esc(e.data_fine)}"></label>
+      <label data-solo="Salone Bookclub PDE">Ora<input type="text" name="ora" placeholder="es. 18:30" value="${esc(e.ora)}"></label>
+      <label>Tipo<select name="tipo">${opz(TIPI.map(t => [t, t]), e.tipo)}${e.tipo && !TIPI.includes(e.tipo) ? `<option selected>${esc(e.tipo)}</option>` : ''}</select></label>
+      <label>Autore / ospite<input type="text" name="autore" value="${esc(e.autore)}"></label>
+      <label><span>Editore<span data-solo="Editori"> *</span></span><select name="codice_editore">${opz(D.editori.map(x => [x.codice_editore, x.nome]), e.codice_editore, '—')}</select></label>
+      <label data-solo="Salone">Salone<select name="salone_id">${opz(D.saloni.map(x => [x.id, x.nome]), e.salone_id, '—')}</select></label>
+      <label data-solo="Bookclub">Bookclub<select name="bookclub_id">${opz(D.bookclub.map(x => [x.id, x.nome]), e.bookclub_id, '—')}</select></label>
+      <label class="w"><span>Luogo / libreria<span data-solo="Editori"> *</span></span><input type="text" name="luogo" value="${esc(e.luogo)}" placeholder="es. Libreria Feltrinelli, sala incontri"></label>
+      <label>Città<input type="text" name="citta" value="${esc(e.citta)}"></label>
+      <label>Provincia<input type="text" name="provincia" maxlength="2" value="${esc(e.provincia)}" placeholder="MI"></label>
+      <label class="ck w" data-solo="Editori"><input type="checkbox" name="da_individuare" ${e.da_individuare ? 'checked' : ''}> Libreria da individuare (a carico della rete promozionale)</label>
+      <label class="w">Note<textarea name="note">${esc(e.note)}</textarea></label>
+      ${e.sezione === 'Editori' && id ? `<div class="m-note">Evento della <b>Publisher Edition</b>: proposto da ${esc(e.creato_da || 'editore')} il ${fmtB(pd(e.creato_il))}. Le modifiche sono visibili anche all'editore.</div>` : ''}
+    </div>
+    <div class="m-foot">${id ? '<button class="btn ko" type="button" id="m-del">Elimina</button>' : ''}<span class="m-err" id="m-err"></span>
+      <div class="dx"><button class="btn" value="x">Annulla</button><button class="btn pri" type="button" id="m-ok">Salva</button></div></div>`;
+  const sezSel = f.querySelector('[name=sezione]');
+  const aggiorna = () => f.querySelectorAll('[data-solo]').forEach(el => { el.hidden = !el.dataset.solo.split(' ').includes(sezSel.value); });
+  sezSel.addEventListener('change', aggiorna); aggiorna();
+  // scegliendo salone o bookclub, città e provincia si compilano da sole
+  f.querySelector('[name=salone_id]').addEventListener('change', ev => { const s = salone(ev.target.value); if (s) { f.citta.value ||= s.citta || ''; f.provincia.value ||= s.provincia || ''; f.luogo.value ||= s.sede || ''; } });
+  f.querySelector('[name=bookclub_id]').addEventListener('change', ev => { const b = club(ev.target.value); if (b) { f.citta.value ||= b.citta || ''; f.provincia.value ||= b.provincia || ''; f.luogo.value ||= b.libreria || ''; } });
+  $('#m-ok').addEventListener('click', async () => {
+    if (!f.reportValidity()) return;
+    const p = Object.fromEntries(new FormData(f));
+    p.sezione = sezSel.value; p.da_individuare = !!f.da_individuare.checked;
+    if (p.sezione !== 'Salone') p.salone_id = ''; if (p.sezione !== 'Bookclub') p.bookclub_id = '';
+    if (id) p.id = id; if (e.codice_cliente) p.codice_cliente = e.codice_cliente;
+    $('#m-ok').disabled = true;
+    try { await rpc('ev_evento_salva', { p }); await carica(); $('#dlg').close(); toast('Evento salvato'); render(); }
+    catch (err) { $('#m-err').textContent = err.message; $('#m-ok').disabled = false; }
+  });
+  if (id) $('#m-del').addEventListener('click', async () => {
+    if (!confirm(`Eliminare definitivamente "${e.titolo}"?${e.sezione === 'Editori' ? ' Sparirà anche dalla Publisher Edition dell\'editore.' : ''}`)) return;
+    try { await rpc('ev_evento_elimina', { p_sezione: e.sezione, p_id: id }); await carica(); $('#dlg').close(); toast('Evento eliminato'); render(); }
+    catch (err) { $('#m-err').textContent = err.message; }
+  });
+  $('#dlg').showModal();
+}
+
+/* ---------- modale anagrafica ---------- */
+function apriAnagrafica(tipo, id){
+  const sal = tipo === 'salone', x = id ? (sal ? salone(id) : club(id)) : {};
+  if (!x) return;
+  const f = $('#f-dlg'), campo = (n, lab, t = 'text', w = '') => `<label class="${w}">${lab}<input type="${t}" name="${n}" value="${esc(x[n])}"></label>`;
+  const eventi = id ? D.eventi.filter(e => e[sal ? 'salone_id' : 'bookclub_id'] === id).sort((a, b) => a.d - b.d) : [];
+  f.innerHTML = `<div class="m-head"><h2>${id ? esc(x.nome) : sal ? 'Nuovo salone' : 'Nuovo bookclub'}</h2><button class="x" value="x" aria-label="Chiudi">×</button></div>
+    <div class="m-body">
+      <label class="w">Nome *<input type="text" name="nome" required value="${esc(x.nome)}"></label>
+      ${sal ? campo('data_inizio', 'Dal', 'date') + campo('data_fine', 'Al', 'date') + campo('sede', 'Sede', 'text', 'w') : campo('libreria', 'Libreria / sede', 'text', 'w')}
+      ${campo('citta', 'Città')}${campo('provincia', 'Provincia')}
+      ${sal ? campo('sito', 'Sito web', 'text', 'w') : campo('frequenza', 'Frequenza incontri') + campo('iscritti', 'Iscritti', 'number')}
+      ${campo('referente', 'Referente')}${campo('email', 'Email', 'email')}${campo('telefono', 'Telefono')}
+      <label class="w">Note<textarea name="note">${esc(x.note)}</textarea></label>
+      ${id ? `<div class="w" style="grid-column:1/-1"><div style="font-size:12.5px;font-weight:700;color:var(--text-dim);margin-bottom:4px">${eventi.length} ${eventi.length === 1 ? 'evento collegato' : 'eventi collegati'}</div><div class="lista" id="m-ev">${eventi.map(e => rigaEvento(e)).join('')}</div>
+        <button class="btn sm" type="button" id="m-add" style="margin-top:8px">+ Aggiungi evento</button></div>` : ''}
+    </div>
+    <div class="m-foot">${id ? '<button class="btn ko" type="button" id="m-del">Elimina</button>' : ''}<span class="m-err" id="m-err"></span>
+      <div class="dx"><button class="btn" value="x">Annulla</button><button class="btn pri" type="button" id="m-ok">Salva</button></div></div>`;
+  if (id) {
+    f.querySelectorAll('#m-ev .riga').forEach(r => r.addEventListener('click', () => { $('#dlg').close(); apriEvento(r.dataset.ev); }));
+    $('#m-add').addEventListener('click', () => { $('#dlg').close(); apriEvento(null, sal
+      ? { sezione: 'Salone', salone_id: id, data: x.data_inizio || '', citta: x.citta, provincia: x.provincia, luogo: x.sede }
+      : { sezione: 'Bookclub', bookclub_id: id, tipo: 'Incontro bookclub', citta: x.citta, provincia: x.provincia, luogo: x.libreria }); });
+  }
+  $('#m-ok').addEventListener('click', async () => {
+    if (!f.reportValidity()) return;
+    const p = Object.fromEntries(new FormData(f)); if (id) p.id = id; if (x.codice_cliente) p.codice_cliente = x.codice_cliente;
+    $('#m-ok').disabled = true;
+    try { await rpc('ev_anagrafica_salva', { p_tipo: tipo, p }); await carica(); $('#dlg').close(); toast('Salvato'); render(); }
+    catch (err) { $('#m-err').textContent = err.message; $('#m-ok').disabled = false; }
+  });
+  if (id) $('#m-del').addEventListener('click', async () => {
+    if (!confirm(`Eliminare "${x.nome}"? Gli eventi collegati restano, senza collegamento.`)) return;
+    try { await rpc('ev_anagrafica_elimina', { p_tipo: tipo, p_id: id }); await carica(); $('#dlg').close(); toast('Eliminato'); render(); }
+    catch (err) { $('#m-err').textContent = err.message; }
+  });
+  $('#dlg').showModal();
+}
+
+/* ---------- accesso ---------- */
+function mostraLogin(msg = ''){ $('#app').hidden = true; $('#login').hidden = false; $('#login-err').textContent = msg; }
+async function entra(){
+  try { await carica(); }
+  catch (e) {
+    await sb.auth.signOut();
+    return mostraLogin(/riservato/i.test(e.message) ? 'BookUp Events Edition è riservata agli amministratori PDE.' : 'Errore di caricamento: ' + e.message);
+  }
+  $('#login').hidden = true; $('#app').hidden = false;
+  $('#utente').textContent = D.email || '';
+  render();
+}
+async function esci(){ await sb.auth.signOut(); mostraLogin(); }
+async function avvio(){
+  $('#f-login').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const d = Object.fromEntries(new FormData(ev.target));
+    $('#login-err').textContent = '';
+    const b = ev.target.querySelector('button'); b.disabled = true;
+    const { error } = await sb.auth.signInWithPassword({ email: d.email.trim(), password: d.password });
+    b.disabled = false;
+    if (error) { $('#login-err').textContent = 'Email o password non corrette.'; return; }
+    entra();
+  });
+  $('#b-esci').addEventListener('click', esci);
+  $('#b-nuovo').addEventListener('click', () => apriEvento(null, ST.giorno && pagina().id === 'home' ? { data: iso(ST.giorno) } : {}));
+  // Invio dentro un campo = Salva (non chiude la finestra perdendo i dati)
+  $('#f-dlg').addEventListener('submit', ev => { if (ev.submitter?.value !== 'x') { ev.preventDefault(); $('#m-ok')?.click(); } });
+  window.addEventListener('hashchange', () => { ST.tab = 'eventi'; render(); window.scrollTo(0, 0); });
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) entra(); else mostraLogin();
+}
+avvio();
+</script>
+</body>
+</html>
