@@ -568,7 +568,7 @@ main.home-wide { max-width: 1680px; }
 .home-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; align-items: start; }
 .home-cal { display: none; }
 body.vede-calendario .home-cal { display: block; }
-body.vede-calendario .home-layout { grid-template-columns: minmax(0, 1fr) clamp(500px, 40vw, 620px); }
+body.vede-calendario .home-layout { grid-template-columns: 666px minmax(0, 1fr); } /* 3 card da 214px (come quando erano 2 su 440px) */
 /* App compatte, tre per riga, nella colonna di sinistra (solo per chi vede il calendario; gli altri hanno la home di sempre) */
 body.vede-calendario .home-apps .grid,
 body.vede-calendario .home-apps .grid-ext { gap: 12px; margin-bottom: 30px; }
@@ -576,7 +576,7 @@ body.vede-calendario .home-apps .section-header { margin-bottom: 14px; }
 body.vede-calendario .home-apps .card-app,
 body.vede-calendario .home-apps .card-ext { flex: 0 0 calc((100% - 24px) / 3); min-width: 0; }
 body.vede-calendario .home-apps .card-app-icon { height: 72px; }
-body.vede-calendario .home-apps .pde-logo { font-size: 12.5px; }
+body.vede-calendario .home-apps .pde-logo { font-size: 14px; }
 body.vede-calendario .home-apps .card-app-icon img { width: 62%; height: 46%; }
 body.vede-calendario .home-apps .card-app-icon .bu-pe-logo { width: 62% !important; }
 body.vede-calendario .home-apps .card-app-icon .bu-pe-logo img { width: 100%; height: auto; }
@@ -652,7 +652,8 @@ html[data-theme="light"] .home-cal { --hc-line: rgba(26,45,107,.34); }
 .hc-frase blockquote::after { content: "”"; color: var(--accent); }
 .hc-frase figcaption { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--muted); font-weight: 600; }
 .hc-frase figcaption span::before { content: "— "; }
-@media (max-width: 860px) {
+/* Sempre 3 app per riga con il calendario a destra; solo sui telefoni il calendario va sotto */
+@media (max-width: 700px) {
   body.vede-calendario .home-layout { grid-template-columns: minmax(0, 1fr); }
   .home-cal { position: static; max-height: none; }
 }
@@ -2324,7 +2325,7 @@ async function hcDisegnaGiorno(){
     const persone = [...perPersona.keys()].filter(Boolean).sort((a, b) => cognome(a).localeCompare(cognome(b), 'it', { sensitivity: 'base' }));
     el.innerHTML = persone.length
       ? `<table class="hc-pres"><thead><tr><th>Persona</th><th>Dove</th></tr></thead><tbody>${persone.map(p =>
-          `<tr><td>${hcEsc(p)}</td><td>${perPersona.get(p).join('<br>')}</td></tr>`).join('')}</tbody></table>`
+          `<tr><td>${hcEsc(cognome(p))}</td><td>${perPersona.get(p).join('<br>')}</td></tr>`).join('')}</tbody></table>`
       : `<div class="hc-vuoto">${dayIdx > 4 ? 'Fine settimana.' : 'Nessuna presenza inserita in PDE Planning per questo giorno.'}</div>`;
   } catch (e) {
     const el = document.getElementById('hc-pres');
