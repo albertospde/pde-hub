@@ -553,6 +553,109 @@ main {
   letter-spacing: .02em;
 }
 
+/* ── SFONDO UTENTI INTERNI: niente quadretti, logo PDE Hub in filigrana obliqua (immagine generata da hubFiligrana) ── */
+body.ruolo-interno::after {
+  inset: -60%;
+  background-image: var(--filigrana-scura, none);
+  background-size: 520px auto;
+  transform: rotate(-24deg);
+  opacity: .07;
+}
+html[data-theme="light"] body.ruolo-interno::after { background-image: var(--filigrana-chiara, none); opacity: .09; }
+
+/* ── HOME: app a sinistra, calendario PDE a destra (solo admin e responsabili: classe vede-calendario) ── */
+main.home-wide { max-width: 1680px; }
+.home-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; align-items: start; }
+.home-cal { display: none; }
+body.vede-calendario .home-cal { display: block; }
+body.vede-calendario .home-layout { grid-template-columns: 440px minmax(0, 1fr); }
+/* App compatte, due per riga, nella colonna di sinistra (solo per chi vede il calendario; gli altri hanno la home di sempre) */
+body.vede-calendario .home-apps .grid,
+body.vede-calendario .home-apps .grid-ext { gap: 12px; margin-bottom: 30px; }
+body.vede-calendario .home-apps .section-header { margin-bottom: 14px; }
+body.vede-calendario .home-apps .card-app,
+body.vede-calendario .home-apps .card-ext { flex: 0 0 calc(50% - 6px); min-width: 0; }
+body.vede-calendario .home-apps .card-app-icon { height: 72px; }
+body.vede-calendario .home-apps .pde-logo { font-size: 14px; }
+body.vede-calendario .home-apps .card-app-icon img { width: 62%; height: 46%; }
+body.vede-calendario .home-apps .card-app-icon .bu-pe-logo { width: 62% !important; }
+body.vede-calendario .home-apps .card-app-icon .bu-pe-logo img { width: 100%; height: auto; }
+body.vede-calendario .home-apps .card-app-footer { padding: 8px 10px 9px; }
+body.vede-calendario .home-apps .card-app-desc { font-size: 10.5px; }
+body.vede-calendario .home-apps .card-ext { min-height: 74px; padding: 12px 10px; gap: 6px; }
+body.vede-calendario .home-apps .card-ext-logo { max-width: 110px; max-height: 30px; }
+body.vede-calendario .home-apps .card-download { flex: 0 0 calc(50% - 6px); max-width: none; min-width: 0; height: auto; min-height: 74px; padding: 12px 10px; gap: 6px; }
+.home-cal { min-width: 0; }
+.hc-head { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.hc-title { font-size: 15px; font-weight: 700; text-transform: capitalize; flex: 1; text-align: center; }
+.hc-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 4px 10px; font: 600 12px var(--font); cursor: pointer;
+}
+.hc-btn:hover { border-color: var(--accent); color: var(--accent); }
+.hc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.hc-chip {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  border-radius: 999px; padding: 3px 10px; font: 600 11px var(--font);
+}
+.hc-chip i { width: 8px; height: 8px; border-radius: 3px; background: var(--hc); }
+.hc-chip.on { color: var(--text); border-color: var(--hc); }
+.hc-chip:not(.on) i { opacity: .3; }
+.hc-grid { display: grid; grid-template-columns: 44px repeat(7, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--blue-deep); }
+.hc-dow { padding: 5px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border-bottom: 1px solid var(--border); text-align: center; }
+.hc-wk {
+  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  padding: 4px 2px; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  font: 500 10px var(--mono); color: var(--muted);
+}
+.hc-wk b { font: 700 10px var(--font); color: #fff; background: var(--accent); border-radius: 5px; padding: 1px 4px; white-space: nowrap; }
+.hc-day {
+  min-height: 70px; min-width: 0; padding: 3px 3px 4px; cursor: pointer;
+  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.hc-day:nth-child(8n) { border-right: none; }
+.hc-day:hover { background: rgba(0,180,232,.06); }
+.hc-day.we { background: rgba(120,128,176,.07); }
+.hc-day.fuori .hc-n { opacity: .4; }
+.hc-day.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
+.hc-n { font-size: 11px; font-weight: 700; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 999px; }
+.hc-day.oggi .hc-n { background: var(--accent); color: #fff; }
+.hc-day.fest .hc-n { color: var(--danger); }
+.hc-ev {
+  display: block; font-size: 9.5px; font-weight: 600; line-height: 1.25;
+  padding: 1px 4px; border-radius: 4px; border-left: 3px solid var(--hc);
+  background: color-mix(in srgb, var(--hc) 16%, transparent);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hc-piu { font-size: 9.5px; color: var(--muted); font-weight: 700; padding-left: 3px; }
+.hc-side { margin-top: 14px; }
+.hc-side h4 { font-size: 13px; font-weight: 700; margin-bottom: 8px; text-transform: capitalize; }
+.hc-side h5 { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 14px 0 6px; }
+.hc-riga { display: flex; gap: 8px; align-items: baseline; font-size: 12px; line-height: 1.4; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.hc-riga:last-child { border-bottom: none; }
+.hc-riga i { flex-shrink: 0; width: 8px; height: 8px; border-radius: 3px; background: var(--hc); transform: translateY(-1px); }
+.hc-riga small { color: var(--muted); }
+.hc-pres { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.hc-pres th { text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); padding: 4px 8px; border-bottom: 1px solid var(--border); }
+.hc-pres td { padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.hc-pres tr:last-child td { border-bottom: none; }
+.hc-pres td:first-child { white-space: nowrap; font-weight: 600; width: 1%; }
+.hc-pres td small { color: var(--muted); }
+.hc-vuoto { font-size: 12px; color: var(--muted); padding: 4px 0; }
+.hc-frase { margin: 26px 0 8px; padding: 18px 20px; border-left: 3px solid var(--accent); background: rgba(0,180,232,.06); border-radius: 0 12px 12px 0; }
+.hc-frase blockquote { font-family: Georgia, "Times New Roman", serif; font-size: 17px; font-style: italic; line-height: 1.5; }
+.hc-frase blockquote::before { content: "“"; color: var(--accent); }
+.hc-frase blockquote::after { content: "”"; color: var(--accent); }
+.hc-frase figcaption { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.hc-frase figcaption span::before { content: "— "; }
+@media (max-width: 860px) {
+  body.vede-calendario .home-layout { grid-template-columns: minmax(0, 1fr); }
+  .home-cal { position: static; max-height: none; }
+}
+html[data-theme="light"] .hc-wk b { color: #fff; }
+
 /* ── APP INTERNE: nascoste finché non è confermato che l'utente non è un agente ──
    (prima erano visibili e si nascondevano dopo: se Supabase non rispondeva restavano visibili a tutti) */
 body:not(.ruolo-interno) .role-hide-agente { display: none !important; }
@@ -917,7 +1020,9 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
     </div>
   </div>
 
-  <main>
+  <main class="home-wide">
+   <div class="home-layout">
+   <div class="home-apps">
     <!-- SEZIONE 1: TOOL INTERNI -->
     <div class="section-header">
       <span class="section-label">Tool interni</span>
@@ -1137,6 +1242,26 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
         </div>
       </a>
     </div>
+    </div><!-- /role-hide-agente Presenze e Amministrazione -->
+   </div><!-- /home-apps -->
+
+   <!-- CALENDARIO PDE: date operative (lanci, giri, note di credito, festività) + chi è dove -->
+   <aside class="home-cal role-hide-agente" id="home-cal" aria-label="Calendario PDE">
+     <div class="hc-head">
+       <button class="hc-btn" type="button" data-hc-m="-1" aria-label="Mese precedente">‹</button>
+       <div class="hc-title" id="hc-title"></div>
+       <button class="hc-btn" type="button" data-hc-m="1" aria-label="Mese successivo">›</button>
+       <button class="hc-btn" type="button" data-hc-m="0">Oggi</button>
+     </div>
+     <div class="hc-chips" id="hc-chips"></div>
+     <div class="hc-grid" id="hc-grid"></div>
+     <div class="hc-side" id="hc-side"></div>
+     <figure class="hc-frase" id="hc-frase">
+       <blockquote id="hc-frase-testo"></blockquote>
+       <figcaption><span id="hc-frase-autore"></span><button class="hc-btn" type="button" id="hc-frase-altra" title="Un'altra frase">↻</button></figcaption>
+     </figure>
+   </aside>
+   </div><!-- /home-layout -->
   </main>
 
   <div class="iframe-container" id="iframe-container"></div>
@@ -1584,7 +1709,7 @@ MY_PWD_IDS.forEach(id => document.getElementById(id).addEventListener('keydown',
 async function doLogout() {
   if (openTabs[USERS_TAB_KEY]) closeTab({ stopPropagation(){} }, USERS_TAB_KEY);
   usersCache = [];
-  document.body.classList.remove('is-gestore', 'ruolo-interno');
+  document.body.classList.remove('is-gestore', 'ruolo-interno', 'vede-calendario');
   try { sessionStorage.removeItem(TABS_STORAGE_KEY); } catch (e) {}
   await sb.auth.signOut({ scope: 'local' });
   showScreen('screen-login');
@@ -1926,9 +2051,333 @@ async function showAppForUser() {
       el.style.display = ammessi.includes(String(email).toLowerCase()) ? '' : 'none';
     });
     document.body.classList.toggle('ruolo-interno', role !== 'agente');
+    // Calendario PDE: solo admin (in agenti_pde sono gli Amministratori e i Responsabili)
+    const vedeCal = role === 'admin';
+    document.body.classList.toggle('vede-calendario', vedeCal);
+    if (vedeCal) hcAvvia();
   }
   showScreen(null);
   if (user) ripristinaSchede();
+}
+
+// ── Filigrana dello sfondo (utenti interni): il logo PDE Hub ritagliato da --pde-art (x 124, y 254, 1297×584,
+// come .hub-logo), sfondo bianco reso trasparente, ripetuto sfalsato. Due versioni: a colori (tema chiaro) e bianca (scuro).
+(function hubFiligrana(){
+  const m = getComputedStyle(document.documentElement).getPropertyValue('--pde-art').match(/url\(["']?(.*?)["']?\)\s*$/s);
+  if (!m) return;
+  const img = new Image();
+  img.onload = () => {
+    const W = 260, H = Math.round(W * 584 / 1297), TW = 520, TH = 300;
+    const logo = document.createElement('canvas'); logo.width = W; logo.height = H;
+    const lc = logo.getContext('2d');
+    lc.drawImage(img, 124, 254, 1297, 584, 0, 0, W, H);
+    const crea = bianca => {
+      const px = lc.getImageData(0, 0, W, H), d = px.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const inchiostro = 255 - Math.min(d[i], d[i + 1], d[i + 2]); // quanto il pixel si stacca dal bianco
+        d[i + 3] = Math.round(d[i + 3] * Math.min(1, inchiostro / 200));
+        if (bianca) d[i] = d[i + 1] = d[i + 2] = 255;
+      }
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      c.getContext('2d').putImageData(px, 0, 0);
+      const t = document.createElement('canvas'); t.width = TW; t.height = TH;
+      const tc = t.getContext('2d');
+      tc.drawImage(c, 0, 20); tc.drawImage(c, TW / 2, TH / 2 + 20); tc.drawImage(c, -TW / 2, TH / 2 + 20); // file sfalsate
+      return `url(${t.toDataURL('image/png')})`;
+    };
+    document.documentElement.style.setProperty('--filigrana-chiara', crea(false));
+    document.documentElement.style.setProperty('--filigrana-scura', crea(true));
+  };
+  img.src = m[1];
+})();
+
+// ── Calendario PDE della home (solo admin e responsabili) ──
+// Date operative lette dal database: lanci (calendario_lanci + titoli in lanci_settimanali),
+// giri (calendario_giri), note di credito MeLi (export del 12 e del 22) e festività nazionali.
+// Sotto, per il giorno scelto: le voci del giorno e "chi è dove" (presenze e trasferte di PDE Planning, sola lettura).
+const HC_CAT = {
+  lanci: { nome: 'Lanci',            col: '#00b4e8' },
+  giri:  { nome: 'Giri',             col: '#e8a838' },
+  nc:    { nome: 'Note di credito',  col: '#3fbf7f' },
+  fest:  { nome: 'Festività',        col: '#e06c6c' },
+};
+const HC_MESI = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+const HC_PRES = [ // stesse voci di PDE Planning, nell'ordine in cui le mostriamo
+  ['ufficio','🏢 Ufficio'], ['uffse','🏢🚗 Ufficio + SE'], ['seufc','🚗🏢 SE + Ufficio'], ['se','🚗 Servizio esterno'],
+  ['sesw','🚗🏠 SE + SW'], ['sw','🏠 Smartworking'], ['ufcperm','🏢📋 Ufficio + Permesso'], ['permfc','📋🏢 Permesso + Ufficio'],
+  ['permsw','📋🏠 Permesso + SW'], ['swperm','🏠📋 SW + Permesso'], ['seperm','🚗📋 SE + Permesso'], ['permse','📋🚗 Permesso + SE'],
+  ['permesso','📋 Permesso'], ['perm104','📋 Permesso 104'], ['ferie','🌴 Ferie'], ['festivita','🎉 Festività'],
+];
+const hc = { avviato: false, mese: null, giorno: null, voci: new Map(), lanciSett: new Map(), filtri: new Set(Object.keys(HC_CAT)) };
+
+const hcEsc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const hcIso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const hcPd = s => { if (!s) return null; const [a, m, g] = String(s).slice(0, 10).split('-').map(Number); return a ? new Date(a, m - 1, g) : null; };
+const hcAdd = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const hcLun = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+const hcOggi = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+const hcLancio = n => String(Number(n)).replace('.', ',');
+function hcSettIso(d){ // numero settimana ISO
+  const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  x.setUTCDate(x.getUTCDate() + 4 - (x.getUTCDay() || 7));
+  return Math.ceil(((x - Date.UTC(x.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7);
+}
+function hcAggiungi(d, voce){
+  if (!d) return;
+  const k = hcIso(d);
+  if (!hc.voci.has(k)) hc.voci.set(k, []);
+  hc.voci.get(k).push(voce);
+}
+
+// Festività nazionali (con Pasqua e Lunedì dell'Angelo) e scadenze fisse mensili: calcolate, non nel database
+function hcPasqua(a){
+  const b = a % 19, c = Math.floor(a / 100), d = a % 100, e = Math.floor(c / 4), f = c % 4, g = Math.floor((c + 8) / 25),
+    h = Math.floor((c - g + 1) / 3), i = (19 * b + c - e - h + 15) % 30, k = Math.floor(d / 4), l = d % 4,
+    m = (32 + 2 * f + 2 * k - i - l) % 7, n = Math.floor((b + 11 * i - 7 * m) / 451), mese = Math.floor((i + m - 7 * n + 114) / 31);
+  return new Date(a, mese - 1, ((i + m - 7 * n + 114) % 31) + 1);
+}
+function hcVociCalcolate(d){
+  const out = [], g = d.getDate(), m = d.getMonth() + 1;
+  const fisse = { '1-1': 'Capodanno', '6-1': 'Epifania', '25-4': 'Festa della Liberazione', '1-5': 'Festa del Lavoro', '2-6': 'Festa della Repubblica',
+    '15-8': 'Ferragosto', '1-11': 'Ognissanti', '8-12': 'Immacolata', '25-12': 'Natale', '26-12': 'Santo Stefano' };
+  if (fisse[`${g}-${m}`]) out.push({ cat: 'fest', tit: fisse[`${g}-${m}`] });
+  const p = hcPasqua(d.getFullYear());
+  if (hcIso(d) === hcIso(p)) out.push({ cat: 'fest', tit: 'Pasqua' });
+  if (hcIso(d) === hcIso(hcAdd(p, 1))) out.push({ cat: 'fest', tit: "Lunedì dell'Angelo" });
+  if (g === 12 || g === 22) out.push({ cat: 'nc', tit: `Note di credito MeLi · export del ${g}`, det: 'File MeLi dall\'app Note di Credito, da inviare a gestione.documenti@meli.it' });
+  return out;
+}
+
+// Riunioni di giro: testo libero ("29-30 settembre, 1-3 ottobre", "14-15 / 18-20 GENNAIO") → giorni.
+// L'anno è quello che mette le riunioni nei due mesi prima dell'inizio giro.
+function hcGiorniRiunioni(testo, inizio){
+  const out = [], mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  let attesa = [];
+  const re = /(\d{1,2})(?:\s*-\s*(\d{1,2}))?|([a-zA-Zàèéìòù]{3,})/g;
+  let t;
+  while ((t = re.exec(String(testo || '')))) {
+    if (t[1]) { const a = +t[1], b = t[2] ? +t[2] : a; for (let x = a; x <= b && x - a < 10; x++) attesa.push(x); continue; }
+    const mi = mesi.indexOf(t[3].slice(0, 3).toLowerCase());
+    if (mi < 0) continue;
+    attesa.forEach(gg => {
+      let d = new Date(inizio ? inizio.getFullYear() : new Date().getFullYear(), mi, gg);
+      if (inizio && d > hcAdd(inizio, 31)) d = new Date(d.getFullYear() - 1, mi, gg);
+      if (inizio && d < hcAdd(inizio, -330)) d = new Date(d.getFullYear() + 1, mi, gg);
+      out.push(d);
+    });
+    attesa = [];
+  }
+  return out;
+}
+
+async function hcSelectTutto(build){
+  const out = [];
+  for (let da = 0; ; da += 1000) {
+    const { data, error } = await build().range(da, da + 999);
+    if (error) throw error;
+    out.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  return out;
+}
+
+async function hcCarica(){
+  hc.voci = new Map(); hc.lanciSett = new Map();
+  const annoMin = hcOggi().getFullYear() - 1;
+  const errori = [];
+  const prova = (nome, p) => p.catch(e => { errori.push(`${nome}: ${e.message || e}`); return []; });
+  const [lanci, giri, titoli] = await Promise.all([
+    prova('lanci', hcSelectTutto(() => sb.from('calendario_lanci').select('numero_lancio,anno,data_iscrizione,note,consegna_mag_sopra2000,consegna_lib_sopra2000,vendita_sopra2000,fatturazione_sopra2000,consegna_mag_sotto2000,consegna_lib_sotto2000,vendita_sotto2000,fatturazione_sotto2000').gte('anno', annoMin).order('data_iscrizione'))),
+    prova('giri', hcSelectTutto(() => sb.from('calendario_giri').select('giro,anno,mese_uscita,consegna_materiali,riunioni,inizio_giro,fine_giro,dati_a_editori').gte('anno', annoMin).order('anno'))),
+    prova('titoli dei lanci', hcSelectTutto(() => sb.from('lanci_settimanali').select('anno_lancio,num_lancio').gte('anno_lancio', annoMin).order('id'))),
+  ]);
+  hc.errori = errori;
+  // titoli per lancio (lanci_settimanali salva il numero ×10: 460 = lancio 46)
+  const nTitoli = new Map();
+  titoli.forEach(t => { const k = `${t.anno_lancio}|${t.num_lancio}`; nTitoli.set(k, (nTitoli.get(k) || 0) + 1); });
+
+  lanci.forEach(l => {
+    const nome = `Lancio ${hcLancio(l.numero_lancio)}`;
+    const nt = nTitoli.get(`${l.anno}|${Math.round(Number(l.numero_lancio) * 10)}`) || 0;
+    const titTxt = nt ? ` · ${nt} titoli` : '';
+    const nota = l.note ? ` · ${l.note}` : '';
+    const iscr = hcPd(l.data_iscrizione);
+    hcAggiungi(iscr, { cat: 'lanci', tit: `${nome} · iscrizione`, det: `Invio prenotazioni del lancio${titTxt}${nota}` });
+    hcAggiungi(hcPd(l.consegna_mag_sopra2000), { cat: 'lanci', tit: `${nome} · consegna magazzino >2000`, det: 'Consegna a magazzino, sopra 2000' });
+    hcAggiungi(hcPd(l.consegna_mag_sotto2000), { cat: 'lanci', tit: `${nome} · consegna magazzino <2000`, det: 'Consegna a magazzino, sotto 2000' });
+    hcAggiungi(hcPd(l.consegna_lib_sopra2000), { cat: 'lanci', tit: `${nome} · consegna libreria >2000`, det: 'Consegna in libreria, sopra 2000' });
+    hcAggiungi(hcPd(l.consegna_lib_sotto2000), { cat: 'lanci', tit: `${nome} · consegna libreria <2000`, det: 'Consegna in libreria, sotto 2000' });
+    // vendita: dal calendario, oppure (come NewsWeek) il lunedì della terza settimana dopo l'iscrizione
+    const vSopra = hcPd(l.vendita_sopra2000), vSotto = hcPd(l.vendita_sotto2000);
+    const stima = !vSopra && !vSotto && iscr ? hcAdd(hcLun(iscr), 21) : null;
+    const fatt = l.fatturazione_sopra2000 ? ` · fatturazione ${l.fatturazione_sopra2000}` : '';
+    hcAggiungi(vSopra, { cat: 'lanci', tit: `${nome} · in vendita >2000`, det: `Uscita titoli, sopra 2000${titTxt}${fatt}`, forte: true });
+    hcAggiungi(vSotto, { cat: 'lanci', tit: `${nome} · in vendita <2000`, det: `Uscita titoli, sotto 2000${titTxt}`, forte: true });
+    hcAggiungi(stima, { cat: 'lanci', tit: `${nome} · in vendita`, det: `Uscita titoli (data stimata: 3 settimane dopo l'iscrizione)${titTxt}`, forte: true });
+    // settimana di uscita del lancio (colonna a sinistra del calendario)
+    const uscita = vSopra || vSotto || stima;
+    if (uscita) {
+      const k = hcIso(hcLun(uscita));
+      if (!hc.lanciSett.has(k)) hc.lanciSett.set(k, []);
+      hc.lanciSett.get(k).push(hcLancio(l.numero_lancio));
+    }
+  });
+
+  giri.forEach(g => {
+    const nome = `Giro ${g.giro} ${g.anno}`, usc = g.mese_uscita ? ` (uscite ${g.mese_uscita})` : '';
+    const inizio = hcPd(g.inizio_giro);
+    hcAggiungi(hcPd(g.consegna_materiali), { cat: 'giri', tit: `${nome} · consegna materiali`, det: `Materiali dagli editori${usc}` });
+    hcGiorniRiunioni(g.riunioni, inizio).forEach(d => hcAggiungi(d, { cat: 'giri', tit: `${nome} · riunioni`, det: `Riunioni di presentazione: ${g.riunioni}` }));
+    hcAggiungi(inizio, { cat: 'giri', tit: `${nome} · inizio giro`, det: `Inizio giro vendita${usc}`, forte: true });
+    hcAggiungi(hcPd(g.fine_giro), { cat: 'giri', tit: `${nome} · fine giro`, det: 'Chiusura del giro vendita', forte: true });
+    hcAggiungi(hcPd(g.dati_a_editori), { cat: 'giri', tit: `${nome} · dati agli editori`, det: 'Invio dei dati di fine giro agli editori' });
+  });
+}
+
+// Etichetta corta per le celle del mese (quella completa resta nel tooltip e nel dettaglio del giorno)
+function hcBreve(t){
+  return String(t)
+    .replace(/^Lancio (\S+) · /, 'L$1 ')
+    .replace(/^Giro (\d+) \d\d(\d\d) · /, 'G$1/$2 ')
+    .replace(/^Note di credito MeLi · export del (\d+)/, 'NdC MeLi $1')
+    .replace('consegna magazzino', 'mag.').replace('consegna libreria', 'libreria')
+    .replace('consegna materiali', 'materiali').replace('dati agli editori', 'dati editori');
+}
+
+function hcVociGiorno(d){
+  return [...(hc.voci.get(hcIso(d)) || []), ...hcVociCalcolate(d)].filter(v => hc.filtri.has(v.cat));
+}
+
+function hcDisegna(){
+  const m = hc.mese, o = hcOggi();
+  document.getElementById('hc-title').textContent = `${HC_MESI[m.getMonth()]} ${m.getFullYear()}`;
+  const chips = document.getElementById('hc-chips');
+  chips.innerHTML = Object.entries(HC_CAT).map(([k, c]) =>
+    `<button type="button" class="hc-chip ${hc.filtri.has(k) ? 'on' : ''}" data-hc-f="${k}" style="--hc:${c.col}" aria-pressed="${hc.filtri.has(k)}"><i></i>${c.nome}</button>`).join('');
+  chips.querySelectorAll('[data-hc-f]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.hcF; hc.filtri.has(k) ? hc.filtri.delete(k) : hc.filtri.add(k); hcDisegna();
+  }));
+
+  const inizio = hcLun(m);
+  let h = '<div class="hc-dow" title="Settimana e lancio in libreria">Sett.</div>' + ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map(x => `<div class="hc-dow">${x}</div>`).join('');
+  for (let w = 0; w < 6; w++) {
+    const lun = hcAdd(inizio, w * 7);
+    if (w > 3 && lun.getMonth() !== m.getMonth()) break;
+    const lanciW = hc.filtri.has('lanci') ? (hc.lanciSett.get(hcIso(lun)) || []) : [];
+    h += `<div class="hc-wk" title="${lanciW.length ? 'In libreria questa settimana: lancio ' + hcEsc(lanciW.join(', ')) : ''}">S${hcSettIso(lun)}${lanciW.map(n => `<b>L${hcEsc(n)}</b>`).join('')}</div>`;
+    for (let i = 0; i < 7; i++) {
+      const d = hcAdd(lun, i), v = hcVociGiorno(d), max = 3;
+      const fest = v.some(x => x.cat === 'fest') || hcVociCalcolate(d).some(x => x.cat === 'fest');
+      const cls = ['hc-day', i > 4 && 'we', fest && 'fest', d.getMonth() !== m.getMonth() && 'fuori',
+        d.getTime() === o.getTime() && 'oggi', hc.giorno && d.getTime() === hc.giorno.getTime() && 'sel'].filter(Boolean).join(' ');
+      h += `<div class="${cls}" data-hc-g="${hcIso(d)}"><span class="hc-n">${d.getDate()}</span>`
+        + v.slice(0, max).map(x => `<span class="hc-ev" style="--hc:${HC_CAT[x.cat].col}" title="${hcEsc(x.tit + (x.det ? ' — ' + x.det : ''))}">${hcEsc(hcBreve(x.tit))}</span>`).join('')
+        + (v.length > max ? `<span class="hc-piu">+${v.length - max}</span>` : '') + '</div>';
+    }
+  }
+  const grid = document.getElementById('hc-grid');
+  grid.innerHTML = h;
+  grid.querySelectorAll('[data-hc-g]').forEach(c => c.addEventListener('click', () => { hc.giorno = hcPd(c.dataset.hcG); hcDisegna(); }));
+  hcDisegnaGiorno();
+}
+
+// Settimana come la salva PDE Planning: lunedì a mezzanotte locale convertito in UTC (in Italia esce la domenica prima)
+function hcWeekKeyPlanning(d){ return hcLun(d).toISOString().slice(0, 10); }
+
+async function hcDisegnaGiorno(){
+  const d = hc.giorno || hcOggi(), side = document.getElementById('hc-side');
+  const titolo = d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const v = [...(hc.voci.get(hcIso(d)) || []), ...hcVociCalcolate(d)];
+  const voci = v.length
+    ? v.map(x => `<div class="hc-riga" style="--hc:${HC_CAT[x.cat].col}"><i></i><div><b>${hcEsc(x.tit)}</b>${x.det ? `<br><small>${hcEsc(x.det)}</small>` : ''}</div></div>`).join('')
+    : '<div class="hc-vuoto">Nessuna scadenza in questo giorno.</div>';
+  const err = (hc.errori || []).length ? `<div class="hc-vuoto">Non caricato: ${hcEsc(hc.errori.join(' · '))}</div>` : '';
+  side.innerHTML = `${err}<h4>${hcEsc(titolo)}</h4>${voci}<h5>Chi è dove</h5><div id="hc-pres"><div class="hc-vuoto">Caricamento…</div></div>`;
+
+  const chiave = hcIso(d);
+  const dayIdx = (d.getDay() + 6) % 7;
+  try {
+    const [pres, trasf] = await Promise.all([
+      dayIdx <= 4
+        ? sb.from('presenze').select('persona,tipo,nota').eq('week_key', hcWeekKeyPlanning(d)).eq('day_idx', dayIdx).limit(200)
+        : Promise.resolve({ data: [] }),
+      sb.from('trasferte').select('persone,destinazione,motivo,dal_data,al_data').lte('dal_data', chiave).gte('al_data', chiave).limit(100),
+    ]);
+    if ((hc.giorno ? hcIso(hc.giorno) : hcIso(hcOggi())) !== chiave) return; // nel frattempo è stato scelto un altro giorno
+    const el = document.getElementById('hc-pres');
+    if (!el) return;
+    // una riga per persona: presenza del giorno ed eventuale trasferta
+    const etichetta = new Map(HC_PRES);
+    const perPersona = new Map();
+    const voce = p => { const k = String(p || '').trim(); if (!perPersona.has(k)) perPersona.set(k, []); return perPersona.get(k); };
+    (pres.data || []).forEach(r => voce(r.persona).push(`${hcEsc(etichetta.get(r.tipo) || r.tipo)}${r.nota ? ` <small>· ${hcEsc(r.nota)}</small>` : ''}`));
+    // alcune righe vecchie di PDE Planning hanno le colonne sfalsate: si tengono solo quelle con date vere
+    const dataOk = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+    (trasf.data || []).filter(t => dataOk(t.dal_data) && dataOk(t.al_data)).forEach(t =>
+      String(t.persone || '').split('|').filter(Boolean).forEach(p =>
+        voce(p).push(`✈️ Trasferta ${hcEsc(t.destinazione || '')}${t.motivo ? ` <small>· ${hcEsc(t.motivo)}</small>` : ''}`)));
+    // ordine alfabetico per cognome (l'ultima parola del nome), poi per nome
+    const cognome = n => { const p = n.split(/\s+/); return `${p[p.length - 1]} ${p.slice(0, -1).join(' ')}`; };
+    const persone = [...perPersona.keys()].filter(Boolean).sort((a, b) => cognome(a).localeCompare(cognome(b), 'it', { sensitivity: 'base' }));
+    el.innerHTML = persone.length
+      ? `<table class="hc-pres"><thead><tr><th>Persona</th><th>Dove</th></tr></thead><tbody>${persone.map(p =>
+          `<tr><td>${hcEsc(p)}</td><td>${perPersona.get(p).join('<br>')}</td></tr>`).join('')}</tbody></table>`
+      : `<div class="hc-vuoto">${dayIdx > 4 ? 'Fine settimana.' : 'Nessuna presenza inserita in PDE Planning per questo giorno.'}</div>`;
+  } catch (e) {
+    const el = document.getElementById('hc-pres');
+    if (el) el.innerHTML = `<div class="hc-vuoto">Presenze non disponibili: ${hcEsc(e.message || e)}</div>`;
+  }
+}
+
+// Frase del giorno sotto il calendario (frasi simpatiche scritte per PDE Hub), con il pulsante ↻ per cambiarla
+const HC_FRASI = [
+  'Il caffè è pronto, i lanci pure. Quasi.',
+  'Un libro al giorno toglie il medico di torno. Due, anche il commercialista.',
+  'Non è disordine: è una libreria in attesa di inventario.',
+  'Il lunedì è solo un capitolo, non tutto il romanzo.',
+  'Leggere fa bene. Prenotare in tempo, ancora di più.',
+  'Ogni giro vendita comincia con un passo. E finisce con un Excel.',
+  'Se la scadenza è domani, oggi è il giorno perfetto per iniziare.',
+  'I libri non si giudicano dalla copertina. Le cedole sì, dall\'ordine.',
+  'Smartworking: stesso lavoro, ma con il gatto sulla tastiera.',
+  'Un segnalibro è solo un libro che ti dice: ci vediamo dopo.',
+  'Ci sono due tipi di persone: chi legge prima il finale e chi mente.',
+  'La pazienza è la virtù dei forti. E di chi aspetta il magazzino.',
+  'Nessun refuso è stato maltrattato nella stesura di questa frase.',
+  'Il prenotato non dorme mai. Noi, ogni tanto, sì.',
+  'Oggi è un ottimo giorno per chiudere un capitolo. Anche di lavoro.',
+  'Chi trova un editore puntuale trova un tesoro.',
+  'Venerdì: anche i tomi più pesanti sembrano leggeri.',
+  'Dietro ogni grande libreria c\'è un agente con tanti chilometri sulle spalle.',
+  'Tranquilli: anche Dante ha avuto il suo inferno prima del paradiso.',
+  'Il libro giusto arriva sempre al momento giusto. Il corriere, meno.',
+];
+let hcFraseIdx = null;
+function hcFrase(avanti){
+  const n = HC_FRASI.length, o = hcOggi();
+  if (hcFraseIdx == null) hcFraseIdx = Math.floor(o.getTime() / 864e5) % n; // una diversa ogni giorno
+  else if (avanti) hcFraseIdx = (hcFraseIdx + 1) % n;
+  document.getElementById('hc-frase-testo').textContent = HC_FRASI[hcFraseIdx];
+  document.getElementById('hc-frase-autore').textContent = 'PDE Hub';
+}
+
+async function hcAvvia(){
+  if (hc.avviato) return;
+  hc.avviato = true;
+  hcFrase();
+  document.getElementById('hc-frase-altra').addEventListener('click', () => hcFrase(true));
+  const o = hcOggi();
+  hc.mese = new Date(o.getFullYear(), o.getMonth(), 1);
+  document.querySelectorAll('[data-hc-m]').forEach(b => b.addEventListener('click', () => {
+    const k = +b.dataset.hcM;
+    hc.mese = k === 0 ? new Date(o.getFullYear(), o.getMonth(), 1) : new Date(hc.mese.getFullYear(), hc.mese.getMonth() + k, 1);
+    if (k === 0) hc.giorno = null;
+    hcDisegna();
+  }));
+  hcDisegna();
+  try { await hcCarica(); }
+  catch (e) { document.getElementById('hc-side').insertAdjacentHTML('afterbegin', `<div class="hc-vuoto">Calendario non caricato: ${hcEsc(e.message || e)}</div>`); }
+  hcDisegna();
 }
 
 // ── Sessione esistente / reset password via link ──
