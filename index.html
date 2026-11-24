@@ -568,7 +568,7 @@ main.home-wide { max-width: 1680px; }
 .home-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; align-items: start; }
 .home-cal { display: none; }
 body.vede-calendario .home-cal { display: block; }
-body.vede-calendario .home-layout { grid-template-columns: 666px minmax(0, 1fr); } /* 3 card da 214px (come quando erano 2 su 440px) */
+body.vede-calendario .home-layout { grid-template-columns: 666px minmax(0, 640px); justify-content: center; } /* 3 card da 214px; calendario al massimo 640px, blocco centrato */
 /* App compatte, tre per riga, nella colonna di sinistra (solo per chi vede il calendario; gli altri hanno la home di sempre) */
 body.vede-calendario .home-apps .grid,
 body.vede-calendario .home-apps .grid-ext { gap: 12px; margin-bottom: 30px; }
@@ -577,8 +577,8 @@ body.vede-calendario .home-apps .card-app,
 body.vede-calendario .home-apps .card-ext { flex: 0 0 calc((100% - 24px) / 3); min-width: 0; }
 body.vede-calendario .home-apps .card-app-icon { height: 72px; }
 body.vede-calendario .home-apps .pde-logo { font-size: 14px; }
-body.vede-calendario .home-apps .card-app-icon img { width: 62%; height: 46%; }
-body.vede-calendario .home-apps .card-app-icon .bu-pe-logo { width: 62% !important; }
+body.vede-calendario .home-apps .card-app-icon img { width: auto; height: 56%; max-width: 70%; }
+body.vede-calendario .home-apps .card-app-icon .bu-pe-logo { width: 70% !important; }
 body.vede-calendario .home-apps .card-app-icon .bu-pe-logo img { width: 100%; height: auto; }
 body.vede-calendario .home-apps .card-app-footer { padding: 8px 10px 9px; }
 body.vede-calendario .home-apps .card-app-desc { font-size: 10.5px; }
@@ -612,7 +612,7 @@ html[data-theme="light"] .home-cal { --hc-line: rgba(26,45,107,.34); }
 }
 .hc-wk b { font: 700 10px var(--font); color: #fff; background: var(--accent); border-radius: 5px; padding: 1px 4px; white-space: nowrap; }
 .hc-day {
-  min-height: 70px; min-width: 0; padding: 3px 3px 4px; cursor: pointer;
+  min-height: 56px; min-width: 0; padding: 3px 3px 4px; cursor: pointer;
   border-right: 1px solid var(--hc-line); border-bottom: 1px solid var(--hc-line);
   display: flex; flex-direction: column; gap: 2px;
 }
@@ -623,6 +623,11 @@ html[data-theme="light"] .home-cal { --hc-line: rgba(26,45,107,.34); }
 .hc-day.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
 .hc-n { font-size: 11px; font-weight: 700; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 999px; }
 .hc-day.oggi .hc-n { background: var(--accent); color: #fff; }
+/* Settimana in corso e giorno di oggi ben visibili */
+.hc-day.sett-oggi, .hc-wk.sett-oggi { background: color-mix(in srgb, var(--accent) 7%, var(--blue-deep)); }
+.hc-wk.sett-oggi { color: var(--accent); font-weight: 700; }
+.hc-day.oggi { background: color-mix(in srgb, var(--accent) 18%, var(--blue-deep)); box-shadow: inset 0 0 0 2px var(--accent); }
+.hc-dow.oggi { color: #fff; background: var(--accent); }
 .hc-day.fest .hc-n { color: var(--danger); }
 .hc-ev {
   display: block; font-size: 9.5px; font-weight: 600; line-height: 1.25;
@@ -2263,16 +2268,20 @@ function hcDisegna(){
   }));
 
   const inizio = hcLun(m);
-  let h = '<div class="hc-dow" title="Settimana e lancio in libreria">Sett.</div>' + ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map(x => `<div class="hc-dow">${x}</div>`).join('');
+  // il giorno della settimana di oggi si evidenzia nell'intestazione se la settimana in corso è nel mese mostrato
+  const lunOggi = hcLun(o), fine = hcAdd(inizio, 41);
+  const dowOggi = lunOggi >= inizio && lunOggi <= fine ? (o.getDay() + 6) % 7 : -1;
+  let h = '<div class="hc-dow" title="Settimana e lancio in libreria">Sett.</div>' + ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map((x, i) => `<div class="hc-dow${i === dowOggi ? ' oggi' : ''}">${x}</div>`).join('');
   for (let w = 0; w < 6; w++) {
     const lun = hcAdd(inizio, w * 7);
     if (w > 3 && lun.getMonth() !== m.getMonth()) break;
     const lanciW = hc.filtri.has('lanci') ? (hc.lanciSett.get(hcIso(lun)) || []) : [];
-    h += `<div class="hc-wk" title="${lanciW.length ? 'In libreria questa settimana: lancio ' + hcEsc(lanciW.join(', ')) : ''}">S${hcSettIso(lun)}${lanciW.map(n => `<b>L${hcEsc(n)}</b>`).join('')}</div>`;
+    const settOggi = lun.getTime() === lunOggi.getTime();
+    h += `<div class="hc-wk${settOggi ? ' sett-oggi' : ''}" title="${lanciW.length ? 'In libreria questa settimana: lancio ' + hcEsc(lanciW.join(', ')) : ''}">S${hcSettIso(lun)}${lanciW.map(n => `<b>L${hcEsc(n)}</b>`).join('')}</div>`;
     for (let i = 0; i < 7; i++) {
       const d = hcAdd(lun, i), v = hcVociGiorno(d), max = 3;
       const fest = v.some(x => x.cat === 'fest') || hcVociCalcolate(d).some(x => x.cat === 'fest');
-      const cls = ['hc-day', i > 4 && 'we', fest && 'fest', d.getMonth() !== m.getMonth() && 'fuori',
+      const cls = ['hc-day', i > 4 && 'we', settOggi && 'sett-oggi', fest && 'fest', d.getMonth() !== m.getMonth() && 'fuori',
         d.getTime() === o.getTime() && 'oggi', hc.giorno && d.getTime() === hc.giorno.getTime() && 'sel'].filter(Boolean).join(' ');
       h += `<div class="${cls}" data-hc-g="${hcIso(d)}"><span class="hc-n">${d.getDate()}</span>`
         + v.slice(0, max).map(x => `<span class="hc-ev" style="--hc:${HC_CAT[x.cat].col}" title="${hcEsc(x.tit + (x.det ? ' — ' + x.det : ''))}">${hcEsc(hcBreve(x.tit))}</span>`).join('')
