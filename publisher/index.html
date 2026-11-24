@@ -251,6 +251,12 @@
   .ag-reg:hover{background:var(--card-2)} .ag-reg.on{border-color:var(--cyan);background:var(--cyan-dim)}
   .ag-ini{width:36px;height:36px;border-radius:50%;background:var(--cyan);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
   tr.rk-mio td{background:var(--cyan-dim);font-weight:800}
+  .passi{display:flex;flex-direction:column;gap:14px;margin-top:6px}
+  .passi>div{display:flex;gap:12px;align-items:flex-start}
+  .passi>div>b{flex:none;width:28px;height:28px;border-radius:50%;background:var(--cyan);color:#fff;display:grid;place-items:center;font-size:13px}
+  .passi>div>span{font-size:13px;line-height:1.45}
+  .passi>div>span>b{display:block;font-size:14px;margin-bottom:2px}
+  .pag-box{margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--bg)}
   .schede{display:flex;gap:6px;margin:0 0 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
   .scheda{border:0;background:transparent;font:inherit;font-weight:700;font-size:14px;color:var(--text-dim);padding:10px 14px;border-bottom:3px solid transparent;margin-bottom:-1px;cursor:pointer}
   .scheda:hover{color:var(--text)} .scheda.on{color:var(--cyan);border-bottom-color:var(--cyan)}
@@ -791,8 +797,8 @@ const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')
 const titleCase = s => String(s || '').toLowerCase().replace(/(^|[\s'’.(\/-])([a-zà-ù])/g, (_m, a, b) => a + b.toUpperCase());
 const pctS = v => (v > 0 ? '+' : '') + pct(v);
 const nomeGiro = g => `Giro ${g.numero} ${g.anno}`;
-// Copertine (come PDE Analisi): laFeltrinelli, poi Messaggerie. Per un EAN che non conoscono i due siti non danno errore
-// ma un segnaposto ("Copertina in arrivo!"): Feltrinelli quadrato 200×200, Messaggerie 200×260. Quelli si scartano e si passa
+// Copertine (come PDE Analisi): laFeltrinelli, poi il portale. Per un EAN che non conoscono i due siti non danno errore
+// ma un segnaposto ("Copertina in arrivo!"): Feltrinelli quadrato 200×200, portale 200×260. Quelli si scartano e si passa
 // alla fonte dopo; senza copertina, il riquadro PDE "coming soon". COP_TROVATA ricorda per EAN la fonte buona (-1 = nessuna).
 const COP_FONTI = [
   { url: (e, g) => `https://www.lafeltrinelli.it/images/${e}_0_0_${g ? 600 : 200}_0_75.jpg`, buona: (w, h) => h > w },
@@ -902,7 +908,7 @@ function disegnaPeriodo(){
       <label class="${b.tipo === 'intervallo' ? 'pp-on' : ''}">Al<input type="date" id="pp-al" min="${g[0] || ''}" max="${u}" value="${b.tipo === 'intervallo' ? b.al : ''}"></label>
       <label>Raggruppa per<select id="pp-grana"><option value="">Automatico</option>${GRANE.map(([k, l]) => `<option value="${k}" ${b.grana === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     </div>
-    <p class="note" style="margin:6px 0 0">Il confronto è sempre con le stesse date dell'anno prima. Dati Messaggerie fino al ${fData(pd(u))}.</p>
+    <p class="note" style="margin:6px 0 0">Il confronto è sempre con le stesse date dell'anno prima. Dati del portale fino al ${fData(pd(u))}.</p>
     <div class="pp-piede"><span class="small" id="pp-err" style="color:var(--ko)"></span><button class="btn" id="pp-annulla" type="button">Annulla</button><button class="btn pri" id="pp-applica" type="button">Applica</button></div>`;
   pan.querySelectorAll('[data-r]').forEach(x => x.addEventListener('click', () => { PAN = { ...PAN, tipo: 'rapido', rapido: x.dataset.r }; disegnaPeriodo(); }));
   $('#pp-mese').addEventListener('change', e => { if (e.target.value) { PAN = { ...PAN, tipo: 'mese', mese: e.target.value }; disegnaPeriodo(); } });
@@ -942,7 +948,7 @@ async function rpc(nome, args){
 }
 async function caricaEditore(codice){
   const p = { p_editore: codice };
-  // il riepilogo vendite dell'editore si aggiorna con gli ultimi giorni importati da Messaggerie (veloce se è già aggiornato)
+  // il riepilogo vendite dell'editore si aggiorna con gli ultimi giorni importati dal portale (veloce se è già aggiornato)
   try { await rpc('ed_vendite_aggiorna', p); } catch (e) { console.warn('Riepilogo vendite non aggiornato:', e.message); }
   const [vendite, titoli, giri, gfk, materiali, mesiCli, meli, inv, fatt, mensili] = await Promise.all([
     rpc('ed_vendite_periodo', { ...p, p_dal: PER.dal, p_al: PER.al, p_grana: PER.grana }),
@@ -1046,7 +1052,9 @@ function kpi(lab, val, foot, col){ return `<div class="card kpi" style="--k:var(
 function evHtml(e){
   const pass = e.data < OGGI;
   return `<div class="ev ${pass ? 'pass' : ''}"><div class="dt"><b>${e.data.getDate()}</b><span>${MESI[e.data.getMonth()]}</span></div>
-    <div><div class="t">${esc(e.titolo)}</div><div class="m">${esc(e.luogo)}${e.cc ? ' · cod. ' + esc(e.cc) : ''}${e.autore && e.autore !== '—' ? ' · ' + esc(e.autore) : ''}</div>
+    <div><div class="t">${esc(e.titolo)}</div><div class="m">${e.ora ? 'ore ' + esc(String(e.ora).slice(0, 5)) + ' · ' : ''}${esc(e.luogo)}${e.cc ? ' · cod. ' + esc(e.cc) : ''}${e.autore && e.autore !== '—' ? ' · ' + esc(e.autore) : ''}</div>
+      ${e.libro_titolo || e.libro_ean ? `<div class="m">📖 ${esc(titleCase(e.libro_titolo || ''))}${e.libro_ean ? ' · ' + esc(e.libro_ean) : ''}${e.quantita ? ` · <b>${num(+e.quantita)} copie proposte</b>` : ''}</div>` : e.quantita ? `<div class="m"><b>${num(+e.quantita)} copie proposte</b></div>` : ''}
+      ${e.ospiti ? `<div class="m">Ospiti: ${esc(e.ospiti)}</div>` : ''}
       ${e.da_individuare ? '<div class="m"><span class="pill warn">Libreria da individuare a carico della rete promozionale</span></div>' : ''}</div>
     <span style="display:flex;flex-direction:column;gap:4px;align-items:flex-end"><span class="pill ${pass ? 'mut' : 'info'}">${esc(e.tipo)}</span>${e.proposto ? '<span class="pill warn">da confermare</span>' : ''}</span></div>`;
 }
@@ -1139,7 +1147,7 @@ S.dashboard = {
     if (gg) li.push(`Il genere che cresce di più è <b>${esc(gg.n)}</b> (${pctS(varr(gg.f, gg.f1))}).`);
     if (inCorso.length) li.push(`${inCorso.length > 1 ? 'Sono in corso' : 'È in corso il'} <b>${inCorso.map(g => esc(nomeGiro(g))).join(', ')}</b>: prenotate <b>${num(pc)}</b> copie${oc ? `, il ${pct(pc / oc, 0)} dell'obiettivo` : ''}.`);
     if (bestW) li.push(`Nella classifica GfK dell'ultima settimana il titolo più alto è <b>${esc(titleCase(bestW.title))}</b>, al <b>${bestW.rank_pos}º posto</b>.`);
-    if (zeri.length) li.push(`<b>${zeri.length} titoli</b> disponibili in catalogo sono a giacenza zero su Messaggerie: <a href="#alert">vedi l'alert approvvigionamento</a>.`);
+    if (zeri.length) li.push(`<b>${zeri.length} titoli</b> disponibili in catalogo sono a giacenza zero sul portale: <a href="#alert">vedi l'alert approvvigionamento</a>.`);
     li.push(`La resa è al <b>${pct(rp)}</b> del fornito, ${rp <= rp1 ? 'meglio' : 'peggio'} del ${pct(rp1)} del ${Y - 1}. Lo sconto medio è del <b>${pct(sc)}</b> (era ${pct(sc1)}).`);
     this._d = { s0, s1, gen, tipi, sintesi: `<ul>${li.map((x, i) => `<li data-i="${i + 1}">${x}</li>`).join('')}</ul>` };
     return `
@@ -1180,7 +1188,7 @@ S.dashboard = {
         </div>
       </div>
       <div class="grid g2 g-pano"><div class="grid g2e" style="margin:0">
-        <div class="card"><h3>Venduto per ${gen.rilevati ? 'genere' : 'collana'}</h3><p class="h-sub">${PER.etichetta}${gen.rilevati ? ' · genere Messaggerie' : ''}</p><div class="ch alta"><canvas id="c-gen"></canvas></div></div>
+        <div class="card"><h3>Venduto per ${gen.rilevati ? 'genere' : 'collana'}</h3><p class="h-sub">${PER.etichetta}${gen.rilevati ? ' · genere del portale' : ''}</p><div class="ch alta"><canvas id="c-gen"></canvas></div></div>
         <div class="card"><h3>Novità e rifornimenti</h3><p class="h-sub">${PER.etichetta}</p><div class="ch alta"><canvas id="c-tipi"></canvas></div></div></div>
         <div class="card"><h3>Giri aperti</h3><p class="h-sub">Prenotato sull'obiettivo, giro per giro</p>
           ${prossimi.length ? `<div class="giri-ap">${prossimi.map(g => { const q = g.obiettivo ? g.prenotato / g.obiettivo : null; return `<a class="giro-ap" href="#giri" data-gk="${esc(g.chiave)}">
@@ -1274,7 +1282,7 @@ function righeTitoli(L, ordine){
   }).join('');
 }
 
-/* ---------- Settori: generi Messaggerie e collane, con il confronto col mercato GfK ---------- */
+/* ---------- Settori: generi del portale e collane, con il confronto col mercato GfK ---------- */
 function aggPer(chiave){
   const map = {};
   TF().forEach(t => {
@@ -1288,7 +1296,7 @@ function aggPer(chiave){
   return righe;
 }
 const collaneAgg = () => aggPer(t => nomeCollana(t.collana));
-// Collane per esteso: i nomi vengono da Messaggerie (li salva un admin la prima volta), altrimenti resta il codice
+// Collane per esteso: i nomi vengono dal portale (li salva un admin la prima volta), altrimenti resta il codice
 const nomeCollana = c => !c ? 'Senza collana' : R.collane && R.collane[c] ? `${titleCase(R.collane[c])} (${c})` : c;
 async function nomiCollane(){
   if (!R.collane) R.collane = await rpc('ed_collane_lista', { p_editore: ED.codice_editore }).catch(() => ({}));
@@ -1296,7 +1304,7 @@ async function nomiCollane(){
   if (!ADMIN() || !mancano.length || R.collaneProvate) return;
   R.collaneProvate = true;
   const r0 = R;
-  (async () => {   // in sottofondo: legge le collane dell'editore su Messaggerie e le salva per tutti
+  (async () => {   // in sottofondo: legge le collane dell'editore sul portale e le salva per tutti
     try {
       const d = await atCall({ azione: 'editori' });
       const ut = (d.editori || []).filter(e => atCod(e.code) === atCod(ED.codice_editore)), serie = [];
@@ -1337,7 +1345,7 @@ const SEZ_SELLIN = {
     const princ = gen.rilevati ? gen.righe : col;
     this._d = { princ };
     return `
-      <p class="lead">${gen.rilevati ? 'Il settore è il genere con cui Messaggerie classifica ogni titolo (lo stesso che vedi in BookUp, Consultazione titoli).' : 'Il genere dei titoli arriva da Messaggerie con l\'aggiornamento di <a href="#stock">Stock MeLi</a>: finché non c\'è, i settori sono le collane.'}
+      <p class="lead">${gen.rilevati ? 'Il settore è il genere con cui il portale classifica ogni titolo (lo stesso che vedi in BookUp, Consultazione titoli).' : 'Il genere dei titoli arriva dal portale con l\'aggiornamento di <a href="#stock">Stock MeLi</a>: finché non c\'è, i settori sono le collane.'}
       Il venduto qui è il sell-in (fornito meno rese); il sell-out in cassa è nelle schede GfK.</p>
       <div class="grid g-kpi">${princ.filter(x => x.f > 0).slice(0, 4).map((x, i) => kpi(esc(x.n), fmtM(x.f), `${x.f1 > 0 ? delta(x.f, x.f1) : ''} <span>quota ${pct(x.quota)}</span>`, '--s' + (i + 1))).join('')}</div>
       <div class="grid g2e">
@@ -1703,7 +1711,7 @@ S.finegiri = {
     this._d = { g, D };
     return `
       <p class="lead">${inCorso ? `Il giro su cui si sta lavorando: quanto è stato prenotato finora, a che ritmo e dove si arriva a fine giro se il ritmo resta questo.`
-        : `Il giro è chiuso: qui resta l'ultimo giro lavorato, con il consuntivo Messaggerie, finché non parte il prossimo.`} <a href="#giri">Tutti i giri →</a></p>
+        : `Il giro è chiuso: qui resta l'ultimo giro lavorato, con il consuntivo del portale, finché non parte il prossimo.`} <a href="#giri">Tutti i giri →</a></p>
       ${notaPrenotato()}
       <div class="grid g-kpi">
         ${kpi('Prenotato', num(P), `<span>copie${O ? ' su obiettivo ' + num(O) : ''}</span>`, '--s1')}
@@ -1715,7 +1723,7 @@ S.finegiri = {
           : kpi('Venduto a oggi', num(g.cf - g.cr), `<span>fornito ${num(g.cf)} · resa ${g.cf ? pct(g.cr / g.cf) : '—'}</span>`, '--s2')}
         ${kpi('Punti vendita', num(D.clienti || 0), '<span>che hanno prenotato</span>', '--s8')}
       </div>
-      <div class="card" style="margin-bottom:16px"><h3>Avanzamento dei titoli</h3><p class="h-sub">Prenotato sull'obiettivo, titolo per titolo${inCorso ? '' : ', con il consuntivo Messaggerie'}</p>
+      <div class="card" style="margin-bottom:16px"><h3>Avanzamento dei titoli</h3><p class="h-sub">Prenotato sull'obiettivo, titolo per titolo${inCorso ? '' : ', con il consuntivo del portale'}</p>
         <div class="tw scroll"><table class="tbl"><thead><tr><th>Titolo</th><th>Uscita</th><th class="r">Obiettivo</th><th class="r">Prenotato</th><th style="min-width:160px">Avanzamento</th>${inCorso ? '' : '<th class="r">Fornito</th><th class="r">Venduto</th><th class="r">Resa</th>'}</tr></thead>
         <tbody>${tit.map(t => `<tr><td><div class="con-cop">${cop(t.ean)}<div><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">${esc(titleCase(t.autore || ''))} · EAN ${esc(t.ean)}</div></div></div></td>
           <td class="small">${esc(titleCase(t.uscita || ''))}</td><td class="r">${num(+t.obiettivo)}</td><td class="r t-tit">${num(+t.prenotato)}</td>
@@ -1958,9 +1966,14 @@ const STATI_INV = ['Previsto', 'Confermato', 'Rendicontato', 'Annullato'];
 const ESEMPIO_INV = () => ({ chi: 'Editore', destinatario: 'Gruppo', gruppo: 'Giunti al Punto', canale: '', zona: '', codice_cliente: '', cliente_nome: '',
   dal: `${OGGI.getFullYear()}-12-01`, al: `${OGGI.getFullYear()}-12-31`, tipologia: 'Vetrine e visibilità',
   descrizione: 'Vetrina natalizia con le novità del giro in corso in 40 punti vendita, con espositore da banco', importo: 4000, sconto_extra: 2, copie: 1200,
-  titoli: 'Le novità del giro in corso (EAN o titoli separati da virgola)', giro: R.giri[0] ? nomeGiro(R.giri[0]) : '', stato: 'Previsto', referente: 'Nome Cognome · trade marketing',
+  titoli: 'Tutto il catalogo', stato: 'Previsto', referente: 'Nome Cognome · trade marketing',
   note: 'Foto delle vetrine entro il 15 gennaio' });
 const CONFERMATI = ['Confermato', 'Rendicontato'];
+// Titoli coinvolti: un ambito (tutto il catalogo, una collana…) più un dettaglio facoltativo, salvati insieme nel campo titoli
+const AMBITI_TIT = ['Titoli scelti', 'Tutto il catalogo', 'Novità del giro', 'Backlist', 'Una collana', 'Un autore', 'Altro'];
+const ambitoTit = t => { t = String(t || ''); const a = AMBITI_TIT.slice(1).find(x => t === x || t.startsWith(x + ': '));
+  return a ? { a, d: t.slice(a.length + 2) } : { a: 'Titoli scelti', d: t }; };
+const DEST_L = { 'Cliente': 'Un cliente', 'Gruppo': 'Tutto un gruppo (catena)', 'Canale': 'Un canale', 'Tutti i clienti': 'Tutti i clienti' };
 const destInv = i => i.destinatario === 'Cliente' ? (i.cliente_nome || i.codice_cliente || 'Cliente') : i.destinatario === 'Gruppo' ? (i.gruppo || 'Gruppo') : i.destinatario === 'Canale' ? (i.canale || 'Canale') : 'Tutti i clienti';
 const pillInv = st => `<span class="pill ${st === 'Rendicontato' ? 'ok' : st === 'Confermato' ? 'info' : st === 'Annullato' ? 'mut' : 'warn'}">${esc(st)}</span>`;
 const modificabile = i => ADMIN() || i.chi === 'Editore';
@@ -1971,9 +1984,9 @@ function tabellaInv(L, azioni){
     <tbody>${L.map(i => `<tr>
       <td><span class="pill ${i.chi === 'PDE' ? 'info' : 'mut'}">${esc(i.chi)}</span></td>
       <td><div class="t-tit">${esc(i.tipologia)}</div>${i.descrizione ? `<div class="t-sub inv-desc">${esc(i.descrizione)}</div>` : ''}${i.titoli ? `<div class="t-sub inv-desc">Titoli: ${esc(i.titoli)}</div>` : ''}</td>
-      <td><div class="t-tit">${esc(titleCase(destInv(i)))}</div><div class="t-sub">${esc(i.destinatario)} · ${esc(i.zona || 'tutta Italia')}${i.giro ? ' · ' + esc(i.giro) : ''}</div></td>
+      <td><div class="t-tit">${esc(titleCase(destInv(i)))}</div><div class="t-sub">${i.destinatario === 'Gruppo' ? 'tutto il gruppo' : esc(i.destinatario)} · ${esc(i.zona || 'tutta Italia')}</div></td>
       <td class="small" style="white-space:nowrap">${i.dal ? fData(pd(i.dal)) : '—'}${i.al ? '<br>' + fData(pd(i.al)) : ''}</td>
-      <td class="r"><div class="t-tit">${eur(+i.importo)}</div>${i.sconto_extra ? `<div class="t-sub">+${fDec.format(+i.sconto_extra)}% sconto</div>` : ''}${i.copie ? `<div class="t-sub">${num(+i.copie)} copie</div>` : ''}</td>
+      <td class="r"><div class="t-tit">${eur(+i.importo)}</div>${i.sconto_extra ? `<div class="t-sub">+${fDec.format(+i.sconto_extra)}% sui riordini</div>` : ''}${i.copie ? `<div class="t-sub">${num(+i.copie)} copie</div>` : ''}</td>
       <td class="small">${esc(i.referente || '—')}</td><td>${pillInv(i.stato)}</td>
       <td style="white-space:nowrap">${modificabile(i) ? azioni(i) : ''}</td></tr>`).join('')}</tbody></table></div>`;
 }
@@ -1999,6 +2012,8 @@ S.investimenti = {
     const ed = STATO.invEdit ? R.inv.find(i => i.id === STATO.invEdit) : null;
     const v = ed || STATO.invBozza || { chi: ADMIN() ? 'PDE' : 'Editore', destinatario: 'Cliente', stato: 'Previsto' };
     const opt = (L, sel) => L.map(x => `<option ${String(x) === String(sel ?? '') ? 'selected' : ''}>${esc(x)}</option>`).join('');
+    const tit = ambitoTit(v.titoli);
+    const nGru = {}; R.anag.forEach(c => { if (c.gruppo) nGru[c.gruppo] = (nGru[c.gruppo] || 0) + 1; });
     STATO.invVista ||= 'da';
     const elenco = STATO.invVista === 'ann' ? ann : STATO.invVista === 'tutti' ? R.inv : da;
     return `
@@ -2014,27 +2029,28 @@ S.investimenti = {
         <div class="dx">${ed ? '' : '<button class="btn" type="button" id="b-inv-es">Compila con un esempio</button>'}</div></div>
         <form class="form" id="f-inv" style="grid-template-columns:repeat(4,minmax(0,1fr))">
           <label>Chi investe *<select name="chi" ${ADMIN() ? '' : 'disabled'}>${opt(['Editore', 'PDE'], v.chi)}</select></label>
-          <label>Destinatario *<select name="destinatario" id="inv-dest">${opt(['Cliente', 'Gruppo', 'Canale', 'Tutti i clienti'], v.destinatario)}</select></label>
-          <label class="inv-cli" style="grid-column:span 2">Cliente<input type="text" name="cliente" list="dl-cli" placeholder="Scrivi il nome o il codice del cliente" value="${esc(v.cliente_nome ? `${v.cliente_nome}${v.codice_cliente ? ' · ' + v.codice_cliente : ''}` : '')}"></label>
-          <label class="inv-gru" style="grid-column:span 2">Gruppo / catena<input type="text" name="gruppo" list="dl-gru" value="${esc(v.gruppo || '')}"></label>
+          <label>Destinatario *<select name="destinatario" id="inv-dest">${Object.entries(DEST_L).map(([k, l]) => `<option value="${k}" ${k === v.destinatario ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+          <label class="inv-cli" style="grid-column:span 2">Cliente o gruppo<input type="text" name="cliente" id="inv-cli" list="dl-cli" placeholder="Nome o codice del cliente, oppure il nome del gruppo" value="${esc(v.cliente_nome ? `${v.cliente_nome}${v.codice_cliente ? ' · ' + v.codice_cliente : ''}` : '')}">
+            <span class="small" id="inv-gru-hint"></span></label>
+          <label class="inv-gru" style="grid-column:span 2">Gruppo / catena<input type="text" name="gruppo" id="inv-gru" list="dl-gru" placeholder="L'investimento vale per tutti i punti vendita del gruppo" value="${esc(v.gruppo || '')}"><span class="small" id="inv-gru-n"></span></label>
           <label class="inv-can" style="grid-column:span 2">Canale<input type="text" name="canale" list="dl-can" value="${esc(v.canale || '')}"></label>
           <label>Tipologia *<select name="tipologia" required>${opt(TIPI_INVEST, v.tipologia)}</select></label>
           <label>Dal *<input type="date" name="dal" required value="${esc(v.dal || '')}"></label>
           <label>Al *<input type="date" name="al" required value="${esc(v.al || '')}"></label>
           <label>Stato<select name="stato">${opt(STATI_INV, v.stato)}</select></label>
           <label>Importo € *<input type="number" name="importo" min="0" step="0.01" required value="${esc(v.importo ?? '')}"></label>
-          <label>Sconto extra %<input type="number" name="sconto_extra" min="0" max="100" step="0.1" value="${esc(v.sconto_extra ?? '')}"></label>
+          <label title="Sconto aggiuntivo che il cliente ha sui riordini dei titoli legati all'investimento">Sconto extra sui riordini %<input type="number" name="sconto_extra" min="0" max="100" step="0.1" value="${esc(v.sconto_extra ?? '')}"></label>
           <label>Copie coinvolte<input type="number" name="copie" min="0" step="1" value="${esc(v.copie ?? '')}"></label>
           <label>Zona<select name="zona"><option value="">Tutta Italia</option>${opt(ZONE, v.zona)}</select></label>
-          <label>Giro collegato<select name="giro"><option value="">—</option>${opt(R.giri.map(nomeGiro), v.giro)}</select></label>
           <label>Referente<input type="text" name="referente" value="${esc(v.referente || '')}"></label>
-          <label style="grid-column:span 2">Titoli coinvolti<input type="text" name="titoli" value="${esc(v.titoli || '')}" placeholder="EAN o titoli, separati da virgola"></label>
+          <label>Titoli coinvolti<select name="titoli_ambito" id="inv-tit-a">${opt(AMBITI_TIT, tit.a)}</select></label>
+          <label style="grid-column:span 2">Dettaglio dei titoli<input type="text" name="titoli_dettaglio" id="inv-tit-d" value="${esc(tit.d)}"></label>
           <label style="grid-column:span 2">Descrizione<textarea name="descrizione" rows="2">${esc(v.descrizione || '')}</textarea></label>
           <label style="grid-column:span 2">Note<textarea name="note" rows="2">${esc(v.note || '')}</textarea></label>
           <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">${ed ? 'Salva le modifiche' : 'Registra investimento'}</button>${ed || STATO.invBozza ? '<button class="btn" type="button" id="b-inv-annulla">Annulla</button>' : ''}</div>
         </form>
-        <datalist id="dl-cli">${R.anag.slice(0, 5000).map(c => `<option value="${esc(c.nome)} · ${esc(c.cc)}">${esc(c.citta || '')}${c.gruppo ? ' · ' + esc(c.gruppo) : ''}</option>`).join('')}</datalist>
-        <datalist id="dl-gru">${gruppi.map(g => `<option value="${esc(g)}">`).join('')}</datalist>
+        <datalist id="dl-cli">${gruppi.map(g => `<option value="Tutto il gruppo · ${esc(g)}">${num(nGru[g] || 0)} punti vendita</option>`).join('')}${R.anag.slice(0, 5000).map(c => `<option value="${esc(c.nome)} · ${esc(c.cc)}">${esc(c.citta || '')}${c.gruppo ? ' · ' + esc(c.gruppo) : ''}</option>`).join('')}</datalist>
+        <datalist id="dl-gru">${gruppi.map(g => `<option value="${esc(g)}">${num(nGru[g] || 0)} punti vendita</option>`).join('')}</datalist>
         <datalist id="dl-can">${canali.map(g => `<option value="${esc(g)}">`).join('')}</datalist></div>
       <div class="card"><div class="card-head"><div><h3>Investimenti registrati</h3><p class="h-sub">Conferma un investimento quando è deciso: passa in Investimenti confermati</p></div>
         <div class="dx chips" id="ch-inv">${[['da', `Da confermare (${da.length})`], ['ann', `Annullati (${ann.length})`], ['tutti', `Tutti (${R.inv.length})`]].map(([k, l]) => `<button class="chip ${STATO.invVista === k ? 'on' : ''}" data-v="${k}">${l}</button>`).join('')}</div></div>
@@ -2046,6 +2062,22 @@ S.investimenti = {
     const vis = () => { const d = $('#inv-dest').value;
       f.querySelector('.inv-cli').hidden = d !== 'Cliente'; f.querySelector('.inv-gru').hidden = d !== 'Gruppo'; f.querySelector('.inv-can').hidden = d !== 'Canale'; };
     vis(); $('#inv-dest').addEventListener('change', vis);
+    // cliente o gruppo: scegliendo "Tutto il gruppo · X" l'investimento passa al gruppo; scegliendo un cliente di una catena si può estendere al gruppo
+    const nPv = g => R.anag.filter(c => c.gruppo === g).length;
+    const aGruppo = g => { $('#inv-dest').value = 'Gruppo'; $('#inv-gru').value = g; $('#inv-cli').value = ''; vis(); infoGru(); };
+    const infoGru = () => { const g = $('#inv-gru').value.trim(); $('#inv-gru-n').textContent = g && nPv(g) ? `${num(nPv(g))} punti vendita nel gruppo` : ''; };
+    const infoCli = () => {
+      const t = $('#inv-cli').value, h = $('#inv-gru-hint');
+      const mg = /^Tutto il gruppo · (.+)$/.exec(t); if (mg) { aGruppo(mg[1].trim()); return; }
+      const m = /·\s*(\S+)\s*$/.exec(t), c = m && R.anag.find(x => String(x.cc) === m[1]);
+      h.innerHTML = c && c.gruppo ? `Fa parte del gruppo <b>${esc(c.gruppo)}</b> · <a href="#" id="inv-est">vale per tutto il gruppo (${num(nPv(c.gruppo))} punti vendita)</a>` : '';
+      $('#inv-est')?.addEventListener('click', e => { e.preventDefault(); aGruppo(c.gruppo); });
+    };
+    $('#inv-cli').addEventListener('input', infoCli); $('#inv-gru').addEventListener('input', infoGru); infoCli(); infoGru();
+    const segnaTit = () => { const a = $('#inv-tit-a').value, d = $('#inv-tit-d');
+      d.placeholder = { 'Titoli scelti': 'EAN o titoli, separati da virgola', 'Tutto il catalogo': 'Facoltativo: es. esclusi i tascabili', 'Novità del giro': 'Facoltativo: es. Giro 1 2027',
+        'Backlist': 'Facoltativo: es. titoli usciti prima del 2025', 'Una collana': 'Nome della collana', 'Un autore': 'Nome dell\'autore', 'Altro': 'Descrivi i titoli coinvolti' }[a] || ''; };
+    $('#inv-tit-a').addEventListener('change', segnaTit); segnaTit();
     $('#b-inv-es')?.addEventListener('click', () => { STATO.invBozza = ESEMPIO_INV(); render(); });
     $('#b-inv-annulla')?.addEventListener('click', () => { STATO.invEdit = null; STATO.invBozza = null; render(); });
     document.querySelectorAll('#ch-inv .chip').forEach(b => b.addEventListener('click', () => { STATO.invVista = b.dataset.v; render(); }));
@@ -2056,10 +2088,13 @@ S.investimenti = {
       const m = /·\s*(\S+)\s*$/.exec(d.cliente || '');
       d.codice_cliente = m ? m[1] : ''; d.cliente_nome = (d.cliente || '').replace(/\s*·\s*\S+\s*$/, '').trim();
       delete d.cliente;
+      d.titoli = d.titoli_ambito === 'Titoli scelti' ? (d.titoli_dettaglio || '').trim() : d.titoli_ambito + ((d.titoli_dettaglio || '').trim() ? ': ' + d.titoli_dettaglio.trim() : '');
+      delete d.titoli_ambito; delete d.titoli_dettaglio; d.giro = '';
       if (d.destinatario !== 'Cliente') { d.codice_cliente = ''; d.cliente_nome = ''; }
       if (d.destinatario !== 'Gruppo') d.gruppo = '';
       if (d.destinatario !== 'Canale') d.canale = '';
       if (d.destinatario === 'Cliente' && !d.cliente_nome) { alert('Indica il cliente'); return; }
+      if (d.destinatario === 'Gruppo' && !d.gruppo) { alert('Indica il gruppo'); return; }
       if (STATO.invEdit) d.id = STATO.invEdit;
       salvaCon(ev.submitter || f.querySelector('[type=submit]'), async () => {
         await rpc('ed_investimento_salva', { p_editore: ED.codice_editore, p: d });
@@ -2190,7 +2225,7 @@ S.fatturazione = {
     const fasce = [['A scadere', f => f.gg == null || f.gg <= 0], ['Scaduto 1–30', f => f.gg > 0 && f.gg <= 30], ['Scaduto 31–60', f => f.gg > 30 && f.gg <= 60],
       ['Scaduto 61–90', f => f.gg > 60 && f.gg <= 90], ['Scaduto oltre 90', f => f.gg > 90]].map(([n, t]) => ({ n, v: sum(aperte.filter(t).map(f => f.res)), k: aperte.filter(t).length }));
     const ESP = sum(aperte.map(f => f.res)), SCAD = sum(fasce.slice(1).map(x => x.v));
-    // piano di rientro: rate (bonifici o altro) + delegazioni Messaggerie, mese per mese
+    // piano di rientro: rate (bonifici o altro) + delegazioni portale, mese per mese
     const PIANO_RATE = RI.filter(r => r.stato !== 'Annullata'), incassato = sum(PIANO_RATE.filter(r => r.stato === 'Incassata').map(r => +r.importo));
     const mesiProj = Array.from({ length: 12 }, (_, i) => iso(new Date(OGGI.getFullYear(), OGGI.getMonth() + i, 1)));
     const delegMese = (d, m) => { if (d.stato !== 'Attiva' || m < d.dal.slice(0, 8) + '01' || (d.al && m > d.al.slice(0, 8) + '01')) return 0;
@@ -2200,8 +2235,7 @@ S.fatturazione = {
     const rateMese = m => sum(PIANO_RATE.filter(r => r.stato !== 'Incassata' && r.data.slice(0, 7) === m.slice(0, 7)).map(r => +r.importo));
     let resid = ESP; const proj = mesiProj.map(m => { const r = rateMese(m), d = sum(DE.map(x => delegMese(x, m))); resid = Math.max(0, resid - r - d); return { m, r, d, resid }; });
     const coperturaPiano = sum(PIANO_RATE.filter(r => r.stato !== 'Incassata').map(r => +r.importo)) + sum(proj.map(x => x.d));
-    const ed = STATO.fattEdit ? F.find(f => f.id === STATO.fattEdit) : null;
-    const v = ed || STATO.fattBozza || { stato: 'Emessa', iva_pct: 22, mesi_scadenza: 3 };
+    const fp = STATO.pagFatt ? F.find(f => f.id === STATO.pagFatt) : null;
     const opt = (L, sel) => L.map(x => `<option ${String(x) === String(sel ?? '') ? 'selected' : ''}>${esc(x)}</option>`).join('');
     const mm = d => d ? String(d).slice(0, 7) : '';
     const meseL = d => d ? `${titleCase(MESI_L[pd(d).getMonth()])} ${pd(d).getFullYear()}` : '—';
@@ -2211,7 +2245,7 @@ S.fatturazione = {
     this._d = { m0, m1, fa, fasce, proj, ESP };
     return `
       <p class="lead">Compenso PDE del ${pct(p, 0)} sul venduto a prezzo di copertina netto rese, fatture con scadenze e pagamenti, esposizione dell'editore verso PDE
-      e piano di rientro (bonifici e delegazioni Messaggerie). Sezione visibile solo agli amministratori PDE.</p>
+      e piano di rientro (bonifici e delegazioni portale). Sezione visibile solo agli amministratori PDE.</p>
       <div class="grid g-kpi">
         ${kpi('Compenso maturato', eurK(M), `${M1 ? delta(M, M1) : ''} <span>${esc(PER.nome)}</span>`, '--s1')}
         ${kpi('Da fatturare', eurK(Math.max(0, M - FA)), '<span>maturato meno fatturato nel periodo</span>', '--s4')}
@@ -2225,51 +2259,42 @@ S.fatturazione = {
           <div class="tw"><table class="tbl"><thead><tr><th>Fascia</th><th class="r">Fatture</th><th class="r">Importo</th></tr></thead><tbody>
             ${fasce.map((x, i) => `<tr><td><span class="pill ${i === 0 ? 'info' : i === 1 ? 'warn' : 'ko'}">${x.n}</span></td><td class="r">${num(x.k)}</td><td class="r t-tit">${eur(x.v)}</td></tr>`).join('')}
             <tr><td class="t-tit">Esposizione totale</td><td class="r t-tit">${num(aperte.length)}</td><td class="r t-tit">${eur(ESP)}</td></tr></tbody></table></div></div></div>
-        <div class="card"><h3>Proiezione del rientro</h3><p class="h-sub">Esposizione residua nei prossimi 12 mesi con le rate del piano e le delegazioni Messaggerie attive</p><div class="ch"><canvas id="c-proj"></canvas></div></div>
+        <div class="card"><h3>Proiezione del rientro</h3><p class="h-sub">Esposizione residua nei prossimi 12 mesi con le rate del piano e le delegazioni portale attive</p><div class="ch"><canvas id="c-proj"></canvas></div></div>
       </div>
-      <div class="card" style="margin-bottom:16px"><h3>Fatture</h3><p class="h-sub">Dalla più recente · esposizione = totale meno pagato</p>
+      <div class="card" style="margin-bottom:16px" id="c-fatture"><h3>Fatture</h3><p class="h-sub">Dalla più recente · esposizione = totale meno pagato · il pagamento si conferma da sede PDE o quando l'editore comunica di aver pagato</p>
         ${F.length ? `<div class="tw scroll"><table class="tbl"><thead><tr><th>Numero</th><th>Data fattura</th><th>Mese di riferimento</th><th>Scadenza</th><th>Mese pagamento</th><th class="r">Totale</th><th class="r">Pagato</th><th class="r">Esposizione</th><th>Stato</th><th></th></tr></thead>
         <tbody>${F.map(f => { const a = pd(f.mese_dal), b = pd(f.mese_al || f.mese_dal); const comp = a.getTime() === b.getTime() ? meseL(f.mese_dal) : `${MESI_L[a.getMonth()]}–${MESI_L[b.getMonth()]} ${b.getFullYear()}`;
           const res = f.stato === 'Annullata' || f.stato === 'Pagata' ? 0 : Math.max(0, tot(f) - (+f.pagato || 0)), gg = f.scadenza ? diffGg(OGGI, pd(f.scadenza)) : null;
           return `<tr><td class="t-tit">${esc(f.numero)}</td><td>${fData(pd(f.data))}</td><td class="small">${comp}</td>
-            <td>${f.scadenza ? fData(pd(f.scadenza)) : '—'}${f.mesi_scadenza ? `<div class="t-sub">a ${f.mesi_scadenza} mesi</div>` : ''}</td><td class="small">${f.mese_pagamento ? meseL(f.mese_pagamento) : '—'}${f.data_pagamento ? `<div class="t-sub">pagata il ${fData(pd(f.data_pagamento))}</div>` : ''}</td>
+            <td>${f.scadenza ? fData(pd(f.scadenza)) : '—'}${f.mesi_scadenza ? `<div class="t-sub">a ${f.mesi_scadenza} mesi</div>` : ''}</td><td class="small">${f.mese_pagamento ? meseL(f.mese_pagamento) : '—'}${f.data_pagamento ? `<div class="t-sub">pagata il ${fData(pd(f.data_pagamento))}</div>` : ''}${f.pagamento_da ? `<div class="t-sub">${f.pagamento_da === 'Editore' ? 'comunicato dall\'editore' : 'confermato da sede PDE'}</div>` : ''}${f.pagamento_dettaglio ? `<div class="t-sub">${esc(f.pagamento_dettaglio)}</div>` : ''}</td>
             <td class="r">${eur(tot(f))}</td><td class="r">${+f.pagato ? eur(+f.pagato) : '—'}</td><td class="r t-tit">${res ? eur(res) : '—'}</td>
             <td><span class="pill ${f.stato === 'Pagata' ? 'ok' : f.stato === 'Annullata' ? 'mut' : res && gg > 0 ? 'ko' : 'warn'}">${res && gg > 0 ? `Scaduta da ${gg} gg` : esc(f.stato)}</span></td>
-            <td style="white-space:nowrap"><button class="btn" data-fe="${f.id}">Modifica</button> <button class="btn" data-fd="${f.id}">Elimina</button></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Nessuna fattura registrata.</div>'}</div>
+            <td style="white-space:nowrap">${f.stato === 'Annullata' ? '' : `<button class="btn ${res ? 'pri' : ''}" data-fp="${f.id}">${res ? 'Conferma pagamento' : 'Pagamento'}</button>`}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Nessuna fattura. Le fatture PDE arriveranno dalla contabilità: il collegamento è da definire.</div>'}
+        ${fp ? (() => { const res = Math.max(0, tot(fp) - (+fp.pagato || 0)); return `<form class="form pag-box" id="f-pag" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+          <div style="grid-column:1/-1"><b>Pagamento della fattura ${esc(fp.numero)}</b> · totale ${eur(tot(fp))}${+fp.pagato ? ` · già pagato ${eur(+fp.pagato)}` : ''}</div>
+          <label>Chi conferma<select name="pagamento_da">${[['PDE', 'Sede PDE: pagamento verificato'], ['Editore', 'L\'editore comunica di aver pagato']].map(([k, l]) => `<option value="${k}" ${k === (fp.pagamento_da || 'PDE') ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+          <label>Importo pagato in tutto €<input type="number" name="pagato" step="0.01" min="0" required value="${esc(+fp.pagato ? fp.pagato : (Math.round(tot(fp) * 100) / 100).toFixed(2))}"></label>
+          <label>Data del pagamento<input type="date" name="data_pagamento" required value="${esc(fp.data_pagamento || oggi)}"></label>
+          <label>Dettaglio<input type="text" name="pagamento_dettaglio" value="${esc(fp.pagamento_dettaglio || '')}" placeholder="es. bonifico CRO 1234, banca, note"></label>
+          <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">Conferma il pagamento</button>${+fp.pagato ? '<button class="btn" type="button" id="b-pag-togli">Togli il pagamento</button>' : ''}<button class="btn" type="button" id="b-pag-annulla">Annulla</button>
+            <span class="small muted" style="align-self:center">${res ? `Con l'importo intero la fattura risulta pagata; con meno resta aperta per la differenza.` : ''}</span></div></form>`; })() : ''}</div>
       <div class="grid g2">
-        <div class="card"><div class="card-head"><div><h3>${ed ? 'Modifica fattura' : 'Registra una fattura'}</h3><p class="h-sub">La scadenza si calcola a 3 o 4 mesi dalla data, oppure scegli una data</p></div>
-          <div class="dx">${ed ? '' : '<button class="btn" type="button" id="b-fatt-es">Compila con un esempio</button>'}</div></div>
-          <form class="form" id="f-fatt" style="grid-template-columns:repeat(2,minmax(0,1fr))">
-            <label>Numero *<input type="text" name="numero" required value="${esc(v.numero || '')}"></label>
-            <label>Data di fatturazione *<input type="date" name="data" required value="${esc(v.data || '')}"></label>
-            <label>Mese di riferimento dal *<input type="month" name="mese_dal" required value="${esc(mm(v.mese_dal))}"></label>
-            <label>al mese<input type="month" name="mese_al" value="${esc(mm(v.mese_al))}"></label>
-            <label>Imponibile € *<input type="number" name="imponibile" step="0.01" required value="${esc(v.imponibile ?? '')}"></label>
-            <label>IVA %<input type="number" name="iva_pct" step="0.1" value="${esc(v.iva_pct ?? 22)}"></label>
-            <label>Scadenza<select name="mesi_scadenza" id="f-mesi"><option value="3" ${+v.mesi_scadenza === 3 ? 'selected' : ''}>3 mesi</option><option value="4" ${+v.mesi_scadenza === 4 ? 'selected' : ''}>4 mesi</option><option value="" ${!v.mesi_scadenza ? 'selected' : ''}>Altra data</option></select></label>
-            <label id="l-scad" ${v.mesi_scadenza ? 'hidden' : ''}>Data di scadenza<input type="date" name="scadenza" value="${esc(v.mesi_scadenza ? '' : v.scadenza || '')}"></label>
-            <label>Mese di pagamento<input type="month" name="mese_pagamento" value="${esc(mm(v.mese_pagamento))}"></label>
-            <label>Data di pagamento<input type="date" name="data_pagamento" value="${esc(v.data_pagamento || '')}"></label>
-            <label>Pagato €<input type="number" name="pagato" step="0.01" value="${esc(v.pagato ?? '')}"></label>
-            <label>Stato<select name="stato">${opt(STATI_FATT, v.stato)}</select></label>
-            <label style="grid-column:1/-1">Note<textarea name="note" rows="2">${esc(v.note || '')}</textarea></label>
-            <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="b-fatt-calc">Imponibile = compenso maturato</button><button class="btn pri" type="submit">${ed ? 'Salva le modifiche' : 'Registra fattura'}</button>${ed || STATO.fattBozza ? '<button class="btn" type="button" id="b-fatt-annulla">Annulla</button>' : ''}</div>
-          </form></div>
-        <div class="card"><h3>Compenso per ${PER.granaNome}</h3><p class="h-sub">Maturato e fatturato · ${esc(PER.etichetta)}</p><div class="ch sm"><canvas id="c-fm"></canvas></div>
-          <div class="tw scroll" style="max-height:260px"><table class="tbl"><thead><tr><th>${titleCase(PER.granaNome)}</th><th class="r">Venduto netto rese</th><th class="r">Compenso ${pct(p, 0)}</th><th class="r">Fatturato</th></tr></thead>
+        <div class="card"><h3>Compenso per ${PER.granaNome}</h3><p class="h-sub">Maturato e fatturato · ${esc(PER.etichetta)}</p><div class="ch"><canvas id="c-fm"></canvas></div></div>
+        <div class="card"><h3>Compenso mese per mese</h3><p class="h-sub">Venduto netto rese, compenso PDE e fatturato</p>
+          <div class="tw scroll" style="max-height:330px"><table class="tbl"><thead><tr><th>${titleCase(PER.granaNome)}</th><th class="r">Venduto netto rese</th><th class="r">Compenso ${pct(p, 0)}</th><th class="r">Fatturato</th></tr></thead>
           <tbody>${PER.chiavi.map((k, i) => `<tr><td class="t-tit">${etiChiave(k)}</td><td class="r">${eur(m0[i] / p)}</td><td class="r t-tit">${eur(m0[i])}</td><td class="r">${fa[i] ? eur(fa[i]) : '—'}</td></tr>`).join('')}</tbody></table></div></div>
       </div>
       <div class="grid g2e">
         <div class="card"><div class="card-head"><div><h3>Piano di rientro</h3><p class="h-sub">Rate concordate: bonifici, compensazioni o altro</p></div></div>
           ${RI.length ? `<div class="tw scroll"><table class="tbl"><thead><tr><th>Data</th><th>Modalità</th><th class="r">Importo</th><th>Stato</th><th></th></tr></thead><tbody>
-            ${RI.map(r => `<tr><td>${fData(pd(r.data))}${r.note ? `<div class="t-sub">${esc(r.note)}</div>` : ''}</td><td class="small">${esc(r.modalita)}</td><td class="r t-tit">${eur(+r.importo)}</td>
+            ${RI.map(r => `<tr><td>${fData(pd(r.data))}${r.note ? `<div class="t-sub">${esc(r.note)}</div>` : ''}</td><td class="small">${esc(String(r.modalita || '').replace(/Messag+erie/, 'portale'))}</td><td class="r t-tit">${eur(+r.importo)}</td>
               <td><span class="pill ${r.stato === 'Incassata' ? 'ok' : r.stato === 'Annullata' ? 'mut' : r.data < oggi ? 'ko' : 'warn'}">${r.stato === 'Da incassare' && r.data < oggi ? 'Non incassata' : esc(r.stato)}</span></td>
               <td style="white-space:nowrap">${r.stato === 'Da incassare' ? `<button class="btn pri" data-ri-ok="${r.id}">Incassata</button> ` : ''}<button class="btn" data-ri-e="${r.id}">Modifica</button> <button class="btn" data-ri-d="${r.id}">Elimina</button></td></tr>`).join('')}
             <tr><td class="t-tit" colspan="2">Totale piano</td><td class="r t-tit">${eur(sum(PIANO_RATE.map(r => +r.importo)))}</td><td colspan="2" class="small">incassato ${eur(incassato)}</td></tr></tbody></table></div>` : '<div class="empty">Nessuna rata nel piano di rientro.</div>'}
           <form class="form" id="f-ri" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px">
             <label>Data *<input type="date" name="data" required value="${esc(rv.data || '')}"></label>
             <label>Importo € *<input type="number" name="importo" step="0.01" required value="${esc(rv.importo ?? '')}"></label>
-            <label>Modalità<select name="modalita">${opt(['Bonifico', 'Delegazione Messaggerie', 'Compensazione', 'Altro'], rv.modalita)}</select></label>
+            <label>Modalità<select name="modalita">${opt(['Bonifico', 'Delegazione portale', 'Compensazione', 'Altro'], String(rv.modalita || '').replace(/Messag+erie/, 'portale'))}</select></label>
             <label>Stato<select name="stato">${opt(['Da incassare', 'Incassata', 'Annullata'], rv.stato)}</select></label>
             <label style="grid-column:1/-1">Note<input type="text" name="note" value="${esc(rv.note || '')}"></label>
             <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">${rEd ? 'Salva la rata' : 'Aggiungi rata'}</button>${rEd ? '<button class="btn" type="button" id="b-ri-annulla">Annulla</button>' : ''}</div>
@@ -2279,12 +2304,12 @@ S.fatturazione = {
               <label>Totale €<input type="number" id="g-tot" step="0.01" placeholder="150000"></label><label>Numero di rate<input type="number" id="g-n" min="1" value="3"></label>
               <label>Prima rata<input type="date" id="g-dal"></label><label>Modalità<select id="g-mod">${opt(['Bonifico', 'Compensazione', 'Altro'], 'Bonifico')}</select></label>
               <div style="grid-column:1/-1"><button class="btn" type="button" id="b-gen">Crea le rate mensili</button></div></div></details></div>
-        <div class="card"><div class="card-head"><div><h3>Delegazioni Messaggerie</h3><p class="h-sub">Perpetua o per un periodo, secondo gli accordi tra Messaggerie, editore e PDE</p></div></div>
+        <div class="card"><div class="card-head"><div><h3>Delegazioni portale</h3><p class="h-sub">Perpetua o per un periodo, secondo gli accordi tra portale, editore e PDE</p></div></div>
           ${DE.length ? `<div class="tw scroll"><table class="tbl"><thead><tr><th>Tipo</th><th>Periodo</th><th class="r">Al mese</th><th class="r">Totale</th><th>Stato</th><th></th></tr></thead><tbody>
             ${DE.map(d => `<tr><td class="t-tit">${esc(d.tipo)}${d.note ? `<div class="t-sub">${esc(d.note)}</div>` : ''}</td><td class="small">dal ${meseL(d.dal)}${d.al ? '<br>al ' + meseL(d.al) : d.tipo === 'Perpetua' ? '<br>senza scadenza' : ''}</td>
               <td class="r">${+d.importo_mensile ? eur(+d.importo_mensile) : '—'}</td><td class="r t-tit">${+d.importo_totale ? eur(+d.importo_totale) : '—'}</td>
               <td><span class="pill ${d.stato === 'Attiva' ? 'ok' : d.stato === 'Sospesa' ? 'warn' : 'mut'}">${esc(d.stato)}</span></td>
-              <td style="white-space:nowrap"><button class="btn" data-de-e="${d.id}">Modifica</button> <button class="btn" data-de-d="${d.id}">Elimina</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Nessuna delegazione Messaggerie.</div>'}
+              <td style="white-space:nowrap"><button class="btn" data-de-e="${d.id}">Modifica</button> <button class="btn" data-de-d="${d.id}">Elimina</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Nessuna delegazione portale.</div>'}
           <form class="form" id="f-de" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px">
             <label>Tipo<select name="tipo" id="de-tipo">${opt(['Periodo', 'Perpetua'], dv.tipo)}</select></label>
             <label>Dal mese *<input type="month" name="dal" required value="${esc(mm(dv.dal))}"></label>
@@ -2292,10 +2317,10 @@ S.fatturazione = {
             <label>Importo al mese €<input type="number" name="importo_mensile" step="0.01" value="${esc(dv.importo_mensile ?? '')}"></label>
             <label>oppure importo totale €<input type="number" name="importo_totale" step="0.01" value="${esc(dv.importo_totale ?? '')}"></label>
             <label>Stato<select name="stato">${opt(['Attiva', 'Sospesa', 'Chiusa'], dv.stato)}</select></label>
-            <label style="grid-column:1/-1">Accordo / note<input type="text" name="note" value="${esc(dv.note || '')}" placeholder="es. accordo del 15/01 con Messaggerie ed editore"></label>
+            <label style="grid-column:1/-1">Accordo / note<input type="text" name="note" value="${esc(dv.note || '')}" placeholder="es. accordo del 15/01 con il portale ed editore"></label>
             <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">${dEd ? 'Salva la delegazione' : 'Aggiungi delegazione'}</button>${dEd ? '<button class="btn" type="button" id="b-de-annulla">Annulla</button>' : ''}</div>
           </form>
-          <p class="note">Esempio: bonifici per 150.000 € in tre rate mensili, poi delegazione Messaggerie da marzo per 400.000 €. Con l'importo totale e il periodo la quota mensile si calcola da sola.</p></div>
+          <p class="note">Esempio: bonifici per 150.000 € in tre rate mensili, poi delegazione portale da marzo per 400.000 €. Con l'importo totale e il periodo la quota mensile si calcola da sola.</p></div>
       </div>`;
   },
   init(){
@@ -2311,42 +2336,15 @@ S.fatturazione = {
     mk('c-proj', { type: 'bar', data: { labels: proj.map(x => MESI[pd(x.m).getMonth()] + ' ' + x.m.slice(2, 4)), datasets: [
       { type: 'line', ...linea('Esposizione residua', proj.map(x => x.resid), css('--ko'), { pointRadius: 3 }), order: 0 },
       { ...barre('Rate del piano', proj.map(x => x.r), s[0], { stack: 'r' }), order: 1 },
-      { ...barre('Delegazioni Messaggerie', proj.map(x => x.d), s[2], { stack: 'r' }), order: 2 },
+      { ...barre('Delegazioni portale', proj.map(x => x.d), s[2], { stack: 'r' }), order: 2 },
     ] }, options: { interaction: { mode: 'index', intersect: false }, scales: { y: { stacked: true, ticks: tickEur }, x: { stacked: true, grid: { display: false } } }, plugins: { tooltip: ttEur, legend: { position: 'top', align: 'end' } } } });
     const ricaricaFatt = async () => { await ricarica('fatt', 'ed_fatture_lista'); render(); };
-    // fattura
-    const f = $('#f-fatt');
-    const maturatoMesi = (a, b) => sum(R.mensili.filter(v => v.mese.slice(0, 7) >= a && v.mese.slice(0, 7) <= b).map(fVen)) * percPde();
-    $('#f-mesi').addEventListener('change', e => { $('#l-scad').hidden = !!e.target.value; });
-    $('#b-fatt-es')?.addEventListener('click', () => {
-      const c = ultimoMeseChiuso(), Y = c.getFullYear(), m = c.getMonth(), a = `${Y}-${String(m + 1).padStart(2, '0')}`;
-      STATO.fattBozza = { numero: `PDE-${Y}/${String(m + 1).padStart(3, '0')}`, data: iso(new Date(Y, m + 1, 5)), mese_dal: a + '-01', mese_al: a + '-01',
-        imponibile: Math.round(maturatoMesi(a, a) * 100) / 100, iva_pct: 22, mesi_scadenza: 3, stato: 'Emessa', note: `Compenso ${pct(percPde(), 0)} su venduto ${MESI_L[m]} ${Y}` };
-      render();
-    });
-    $('#b-fatt-annulla')?.addEventListener('click', () => { STATO.fattEdit = null; STATO.fattBozza = null; render(); });
-    $('#b-fatt-calc').addEventListener('click', () => {
-      const a = f.mese_dal.value, b = f.mese_al.value || a;
-      if (!a) { alert('Indica prima il mese di riferimento'); return; }
-      f.imponibile.value = (Math.round(maturatoMesi(a, b) * 100) / 100).toFixed(2);
-    });
-    f.addEventListener('submit', ev => {
-      ev.preventDefault();
-      const d = fdata(f);
-      d.mese_dal = d.mese_dal + '-01'; d.mese_al = (d.mese_al || f.mese_dal.value) + '-01';
-      d.mese_pagamento = d.mese_pagamento ? d.mese_pagamento + '-01' : '';
-      if (d.mesi_scadenza) d.scadenza = '';
-      if (STATO.fattEdit) d.id = STATO.fattEdit;
-      salvaCon(ev.submitter || f.querySelector('[type=submit]'), async () => {
-        await rpc('ed_fattura_salva', { p_editore: ED.codice_editore, p: d });
-        STATO.fattEdit = null; STATO.fattBozza = null; await ricaricaFatt();
-      });
-    });
-    document.querySelectorAll('[data-fe]').forEach(b => b.addEventListener('click', () => { STATO.fattEdit = b.dataset.fe; STATO.fattBozza = null; render(); setTimeout(() => $('#f-fatt')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); }));
-    document.querySelectorAll('[data-fd]').forEach(b => b.addEventListener('click', () => {
-      if (!confirm('Eliminare questa fattura?')) return;
-      salvaCon(b, async () => { await rpc('ed_fattura_elimina', { p_editore: ED.codice_editore, p_id: b.dataset.fd }); await ricaricaFatt(); });
-    }));
+    // conferma del pagamento di una fattura
+    document.querySelectorAll('[data-fp]').forEach(b => b.addEventListener('click', () => { STATO.pagFatt = b.dataset.fp; render(); setTimeout(() => $('#f-pag')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); }));
+    $('#b-pag-annulla')?.addEventListener('click', () => { STATO.pagFatt = null; render(); });
+    const salvaPag = (b, p) => salvaCon(b, async () => { await rpc('ed_fattura_pagamento', { p_editore: ED.codice_editore, p_id: STATO.pagFatt, p }); STATO.pagFatt = null; await ricaricaFatt(); });
+    $('#f-pag')?.addEventListener('submit', ev => { ev.preventDefault(); salvaPag(ev.submitter || ev.target.querySelector('[type=submit]'), fdata(ev.target)); });
+    $('#b-pag-togli')?.addEventListener('click', e => { if (confirm('Togliere il pagamento registrato? La fattura torna aperta.')) salvaPag(e.currentTarget, { pagato: 0 }); });
     // piano di rientro
     const fr = $('#f-ri');
     fr.addEventListener('submit', ev => { ev.preventDefault(); const d = fdata(fr); if (STATO.rientroEdit) d.id = STATO.rientroEdit;
@@ -2424,17 +2422,17 @@ async function aggiornaMeli(){
 const progMeli = () => AGG_MELI ? `<div class="bar-in" style="height:10px"><i style="width:${AGG_MELI.fatti / AGG_MELI.totale * 100}%"></i></div><p class="note">Letti ${num(AGG_MELI.fatti)} titoli su ${num(AGG_MELI.totale)} · trovati ${num(AGG_MELI.trovati)}${AGG_MELI.errori ? ' · ' + num(AGG_MELI.errori) + ' non letti' : ''}. Puoi restare su questa pagina: i dati si salvano man mano.</p>` : '';
 function boxAggiornaMeli(){
   const agg = R.meli.aggiornato_il ? new Date(R.meli.aggiornato_il) : null;
-  return `<div class="card" style="margin-bottom:16px"><div class="card-head" style="margin:0"><div><h3>Dati Messaggerie da BookUp</h3>
+  return `<div class="card" style="margin-bottom:16px"><div class="card-head" style="margin:0"><div><h3>Dati del portale da BookUp</h3>
     <p class="h-sub" style="margin:0">${agg ? `Ultimo aggiornamento ${agg.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : 'Nessun aggiornamento ancora fatto'} · disponibilità dei magazzini 11 e 21, stati e genere come in BookUp, Consultazione titoli.
     <br><span class="pill info">Automatico</span> si aggiorna da solo tre volte al giorno, alle 7, alle 12 e alle 17.</p></div>
-    <div class="dx">${ADMIN() ? `<button class="btn pri" id="b-meli" ${AGG_MELI ? 'disabled' : ''}>${AGG_MELI ? 'Aggiornamento in corso…' : 'Aggiorna da Messaggerie'}</button>` : ''}</div></div>
+    <div class="dx">${ADMIN() ? `<button class="btn pri" id="b-meli" ${AGG_MELI ? 'disabled' : ''}>${AGG_MELI ? 'Aggiornamento in corso…' : 'Aggiorna dal portale'}</button>` : ''}</div></div>
     <div id="meli-prog" style="margin-top:10px">${progMeli()}</div></div>`;
 }
 S.stock = {
-  titolo: 'Stock MeLi', sub: () => 'Disponibilità dei titoli nei magazzini Messaggerie, come in BookUp',
+  titolo: 'Stock MeLi', sub: () => 'Disponibilità dei titoli nei magazzini del portale, come in BookUp',
   html(){
     const M = R.meli.righe || [];
-    if (!M.length) return boxAggiornaMeli() + vuoto(ADMIN() ? 'Premi "Aggiorna da Messaggerie": BookUp legge disponibilità e stato di tutti i titoli dell\'editore (qualche minuto).' : 'I dati di magazzino non sono ancora stati caricati da PDE.');
+    if (!M.length) return boxAggiornaMeli() + vuoto(ADMIN() ? 'Premi "Aggiorna dal portale": BookUp legge disponibilità e stato di tutti i titoli dell\'editore (qualche minuto).' : 'I dati di magazzino non sono ancora stati caricati da PDE.');
     STATO.filtroS ||= 'Tutti';
     M.forEach(m => m._cop = coperturaSett(m));
     const att = M.filter(attivo11);
@@ -2445,7 +2443,7 @@ S.stock = {
     this._M = M;
     return `${boxAggiornaMeli()}
       <p class="lead">La copertura dice per quante settimane basta la disponibilità al ritmo di vendita degli ultimi 30 giorni. Sotto le 4 settimane conviene valutare un riassortimento o una ristampa.
-      Lo stato è <b>stato articolo – stato vendita</b> di Messaggerie: 1-1 vuol dire titolo attivo e in vendita.</p>
+      Lo stato è <b>stato articolo – stato vendita</b> del portale: 1-1 vuol dire titolo attivo e in vendita.</p>
       <div class="grid g-kpi">
         ${kpi('Titoli letti', num(M.length), `<span>${num(att.length)} in stato 1-1</span>`, '--s1')}
         ${kpi('Copie disponibili', numK(disp), '<span>magazzini 11 e 21</span>', '--s3')}
@@ -2454,7 +2452,7 @@ S.stock = {
         ${kpi('A giacenza zero', num(zero.length), '<span><a href="#alert">titoli 1-1: vedi alert approvvigionamento</a></span>', '--s8')}
       </div>
       <div class="grid g2e">
-        <div class="card"><h3>Stato dei titoli</h3><p class="h-sub">Stato articolo – stato vendita Messaggerie</p><div class="ch"><canvas id="c-sst"></canvas></div></div>
+        <div class="card"><h3>Stato dei titoli</h3><p class="h-sub">Stato articolo – stato vendita del portale</p><div class="ch"><canvas id="c-sst"></canvas></div></div>
         <div class="card"><h3>Disponibilità per genere</h3><p class="h-sub">Copie nei magazzini 11 e 21</p><div class="ch"><canvas id="c-gs"></canvas></div></div>
       </div>
       <div class="card"><div class="card-head"><div><h3>Disponibilità per titolo</h3><p class="h-sub">Ordinati per copertura, dai più scoperti</p></div>
@@ -2541,7 +2539,7 @@ async function estrai(b, f){ const t = b.innerHTML; b.disabled = true; b.textCon
 const ORIZZONTE = 30;   // la previsione anticipa di un mese la rottura di stock
 const nDec = n => String(Math.round(n * 10) / 10).replace('.', ',');
 S.alert = {
-  titolo: 'Alert approvvigionamento', sub: () => `Titoli in stato 1-1 che finiranno entro ${ORIZZONTE} giorni e titoli già a giacenza zero in Messaggerie`,
+  titolo: 'Alert approvvigionamento', sub: () => `Titoli in stato 1-1 che finiranno entro ${ORIZZONTE} giorni e titoli già a giacenza zero nel portale`,
   html(){
     const M = R.meli.righe || [];
     if (!M.length) return boxAggiornaMeli() + vuoto('Per gli alert servono i dati di magazzino: aggiornali dalla sezione Stock MeLi.');
@@ -2564,7 +2562,7 @@ S.alert = {
     const sub = x => `${esc(titleCase(x.autore || ''))} · EAN ${esc(x.ean)}${x.genere ? ' · ' + esc(titleCase(x.genere)) : ''}`;
     return `${boxAggiornaMeli()}
       <p class="lead">Un titolo attivo e in vendita (stato 1-1) che resta senza copie non può essere spedito: gli ordini dei librai restano inevasi.
-      La previsione divide la disponibilità in Messaggerie per le copie vendute al giorno negli ultimi 30 giorni (fornito meno rese): se un titolo ha 1.000 copie e ne vende 100 al giorno, finisce in 10 giorni.
+      La previsione divide la disponibilità nel portale per le copie vendute al giorno negli ultimi 30 giorni (fornito meno rese): se un titolo ha 1.000 copie e ne vende 100 al giorno, finisce in 10 giorni.
       Qui compaiono solo i titoli che finiranno entro ${ORIZZONTE} giorni, così c'è un mese di anticipo per ristampare o riassortire.</p>
       <div class="grid g-kpi">
         ${kpi(`A rischio entro ${ORIZZONTE} giorni`, num(P.length), `<span>${num(P.filter(x => x.ggFine <= 7).length)} entro una settimana</span>`, '--s2')}
@@ -2597,7 +2595,7 @@ S.alert = {
   init(){
     $('#b-meli')?.addEventListener('click', aggiornaMeli);
     const oggi = iso(OGGI), file = `${ED.nome.replace(/[^\w]+/g, '-')}-${oggi}`;
-    const sotto = `${ED.nome} (codice editore ${ED.codice_editore}) · estratto il ${fData(OGGI)} · disponibilità di magazzino Messaggerie`;
+    const sotto = `${ED.nome} (codice editore ${ED.codice_editore}) · estratto il ${fData(OGGI)} · disponibilità di magazzino del portale`;
     const P = this._P, A = this._A;
     const urgP = g => g <= 7 ? ['Entro 7 giorni', 'ko'] : g <= 15 ? ['Entro 15 giorni', 'warn'] : [`Entro ${ORIZZONTE} giorni`, 'info'];
     const urgA = g => g > 30 ? ['Critico', 'ko'] : g >= 15 ? ['Attenzione', 'warn'] : ['Recente', 'info'];
@@ -2665,7 +2663,7 @@ async function atTendine(box, u, v = {}){
   if (s && g) s.addEventListener('change', () => { const c = (o.series || []).find(x => x.code === s.value); if (c && c.genre) g.value = c.genre; });
 }
 async function atCerca(pagina = 1){
-  const st = $('#at-st'); if (st) st.textContent = 'Cerco su Messaggerie (utenze PDE e Service)…';
+  const st = $('#at-st'); if (st) st.textContent = 'Cerco sul portale (utenze PDE e Service)…';
   const eans = [...new Set(($('#at-q-ean')?.value || '').split(/[\s,;]+/).map(x => x.replace(/\D/g, '')).filter(Boolean))];
   const filtri = { search: ($('#at-q-testo')?.value || '').trim(), vendor: ED.codice_editore };
   if (eans.length) filtri.ean = eans;
@@ -2687,7 +2685,7 @@ function atCardDaTitolo(t){
     commodityType: t.commodityType || null, pageCount: t.pageCount ?? '', reprintDate: t.reprintDate ? String(t.reprintDate).slice(0, 10) : null };
 }
 S.anagrafiche = {
-  titolo: 'Anagrafiche titoli', sub: () => `Consulta, modifica e inserisci le anagrafiche Messaggerie di ${ED.nome}`,
+  titolo: 'Anagrafiche titoli', sub: () => `Consulta, modifica e inserisci le anagrafiche del portale di ${ED.nome}`,
   async prepara(){
     if (!ADMIN()) return;
     if (!AT.utenze || AT.ed !== ED.codice_editore){
@@ -2700,11 +2698,11 @@ S.anagrafiche = {
   },
   html(){
     if (!ADMIN()) return vuoto('Le anagrafiche titoli si gestiscono con PDE: scrivi al tuo referente per inserimenti e modifiche.');
-    if (!AT.utenze.length) return vuoto(`Su Messaggerie non risulta l'editore ${esc(ED.codice_editore)} nelle utenze PDE e Service.`);
+    if (!AT.utenze.length) return vuoto(`Sul portale non risulta l'editore ${esc(ED.codice_editore)} nelle utenze PDE e Service.`);
     const tot = Object.values(AT.totali || {}).reduce((a, b) => a + (+b || 0), 0);
     const m = AT.modifica;
     return `
-      <p class="lead">Come in BookUp: le anagrafiche si leggono e si scrivono direttamente su Messaggerie, con l'utenza dell'editore (${AT.utenze.map(u => atUtenza(u.account)).join(' e ')}).
+      <p class="lead">Come in BookUp: le anagrafiche si leggono e si scrivono direttamente sul portale, con l'utenza dell'editore (${AT.utenze.map(u => atUtenza(u.account)).join(' e ')}).
       Qui compaiono solo i titoli di ${esc(ED.nome)} (codice ${esc(ED.codice_editore)}).</p>
       <div class="chips" style="margin-bottom:14px" id="at-tabs">${[['cons', 'Consulta e modifica'], ['ins', `Inserisci titoli${AT.lista.length ? ' (' + AT.lista.length + ')' : ''}`]].map(([k, l]) => `<button class="chip ${AT.tab === k ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
       ${AT.tab === 'cons' ? `
@@ -2717,14 +2715,14 @@ S.anagrafiche = {
           <p class="h-sub">Utenza ${atUtenza(m.t.account)} · IVA ${esc(m.card.vatCode)} · lingua ${esc(m.card.language)} · stato vendita ${esc(m.card.articleSaleStatusCode)} · stato articolo ${esc(m.card.articleStatusCode)}. I campi cambiati diventano gialli.</p></div></div>
         <div class="form" style="grid-template-columns:repeat(3,minmax(0,1fr))">${AT_CAMPI.map(([k, lab, tipo]) => `<label ${tipo === 'span2' ? 'style="grid-column:span 2"' : ''}>${lab}
           ${tipo === 'sel' ? `<select data-k="${k}" data-t="${k === 'genre' ? 'genere' : 'collana'}"><option>Caricamento…</option></select>` : `<input type="${tipo === 'date' ? 'date' : 'text'}" data-k="${k}" value="${esc(m.card[k] ?? '')}"${k === 'shortTitle' ? ' maxlength="30"' : ''}>`}</label>`).join('')}</div>
-        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center"><button class="btn pri" id="at-salva" type="button">Salva le modifiche su Messaggerie</button><button class="btn" id="at-annulla" type="button">Annulla</button><span class="small" id="at-m-msg"></span></div></div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center"><button class="btn pri" id="at-salva" type="button">Salva le modifiche sul portale</button><button class="btn" id="at-annulla" type="button">Annulla</button><span class="small" id="at-m-msg"></span></div></div>` : ''}
       <div class="card"><div class="tw scroll"><table class="tbl"><thead><tr><th>EAN</th><th>Titolo</th><th>Autore</th><th>Collana</th><th>Genere</th><th class="r">Prezzo</th><th>Pubblicazione</th><th>Stato</th><th>Utenza</th><th></th></tr></thead>
         <tbody>${AT.titoli.map((t, i) => `<tr><td class="small num">${esc(t.ean)}</td><td><div class="con-cop">${cop(t.ean)}<span class="t-tit">${esc(titleCase(t.title || ''))}</span></div></td><td class="small">${esc(titleCase(t.author || ''))}</td>
           <td class="small">${esc(t.editorialSeries?.code || '')}</td><td class="small">${esc(t.genre || '')}</td><td class="r">${t.price != null ? fDec2(t.price) : ''}</td>
           <td class="small">${t.publicationDate ? fData(pd(t.publicationDate)) : ''}</td><td><span class="pill ${t.articleStatus?.code === '1' && t.articleSaleStatus?.code === '1' ? 'ok' : 'mut'}">${esc(t.articleStatus?.code || '?')}-${esc(t.articleSaleStatus?.code || '?')}</span></td>
           <td><span class="pill ${t.account === 'pde_service' ? 'info' : 'mut'}">${atUtenza(t.account)}</span></td><td><button class="btn" data-at="${i}">Modifica</button></td></tr>`).join('') || '<tr><td colspan="10" class="empty">Nessun titolo trovato</td></tr>'}</tbody></table></div>
         <div style="display:flex;gap:8px;margin-top:10px;justify-content:center">${AT.pagina > 1 ? '<button class="btn" id="at-prec">← Pagina precedente</button>' : ''}<span class="small muted" style="align-self:center">Pagina ${AT.pagina} · 50 titoli per utenza</span>${AT.titoli.length >= 50 ? '<button class="btn" id="at-succ">Pagina successiva →</button>' : ''}</div></div>` : `
-      <div class="card" style="margin-bottom:16px" id="at-ins"><div class="card-head"><div><h3>Nuova anagrafica titolo</h3><p class="h-sub">Compila i campi con l'asterisco, aggiungi alla lista e ripeti; alla fine invia tutto insieme a Messaggerie.</p></div></div>
+      <div class="card" style="margin-bottom:16px" id="at-ins"><div class="card-head"><div><h3>Nuova anagrafica titolo</h3><p class="h-sub">Compila i campi con l'asterisco, aggiungi alla lista e ripeti; alla fine invia tutto insieme al portale.</p></div></div>
         <div class="form" style="grid-template-columns:repeat(3,minmax(0,1fr))">
           <label>Utenza *<select id="at-ut">${AT.utenze.map((u, i) => `<option value="${i}">${atUtenza(u.account)} · ${esc(atCod(u.code))} ${esc(u.description || '')}</option>`).join('')}</select></label>
           <label>EAN *<input type="text" id="at-ean" maxlength="18"></label>
@@ -2747,11 +2745,11 @@ S.anagrafiche = {
         </div>
         <div style="display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap"><button class="btn pri" id="at-agg" type="button">Aggiungi alla lista</button><span class="small" id="at-msg"></span></div>
         <p class="note">Le nuove collane si creano da BookUp, Anagrafiche titoli.</p></div>
-      <div class="card"><h3>Da inviare a Messaggerie</h3><p class="h-sub">${AT.lista.length ? AT.lista.length + ' titoli in lista' : 'La lista è vuota'}</p>
+      <div class="card"><h3>Da inviare al portale</h3><p class="h-sub">${AT.lista.length ? AT.lista.length + ' titoli in lista' : 'La lista è vuota'}</p>
         ${AT.lista.length ? `<div class="tw"><table class="tbl"><thead><tr><th>EAN</th><th>Titolo</th><th>Utenza</th><th>Collana</th><th>Genere</th><th>IVA</th><th class="r">Prezzo</th><th>Autore</th><th></th></tr></thead>
           <tbody>${AT.lista.map((x, i) => `<tr><td class="small num">${esc(x.card.ean)}</td><td class="t-tit">${esc(x.card.longTitle)}</td><td>${atUtenza(x.u.account)}</td><td>${esc(x.card.editorialSeriesCode)}</td><td>${esc(x.card.genre)}</td><td>${esc(x.card.vatCode)}</td>
             <td class="r">${fDec2(x.card.price)}</td><td class="small">${esc(x.card.author)}</td><td><button class="btn" data-del-at="${i}">Togli</button></td></tr>`).join('')}</tbody></table></div>
-          <button class="btn pri" id="at-invia" style="margin-top:12px">Invia ${AT.lista.length} ${AT.lista.length === 1 ? 'titolo' : 'titoli'} a Messaggerie</button>` : ''}</div>`}`;
+          <button class="btn pri" id="at-invia" style="margin-top:12px">Invia ${AT.lista.length} ${AT.lista.length === 1 ? 'titolo' : 'titoli'} al portale</button>` : ''}</div>`}`;
   },
   init(){
     if (!ADMIN() || !AT.utenze?.length) return;
@@ -2780,7 +2778,7 @@ S.anagrafiche = {
           const msg = $('#at-m-msg');
           if (!camb.length) { msg.textContent = 'Nessuna modifica.'; return; }
           if (!card.longTitle || !card.shortTitle || !card.editorialSeriesCode || !card.genre || !(card.price > 0)) { msg.innerHTML = '<span style="color:var(--ko)">Titolo, titolo breve, collana, genere e prezzo sono obbligatori.</span>'; return; }
-          if (!confirm(`Salvare su Messaggerie le modifiche di ${m.t.ean}?\n\n${camb.map(([k, l]) => `${l}: ${m.orig[k] ?? '—'} → ${card[k] ?? '—'}`).join('\n')}`)) return;
+          if (!confirm(`Salvare sul portale le modifiche di ${m.t.ean}?\n\n${camb.map(([k, l]) => `${l}: ${m.orig[k] ?? '—'} → ${card[k] ?? '—'}`).join('\n')}`)) return;
           msg.textContent = 'Salvo…';
           try { const d = await atCall({ azione: 'modifica', account: m.u.account, titoli: [card] }); const t = atTesto(d.risposta);
             msg.innerHTML = `<span style="color:var(--ok)">Modifiche inviate.</span>${t ? ' ' + esc(t).slice(0, 400) : ''}`; m.orig = { ...card }; m.card = card;
@@ -2814,7 +2812,7 @@ S.anagrafiche = {
       });
       document.querySelectorAll('[data-del-at]').forEach(b => b.addEventListener('click', () => { AT.lista.splice(+b.dataset.delAt, 1); render(); }));
       $('#at-invia')?.addEventListener('click', async ev => {
-        if (!confirm(`Inviare a Messaggerie ${AT.lista.length} nuove anagrafiche titolo?`)) return;
+        if (!confirm(`Inviare al portale ${AT.lista.length} nuove anagrafiche titolo?`)) return;
         const b = ev.target; b.disabled = true; b.textContent = 'Invio…';
         const per = {}; AT.lista.forEach(x => (per[x.u.account] ||= []).push(x));
         const esiti = [];
@@ -2824,7 +2822,7 @@ S.anagrafiche = {
         }
         const ok = new Set(esiti.flatMap(x => x.eans));
         AT.lista = AT.lista.filter(x => !ok.has(x.card.ean));
-        alert(esiti.map(x => `${atUtenza(x.acc)}: ${x.ok ? x.n + ' titoli inviati' : 'non inviati'}${x.t ? '\n' + x.t.slice(0, 600) : ''}`).join('\n\n') + '\n\nMessaggerie valida le anagrafiche: le ritrovi in "Consulta e modifica" appena elaborate.');
+        alert(esiti.map(x => `${atUtenza(x.acc)}: ${x.ok ? x.n + ' titoli inviati' : 'non inviati'}${x.t ? '\n' + x.t.slice(0, 600) : ''}`).join('\n\n') + '\n\nIl portale valida le anagrafiche: le ritrovi in "Consulta e modifica" appena elaborate.');
         render();
       });
     }
@@ -2864,15 +2862,20 @@ S.eventi = {
           ${attivi.length ? `<div class="card" style="margin-bottom:16px"><h3>Eventi per tipo</h3><p class="h-sub">Esclusi gli annullati</p><div class="ch sm"><canvas id="c-ev"></canvas></div></div>` : ''}
           <div class="card"><h3>${ADMIN() ? 'Nuovo evento' : 'Proponi un evento'}</h3><p class="h-sub">${ADMIN() ? 'Inserito da PDE: puoi registrarlo già confermato' : 'Arriva al team PDE per la conferma'}</p>
             <form class="form" id="f-ev" style="grid-template-columns:1fr">
-              <label>Titolo<input type="text" name="titolo" required placeholder="Es. presentazione di…"></label>
-              <label>Data<input type="date" name="data" required></label>
+              <label>Titolo dell'evento<input type="text" name="titolo" required placeholder="Es. presentazione di…"></label>
+              <div class="form" style="grid-template-columns:1fr 1fr;padding:0;margin:0"><label>Data<input type="date" name="data" required></label><label>Orario<input type="time" name="ora"></label></div>
               <label class="ac-wrap">Libreria o città
                 <input type="text" id="ev-luogo" autocomplete="off" placeholder="Nome o codice della libreria, oppure la città">
                 <div class="ac" id="ev-ac" hidden></div></label>
               <div class="small" id="ev-scelta"></div>
-              <label>Autore<input type="text" name="autore"></label>
-              <label>Tipo<select name="tipo">${TIPI_EVENTO.map(t => `<option>${t}</option>`).join('')}</select></label>
-              <label>Note<textarea name="note" rows="2" placeholder="Orario, ospiti, materiali…"></textarea></label>
+              <label>Libro interessato<input type="text" name="libro" id="ev-libro" list="dl-ev-libri" autocomplete="off" placeholder="Titolo o EAN del libro"></label>
+              <datalist id="dl-ev-libri">${R.titoli.slice(0, 4000).map(t => `<option value="${esc(titleCase(t.titolo || ''))} · ${esc(t.ean)}">${esc(t.autore || '')}</option>`).join('')}</datalist>
+              <label>Autore<input type="text" name="autore" id="ev-autore"></label>
+              <label>Ospiti<input type="text" name="ospiti" placeholder="Es. dialoga con…, moderatore, altri autori"></label>
+              <div class="form" style="grid-template-columns:1fr 1fr;padding:0;margin:0">
+                <label>Tipo<select name="tipo">${TIPI_EVENTO.map(t => `<option>${t}</option>`).join('')}</select></label>
+                <label title="Copie del libro da mandare in libreria per l'evento">Quantità proposta<input type="number" name="quantita" min="0" step="1" placeholder="copie"></label></div>
+              <label>Note<textarea name="note" rows="3" placeholder="Es. ordinare anche tutti gli altri titoli dello stesso autore; materiali, locandine…"></textarea></label>
               ${ADMIN() ? '<label class="small" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="confermato" style="width:auto"> Registra già confermato</label>' : ''}
               <button class="btn pri" type="submit">${ADMIN() ? 'Registra evento' : 'Invia proposta'}</button>
             </form></div>
@@ -2941,13 +2944,19 @@ S.eventi = {
     });
     inp.addEventListener('blur', () => setTimeout(() => { ac.hidden = true; }, 150));
     inp.addEventListener('focus', () => { if (!scelta && ac.innerHTML) ac.hidden = false; });
+    // libro interessato: dall'elenco dei titoli dell'editore; l'autore si compila da solo
+    $('#ev-libro').addEventListener('change', e => { const m = /·\s*(\d{8,14})\s*$/.exec(e.target.value), t = m && R.titoliMap.get(m[1]);
+      if (t && t.autore && !$('#ev-autore').value) $('#ev-autore').value = titleCase(t.autore); });
     $('#f-ev').addEventListener('submit', ev => {
       ev.preventDefault();
       // scritta a mano una città dell'elenco senza sceglierla: vale come città
       if (!scelta && ultimo) { const t = inp.value.trim().toLowerCase(); const c = (ultimo.citta || []).find(x => x.citta.toLowerCase() === t); if (c) scegli({ tipo: 'citta', ...c }); }
       if (!scelta) { alert('Scegli dall\'elenco una libreria oppure una città.'); inp.focus(); return; }
       const d = Object.fromEntries(new FormData(ev.target));
-      const p = { titolo: d.titolo, data: d.data, tipo: d.tipo, autore: d.autore, note: d.note, stato: d.confermato ? 'Confermato' : 'Proposto',
+      const ml = /^(.*?)\s*·\s*(\d{8,14})\s*$/.exec(d.libro || '');
+      const p = { titolo: d.titolo, data: d.data, ora: d.ora, tipo: d.tipo, autore: d.autore, note: d.note, stato: d.confermato ? 'Confermato' : 'Proposto',
+        libro_ean: ml ? ml[2] : (/^\d{13}$/.test((d.libro || '').trim()) ? d.libro.trim() : ''), libro_titolo: ml ? ml[1] : (/^\d{13}$/.test((d.libro || '').trim()) ? (R.titoliMap.get(d.libro.trim()) || {}).titolo || '' : (d.libro || '').trim()),
+        ospiti: d.ospiti, quantita: d.quantita,
         luogo: scelta.tipo === 'libreria' ? inp.value : `${titleCase(scelta.citta)}${scelta.provincia ? ' (' + scelta.provincia + ')' : ''}`,
         codice_cliente: scelta.tipo === 'libreria' ? scelta.cc : '', citta: scelta.citta || '', provincia: scelta.provincia || '', da_individuare: scelta.tipo === 'citta' };
       salvaCon(ev.submitter || ev.target.querySelector('[type=submit]'), async () => {
@@ -2959,53 +2968,139 @@ S.eventi = {
   },
 };
 
-/* ---------- Materiali giri ---------- */
-const TIPI_MAT = ['Cedola novità', 'Schede titolo', 'Copertine', 'Comunicato stampa', 'Materiale POP', 'Altro'];
-let FILE_SESSIONE = {};   // file caricati in questa sessione, per poterli riaprire
+/* ---------- Materiali giri ----------
+   L'editore carica PDF ed Excel per un giro vendita o un extra giro (bucket privato ed-materiali, elenco in ed_materiali_inviati).
+   PDE pubblica i PDF nei Materiali dei giri di BookUp (bucket materiali-agenti + materiali_pdf, come fa BookUp) e usa l'Excel
+   della cedola per creare la cedola in Giro Manager (Import da file editore). */
+const TIPI_MAT = ['Cedola (Excel)', 'Cedola (PDF)', 'Schede titolo', 'Copertine', 'Comunicato stampa', 'Materiale POP', 'Altro'];
+const MAT_ED = 'ed-materiali', MAT_BU = 'materiali-agenti';
+const slugFile = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9.]+/g, '_').replace(/^_+|_+$/g, '') || 'file';
+const formatoDi = n => /\.pdf$/i.test(n) ? 'pdf' : /\.(xlsx|xlsm|xls|csv)$/i.test(n) ? 'excel' : 'altro';
+const cartellaGiro = g => `GIRO ${g.numero} ${g.anno}`;
+const STATI_MAT = { 'Inviato': ['warn', 'Arrivato a PDE'], 'In BookUp': ['ok', 'Pubblicato in BookUp'], 'In Giro Manager': ['ok', 'Cedola in Giro Manager'], 'Scartato': ['mut', 'Scartato'] };
+async function apriMateriale(path){
+  const { data, error } = await sb.storage.from(MAT_ED).createSignedUrl(path, 120);
+  if (error) throw error; window.open(data.signedUrl, '_blank', 'noopener');
+}
+// PDF → Materiali dei giri di BookUp: stesso schema di BookUp (cartella del giro, nome "ranking-EDITORE")
+async function pubblicaInBookUp(m, marchio){
+  const { data: blob, error: e1 } = await sb.storage.from(MAT_ED).download(m.storage_path); if (e1) throw e1;
+  const ed = String(marchio.nome).replace(/[\/\\:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const base = m.tipo_materiale === 'Cedola (PDF)' ? `${Number(marchio.ranking)}-${ed}` : m.tipo_materiale === 'Altro' ? `${Number(marchio.ranking)}-${ed} - ${m.nome_file.replace(/\.pdf$/i, '')}` : `${Number(marchio.ranking)}-${ed} - ${m.tipo_materiale}`;
+  const nome = base + '.pdf', path = `${slugFile(m.cartella)}/${slugFile(base)}.pdf`;
+  const { error: e2 } = await sb.storage.from(MAT_BU).upload(path, blob, { upsert: true, contentType: 'application/pdf' });
+  if (e2) throw new Error('BookUp non accetta il file: serve un utente amministratore di BookUp. ' + e2.message);
+  const { error: e3 } = await sb.from('materiali_pdf').upsert({ cartella: m.cartella, tipo: m.destinazione === 'extra' ? 'extra' : 'giro', ranking: Number(marchio.ranking),
+    editore: marchio.nome, codice_editore: ED.codice_editore, nome_file: nome, storage_path: path, dimensione: m.dimensione, caricato_il: new Date().toISOString() }, { onConflict: 'cartella,nome_file' });
+  if (e3) throw e3;
+  await rpc('ed_materiale_stato', { p_editore: ED.codice_editore, p_id: m.id, p_stato: 'In BookUp' });
+}
 S.materiali = {
-  titolo: 'Materiali giri vendita', sub: () => 'Materiali già consegnati a PDE e scadenze dei prossimi giri',
+  titolo: 'Materiali giri vendita', sub: () => 'Cedole e materiali per i giri vendita e gli extra giri: arrivano a PDE, in BookUp e in Giro Manager',
+  async prepara(){ if (!R.matInv) R.matInv = await rpc('ed_materiali_inviati_lista', { p_editore: ED.codice_editore }).catch(() => ({ file: [], marchi: [], extra: [] })); },
   html(){
     const aperti = R.giri.filter(g => g.stato !== 'chiuso');
-    const M = R.materiali;
-    const loc = leggi(KEY_MAT);
+    const M = R.materiali, X = R.matInv || { file: [], marchi: [], extra: [] }, F = X.file || [];
+    STATO.matDest ||= 'giro';
+    const daGestire = F.filter(m => m.stato === 'Inviato').length;
+    const marchi = X.marchi || [];
     return `
-      <p class="lead">Per ogni giro servono cedola, schede titolo e copertine entro la data di consegna dei materiali: gli agenti PDE li usano in libreria.</p>
-      ${aperti.length ? `<div class="giri">${aperti.map(g => { const d = g.consegna ? diffGg(g.consegna, OGGI) : null; return `<div class="giro" style="cursor:default">
+      <p class="lead">Per ogni giro vendita o extra giro carica qui la <b>cedola in Excel</b> e i <b>materiali in PDF</b> (cedola, schede titolo, copertine…), entro la data di consegna dei materiali.
+      I file arrivano a PDE: i PDF vanno nei Materiali dei giri di <b>BookUp</b>, che gli agenti usano in libreria; l'Excel della cedola serve a creare la cedola del giro in <b>Giro Manager</b>.</p>
+      ${aperti.length ? `<div class="giri">${aperti.map(g => { const d = g.consegna ? diffGg(g.consegna, OGGI) : null; const n = F.filter(m => m.giro_chiave === g.chiave).length; return `<div class="giro" style="cursor:default">
         <div class="row" style="margin:0"><span class="n">${esc(nomeGiro(g))}</span>${d == null ? '' : d < 0 ? '<span class="pill mut">consegna chiusa</span>' : d <= 7 ? `<span class="pill ko">${d} gg</span>` : `<span class="pill info">${d} gg</span>`}</div>
         <div class="d">${g.consegna ? 'Materiali entro il ' + fData(g.consegna) : 'Data di consegna non indicata'}${g.uscita ? ' · uscite ' + esc(g.uscita.toLowerCase()) : ''}</div>
-        <div class="row"><span class="muted">${g.titoli.length} titoli</span>${pillGiro(g.stato)}</div></div>`; }).join('')}</div>` : ''}
+        <div class="row"><span class="muted">${g.titoli.length} titoli · ${n ? `${n} file inviati` : 'nessun file inviato'}</span>${pillGiro(g.stato)}</div></div>`; }).join('')}</div>` : ''}
       <div class="grid g2">
-        <div class="card"><h3>Materiali consegnati a PDE</h3><p class="h-sub">${M.length} file nell'archivio dei giri</p>
-          <div class="tw scroll"><table class="tbl"><thead><tr><th>File</th><th>Giro</th><th class="r">Dimensione</th><th>Caricato il</th></tr></thead>
-          <tbody>${M.map(m => `<tr><td class="t-tit">${esc(m.nome_file)}</td><td class="small">${esc(titleCase(m.cartella || ''))}</td><td class="r small">${m.dimensione ? fDec.format(m.dimensione / 1048576) + ' MB' : '—'}</td><td class="small">${m.caricato_il ? fData(new Date(m.caricato_il)) : '—'}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">Nessun materiale ancora consegnato</td></tr>'}</tbody></table></div></div>
-        <div class="card"><h3>Prepara nuovi materiali</h3><p class="h-sub">Scegli giro e tipo, poi trascina i file</p>
+        <div class="card"><h3>Invia materiali</h3><p class="h-sub">Scegli il giro o l'extra giro e il tipo, poi trascina i file: partono subito</p>
           <div class="form" style="margin-bottom:12px">
-            <label>Giro<select id="m-giro">${(aperti.length ? aperti : R.giri).map(g => `<option value="${g.chiave}">${esc(nomeGiro(g))}</option>`).join('')}</select></label>
-            <label>Tipo di materiale<select id="m-tipo">${TIPI_MAT.map(t => `<option>${t}</option>`).join('')}</select></label></div>
-          <div class="drop" id="drop"><b>Trascina qui i file</b>oppure clicca per sceglierli · PDF, immagini, Excel, Word<input type="file" id="m-file" multiple hidden></div>
-          <div class="tw" style="margin-top:14px"><table class="tbl"><tbody>${loc.length ? loc.map(m => `<tr><td class="t-tit">${FILE_SESSIONE[m.id] ? `<a href="${FILE_SESSIONE[m.id]}" target="_blank" rel="noopener">${esc(m.nome)}</a>` : esc(m.nome)}</td><td><span class="pill info">${esc(m.tipo)}</span></td><td class="small">${esc(m.giro || '')}</td>
-            <td class="r small">${fDec.format(m.size / 1048576)} MB</td><td><button class="btn" data-del="${m.id}">Rimuovi</button></td></tr>`).join('') : '<tr><td class="empty">Nessun file preparato</td></tr>'}</tbody></table></div>
-          <p class="note"><span class="pill warn">In arrivo</span> l'invio diretto all'archivio PDE: per ora i file preparati restano in questo browser.</p></div>
-      </div>`;
+            <label>Per<select id="m-dest"><option value="giro" ${STATO.matDest === 'giro' ? 'selected' : ''}>Giro vendita</option><option value="extra" ${STATO.matDest === 'extra' ? 'selected' : ''}>Extra giro</option></select></label>
+            ${STATO.matDest === 'giro'
+              ? `<label>Giro<select id="m-giro">${(aperti.length ? aperti : R.giri).map(g => `<option value="${g.chiave}">${esc(nomeGiro(g))}</option>`).join('')}</select></label>`
+              : `<label>Extra giro<input type="text" id="m-extra" list="dl-extra" placeholder="es. EXTRA GIRO DICEMBRE 2026 o nome della campagna" value="${esc(STATO.matExtra || '')}"></label>
+                 <datalist id="dl-extra">${(X.extra || []).map(c => `<option value="${esc(c)}">`).join('')}</datalist>`}
+            <label>Tipo di materiale<select id="m-tipo">${TIPI_MAT.map(t => `<option ${t === STATO.matTipo ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+            <label style="grid-column:1/-1">Note per PDE<input type="text" id="m-note" placeholder="Facoltativo: es. sostituisce la cedola inviata ieri"></label></div>
+          <div class="drop" id="drop"><b>Trascina qui i file</b>oppure clicca per sceglierli · PDF ed Excel, fino a 50 MB<input type="file" id="m-file" multiple hidden accept=".pdf,.xlsx,.xlsm,.xls,.csv,.doc,.docx,.jpg,.jpeg,.png,.zip"></div>
+          <p class="small" id="m-stato" style="margin:8px 0 0"></p>
+          </div>
+        <div class="card"><h3>Dove vanno i file</h3><p class="h-sub">Lo stato di ogni file lo trovi nell'elenco qui sotto</p>
+          <div class="passi">
+            <div><b>1</b><span><b>Arrivano a PDE</b>Appena caricati, PDE li vede in questa pagina.${daGestire ? ` <span class="pill warn">${num(daGestire)} da lavorare</span>` : ''}</span></div>
+            <div><b>2</b><span><b>PDF → BookUp</b>Cedola, schede, copertine finiscono nei Materiali dei giri di BookUp, nella cartella del giro o dell'extra giro: gli agenti li usano in libreria. <span class="pill ok">${num(F.filter(m => m.stato === 'In BookUp').length)} pubblicati</span></span></div>
+            <div><b>3</b><span><b>Excel → Giro Manager</b>Con l'Excel della cedola PDE crea la cedola del giro in Giro Manager (titoli, prezzi, uscite) per il prenotato degli agenti. <span class="pill ok">${num(F.filter(m => m.stato === 'In Giro Manager').length)} cedole</span></span></div>
+          </div></div>
+      </div>
+        <div class="card" style="margin-top:16px"><div class="card-head"><div><h3>Materiali inviati</h3><p class="h-sub">${F.length ? `${num(F.length)} file${daGestire ? ` · ${num(daGestire)} da lavorare per PDE` : ''}` : 'Nessun file inviato'}</p></div></div>
+          ${F.length ? `<div class="tw scroll" style="max-height:520px"><table class="tbl"><thead><tr><th>File</th><th>Giro o extra giro</th><th>Tipo</th><th>Inviato il</th><th>Stato</th><th></th></tr></thead><tbody>
+          ${F.map(m => { const [c, l] = STATI_MAT[m.stato] || ['mut', m.stato];
+            const az = ADMIN() ? (m.stato === 'Inviato'
+                ? (m.formato === 'pdf' ? (marchi.length > 1 ? `<select class="m-marchio" data-id="${m.id}" style="max-width:150px">${marchi.map((x, i) => `<option value="${i}">${esc(titleCase(x.nome))}</option>`).join('')}</select> ` : '')
+                    + `<button class="btn pri" data-mbu="${m.id}" ${marchi.length ? '' : 'disabled title="L\'editore non è in Ranking editori di BookUp"'}>Pubblica in BookUp</button> `
+                  : m.formato === 'excel' ? `<button class="btn pri" data-mgm="${m.id}" title="Dopo averla caricata in Giro Manager con Import da file editore">Cedola in Giro Manager</button> ` : '')
+                  + `<button class="btn" data-mst="${m.id}" data-st="Scartato">Scarta</button> `
+                : `<button class="btn" data-mst="${m.id}" data-st="Inviato">Riapri</button> `) + `<button class="btn" data-mdel="${m.id}">Elimina</button>`
+              : m.stato === 'Inviato' ? `<button class="btn" data-mdel="${m.id}">Elimina</button>` : '';
+            return `<tr><td class="t-tit"><a href="#" data-mapri="${esc(m.storage_path)}">${esc(m.nome_file)}</a><div class="t-sub">${m.formato === 'pdf' ? 'PDF' : m.formato === 'excel' ? 'Excel' : 'File'}${m.dimensione ? ' · ' + fDec.format(m.dimensione / 1048576) + ' MB' : ''}${m.note ? ' · ' + esc(m.note) : ''}</div></td>
+              <td class="small">${esc(titleCase(m.cartella))}<div class="t-sub">${m.destinazione === 'extra' ? 'Extra giro' : 'Giro vendita'}</div></td><td class="small">${esc(m.tipo_materiale)}</td>
+              <td class="small">${fData(new Date(m.creato_il))}${ADMIN() && m.creato_da ? `<div class="t-sub">${esc(m.creato_da)}</div>` : ''}</td>
+              <td><span class="pill ${c}">${l}</span></td><td style="white-space:nowrap">${az}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Quando invii un file lo trovi qui, con lo stato: arrivato a PDE, pubblicato in BookUp, cedola in Giro Manager.</div>'}</div>
+      <div class="card" style="margin-top:16px"><h3>Già nei Materiali dei giri di BookUp</h3><p class="h-sub">${M.length} file di ${esc(ED.nome)} che gli agenti vedono in BookUp</p>
+        <div class="tw scroll" style="max-height:360px"><table class="tbl"><thead><tr><th>File</th><th>Giro o extra giro</th><th class="r">Dimensione</th><th>Caricato il</th></tr></thead>
+        <tbody>${M.map(m => `<tr><td class="t-tit">${esc(m.nome_file)}</td><td class="small">${esc(titleCase(m.cartella || ''))}</td><td class="r small">${m.dimensione ? fDec.format(m.dimensione / 1048576) + ' MB' : '—'}</td><td class="small">${m.caricato_il ? fData(new Date(m.caricato_il)) : '—'}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">Nessun materiale in BookUp</td></tr>'}</tbody></table></div></div>`;
   },
   init(){
-    const drop = $('#drop'), inp = $('#m-file');
+    const drop = $('#drop'), inp = $('#m-file'), st = $('#m-stato');
     if (!drop) return;
-    const aggiungi = files => {
-      const L = leggi(KEY_MAT), sel = $('#m-giro');
-      [...files].forEach(f => {
-        const id = 'm' + Date.now() + Math.random().toString(36).slice(2, 6);
-        FILE_SESSIONE[id] = URL.createObjectURL(f);
-        L.push({ id, giro: sel.options[sel.selectedIndex]?.text || '', nome: f.name, size: f.size, tipo: $('#m-tipo').value, quando: Date.now() });
-      });
-      scrivi(KEY_MAT, L); render();
+    const X = R.matInv || { file: [], marchi: [] };
+    const ricaricaMat = async () => { R.matInv = await rpc('ed_materiali_inviati_lista', { p_editore: ED.codice_editore }); render(); };
+    $('#m-dest').addEventListener('change', e => { STATO.matDest = e.target.value; STATO.matTipo = $('#m-tipo').value; render(); });
+    $('#m-tipo').addEventListener('change', e => { STATO.matTipo = e.target.value; });
+    $('#m-extra')?.addEventListener('input', e => { STATO.matExtra = e.target.value; });
+    const invia = async files => {
+      files = [...files]; if (!files.length) return;
+      const extra = STATO.matDest === 'extra', g = extra ? null : R.giri.find(x => x.chiave === $('#m-giro').value);
+      const cartella = extra ? ($('#m-extra').value || '').trim().toUpperCase() : g ? cartellaGiro(g) : '';
+      if (!cartella) { alert(extra ? 'Scrivi il nome dell\'extra giro' : 'Scegli il giro'); return; }
+      const grandi = files.filter(f => f.size > 52428800); if (grandi.length) { alert('Questi file superano 50 MB: ' + grandi.map(f => f.name).join(', ')); return; }
+      drop.classList.add('busy'); let ok = 0; const err = [];
+      for (const [i, f] of files.entries()){
+        st.textContent = `Invio ${i + 1} di ${files.length}: ${f.name}…`;
+        const formato = formatoDi(f.name);
+        let tipo = $('#m-tipo').value; if (formato === 'excel' && tipo === 'Cedola (PDF)') tipo = 'Cedola (Excel)'; if (formato === 'pdf' && tipo === 'Cedola (Excel)') tipo = 'Cedola (PDF)';
+        const path = `${ED.codice_editore}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${slugFile(f.name)}`;
+        try {
+          const { error } = await sb.storage.from(MAT_ED).upload(path, f, { contentType: f.type || undefined });
+          if (error) throw error;
+          await rpc('ed_materiale_registra', { p_editore: ED.codice_editore, p: { destinazione: extra ? 'extra' : 'giro', giro_chiave: g ? g.chiave : '', cartella,
+            tipo_materiale: tipo, formato, nome_file: f.name, storage_path: path, dimensione: f.size, note: $('#m-note').value } });
+          ok++;
+        } catch (e) { err.push(`${f.name}: ${e.message || e}`); }
+      }
+      drop.classList.remove('busy');
+      await ricaricaMat();
+      const s2 = $('#m-stato'); if (s2) s2.innerHTML = `${ok ? `<span class="pill ok">${ok} ${ok === 1 ? 'file inviato' : 'file inviati'} a PDE</span>` : ''}${err.length ? ` <span class="pill ko">non inviati: ${esc(err.join(' · '))}</span>` : ''}`;
     };
     drop.addEventListener('click', () => inp.click());
-    inp.addEventListener('change', () => aggiungi(inp.files));
+    inp.addEventListener('change', () => invia(inp.files));
     ['dragenter', 'dragover'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('over'); }));
     ['dragleave', 'drop'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('over'); }));
-    drop.addEventListener('drop', ev => aggiungi(ev.dataTransfer.files));
-    document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => { scrivi(KEY_MAT, leggi(KEY_MAT).filter(m => m.id !== b.dataset.del)); render(); }));
+    drop.addEventListener('drop', ev => invia(ev.dataTransfer.files));
+    const trova = id => (X.file || []).find(m => m.id === id);
+    document.querySelectorAll('[data-mapri]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); apriMateriale(a.dataset.mapri).catch(er => alert('Non riesco ad aprire il file: ' + er.message)); }));
+    document.querySelectorAll('[data-mdel]').forEach(b => b.addEventListener('click', () => { if (!confirm('Eliminare questo file?')) return;
+      salvaCon(b, async () => { const path = await rpc('ed_materiale_elimina', { p_editore: ED.codice_editore, p_id: b.dataset.mdel }); if (path) await sb.storage.from(MAT_ED).remove([path]); await ricaricaMat(); }); }));
+    document.querySelectorAll('[data-mst]').forEach(b => b.addEventListener('click', () => salvaCon(b, async () => {
+      await rpc('ed_materiale_stato', { p_editore: ED.codice_editore, p_id: b.dataset.mst, p_stato: b.dataset.st }); await ricaricaMat(); })));
+    document.querySelectorAll('[data-mgm]').forEach(b => b.addEventListener('click', () => {
+      if (!confirm('Segnare la cedola come caricata in Giro Manager?\n\nIn Giro Manager si carica con "Import da file editore": apri il file con il link qui accanto e trascinalo lì.')) return;
+      salvaCon(b, async () => { await rpc('ed_materiale_stato', { p_editore: ED.codice_editore, p_id: b.dataset.mgm, p_stato: 'In Giro Manager' }); await ricaricaMat(); }); }));
+    document.querySelectorAll('[data-mbu]').forEach(b => b.addEventListener('click', () => {
+      const m = trova(b.dataset.mbu), sel = document.querySelector(`.m-marchio[data-id="${m.id}"]`), marchio = (X.marchi || [])[sel ? +sel.value : 0];
+      if (!m || !marchio) return;
+      if (!confirm(`Pubblicare "${m.nome_file}" nei Materiali dei giri di BookUp?\n\nCartella: ${m.cartella}\nEditore: ${marchio.nome} (ranking ${marchio.ranking})\n\nGli agenti lo vedranno in BookUp.`)) return;
+      salvaCon(b, async () => { await pubblicaInBookUp(m, marchio); await ricarica('materiali', 'ed_materiali'); await ricaricaMat(); });
+    }));
   },
 };
 
