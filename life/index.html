@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PDE Life</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: mappa a colonne da sinistra a destra (chi usa → ingresso → app → Supabase → motori → mondo esterno),
+   tela SVG con pan/zoom, tubi animati per tipo di flusso, pannello dettagli a destra (in basso su telefono). */
+:root{
+  --ink:#060a13; --ink-2:#0b1220; --glass:#0f1828; --glass-2:#142035; --line:#1d2b44;
+  --fg:#e6edf8; --fg-2:#9fb0c9; --fg-3:#62738f;
+  --c-accesso:#3ee8ff; --c-dati:#a98bff; --c-funzione:#5b8cff; --c-esterno:#ffb547;
+  --c-auto:#45f0a6; --c-auth:#ff5fa2; --c-link:#7d8aa3;
+  --live:#45f0a6; --arriva:#ffb547; --legacy:#7d8aa3;
+  --f-display:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0}
+body{background:var(--ink);color:var(--fg);font-family:var(--f-body);font-size:14px;overflow:hidden}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;}
+header{
+  padding-block:14px 12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0a1222,var(--ink));
+  display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;position:relative;z-index:5;
+}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+.brand h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:20px;letter-spacing:.01em;text-wrap:balance}
+.brand h1 b{color:var(--c-accesso);font-weight:700}
+.brand small{color:var(--fg-3);font-family:var(--f-mono);font-size:11px}
+.stats{display:flex;gap:16px;font-family:var(--f-mono);font-size:12px;color:var(--fg-2);font-variant-numeric:tabular-nums}
+.stats span b{color:var(--fg);font-weight:500;font-size:15px;margin-right:4px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-left:auto}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  font:500 12px var(--f-body);color:var(--fg-2);background:var(--glass);border:1px solid var(--line);
+  padding:5px 10px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.2s;
+}
+.chip:hover{color:var(--fg);border-color:#2d4166}
+.chip[aria-pressed="true"]{color:var(--fg);border-color:var(--c-accesso);box-shadow:0 0 0 1px var(--c-accesso) inset,0 0 14px -4px var(--c-accesso)}
+.chip i{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
+.chip.off{opacity:.45}
+.chip.off i{background:transparent;border:1px solid currentColor}
+input#q{
+  font:13px var(--f-body);color:var(--fg);background:var(--glass);border:1px solid var(--line);border-radius:8px;
+  padding:6px 10px;width:180px;
+}
+input#q:focus,.chip:focus-visible,button:focus-visible{outline:2px solid var(--c-accesso);outline-offset:2px}
+.legend-row{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:12px;color:var(--fg-3)}
+.legend-row .lbl{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+.stage{position:relative;overflow:hidden;cursor:grab;touch-action:none}
+.stage.dragging{cursor:grabbing}
+.stage::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(1200px 700px at 35% 40%,rgba(62,232,255,.06),transparent 60%),
+    radial-gradient(900px 600px at 80% 70%,rgba(169,139,255,.06),transparent 60%);
+}
+svg#map{width:100%;height:100%;display:block;position:relative}
+.zoom{position:absolute;left:max(16px,calc(env(safe-area-inset-left,0px) + 12px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;z-index:4}
+.zoom button{
+  width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:rgba(15,24,40,.9);color:var(--fg);
+  font:600 16px var(--f-display);cursor:pointer;
+}
+.zoom button:hover{border-color:var(--c-accesso)}
+.hint{position:absolute;left:64px;bottom:calc(22px + env(safe-area-inset-bottom,0px));font-size:12px;color:var(--fg-3);pointer-events:none}
+
+/* --- SVG --- */
+.colhead{font:600 11px var(--f-mono);letter-spacing:.16em;text-transform:uppercase;fill:var(--fg-3)}
+.grouphead{font:500 10.5px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;fill:#4c5d7a}
+.colband{fill:rgba(255,255,255,.012);stroke:rgba(255,255,255,.03)}
+.pipe{fill:none;transition:opacity .3s}
+.pipe .tube{stroke:#132036;stroke-width:6;stroke-linecap:round}
+.pipe .core{stroke-width:1.6;stroke-opacity:.35;stroke-linecap:round}
+.pipe .flow{stroke-width:2.4;stroke-linecap:round;stroke-dasharray:2 22;animation:flow 1.6s linear infinite}
+.pipe.rev .flow{animation-direction:reverse}
+.pipe.t-link .flow{stroke-dasharray:1 9;animation-duration:3s}
+.pipe.t-link .core{stroke-dasharray:3 5}
+.pipe.dashed .core{stroke-dasharray:4 6}
+@keyframes flow{to{stroke-dashoffset:-24}}
+.dim .pipe{opacity:.06}
+.dim .pipe.on{opacity:1}
+.pipe.on .tube{stroke:#1a2c4a}
+.pipe.on .core{stroke-opacity:.9;stroke-width:2}
+.pipe.on .flow{stroke-width:3.2;animation-duration:.9s;filter:url(#glow)}
+.pipe.hide{display:none}
+
+.node{cursor:pointer}
+.node rect.box{fill:var(--glass);stroke:var(--line);stroke-width:1;transition:stroke .2s,fill .2s}
+.node:hover rect.box{stroke:#36507d;fill:var(--glass-2)}
+.node .halo{fill:none;stroke-width:1.5;opacity:0;transition:opacity .25s}
+.node.sel .halo,.node.hit .halo{opacity:1}
+.node .lbl{font:600 13px var(--f-display);fill:var(--fg)}
+.node .sub{font:400 10.5px var(--f-mono);fill:var(--fg-3)}
+.node .dot{stroke:var(--ink);stroke-width:2}
+.node .tag{font:600 9px var(--f-mono);letter-spacing:.08em}
+.node.big .lbl{font-size:22px}
+.node.big .sub{font-size:11px}
+.dim .node{opacity:.18;transition:opacity .3s}
+.dim .node.on{opacity:1}
+.node:focus{outline:none}
+.node:focus-visible rect.box{stroke:var(--c-accesso);stroke-width:2}
+
+/* --- pannello --- */
+aside#panel{
+  position:absolute;top:12px;right:max(12px,env(safe-area-inset-right,0px));bottom:12px;width:min(380px,calc(100% - 24px));
+  background:rgba(10,17,30,.94);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;
+  z-index:6;display:flex;flex-direction:column;box-shadow:0 20px 60px -20px rgba(0,0,0,.8);
+  transform:translateX(0);transition:transform .3s,opacity .3s;
+}
+aside#panel[hidden]{display:flex!important;transform:translateX(calc(100% + 40px));opacity:0;pointer-events:none}
+.p-head{padding:16px 18px 12px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
+.p-head > div{min-width:0;flex:1}
+.p-kicker{font:500 10.5px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--fg-3)}
+.p-head h2{margin:4px 0 2px;font:700 20px var(--f-display);text-wrap:balance}
+.p-sub{font:12px var(--f-mono);color:var(--fg-2);word-break:break-all}
+.p-close{background:none;border:1px solid var(--line);color:var(--fg-2);border-radius:8px;width:30px;height:30px;cursor:pointer;flex:none;font-size:16px}
+.p-body{padding:14px 18px 18px;overflow:auto;display:flex;flex-direction:column;gap:16px;min-height:0}
+.p-body p{margin:0;line-height:1.55;color:#cfd9ea;max-width:65ch}
+.p-sec h3{margin:0 0 6px;font:500 10.5px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--fg-3)}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font:12px var(--f-mono);padding:3px 8px;border-radius:6px;background:#111c30;border:1px solid var(--line);color:var(--fg-2)}
+.pill.who{font-family:var(--f-body);color:var(--fg);border-color:#24406a}
+.conn{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none}
+.conn li{display:grid;grid-template-columns:14px 1fr auto;gap:8px;align-items:center;font-size:13px;padding:5px 8px;border-radius:8px;cursor:pointer;background:#0d1626}
+.conn li:hover{background:#13203a}
+.conn li i{width:10px;height:3px;border-radius:2px}
+.conn li span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conn li em{font-style:normal;font:11px var(--f-mono);color:var(--fg-3)}
+.status{display:inline-flex;align-items:center;gap:6px;font:600 10.5px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid currentColor;width:max-content}
+.status.live{color:var(--live)} .status.arriva{color:var(--arriva)} .status.legacy{color:var(--legacy)}
+a.url{color:var(--c-accesso);font:12px var(--f-mono);word-break:break-all}
+
+@media (max-width:760px){
+  header{gap:10px}
+  .controls{margin-left:0;width:100%}
+  input#q{flex:1;min-width:0;width:auto}
+  .stats{display:none}
+  .hint{display:none}
+  aside#panel{top:auto;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));width:auto;height:58%;bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+  aside#panel[hidden]{transform:translateY(calc(100% + 40px))}
+}
+@media (prefers-reduced-motion:reduce){
+  .pipe .flow{animation:none;stroke-dasharray:none;stroke-opacity:.5}
+  aside#panel{transition:none}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+<header>
+  <div class="brand">
+    <h1>PDE <b>Life</b></h1>
+    <small>chi usa cosa · con chi parla · dove vanno i dati</small>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="controls">
+    <input id="q" type="search" placeholder="Cerca app, funzione, tabella…" aria-label="Cerca nella mappa">
+    <div class="chips" id="aud" role="group" aria-label="Filtra per destinatario"></div>
+  </div>
+  <div class="legend-row">
+    <span class="lbl">Flussi</span>
+    <div class="chips" id="legend" role="group" aria-label="Mostra o nascondi tipi di flusso"></div>
+  </div>
+</header>
+
+<div class="stage" id="stage">
+  <svg id="map" role="img" aria-label="Mappa interattiva di PDE Hub e delle app collegate">
+    <defs>
+      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="2.4" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="nodeglow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="6"/>
+      </filter>
+    </defs>
+    <g id="world">
+      <g id="bands"></g>
+      <g id="pipes"></g>
+      <g id="nodes"></g>
+    </g>
+  </svg>
+  <div class="zoom">
+    <button id="zin" aria-label="Ingrandisci">+</button>
+    <button id="zout" aria-label="Riduci">−</button>
+    <button id="zfit" aria-label="Adatta allo schermo" style="font-size:12px">⤢</button>
+  </div>
+  <div class="hint">Trascina per spostarti · rotella per lo zoom · clic su un nodo per i dettagli</div>
+
+  <aside id="panel" hidden aria-live="polite">
+    <div class="p-head">
+      <div>
+        <div class="p-kicker" id="p-kicker"></div>
+        <h2 id="p-title"></h2>
+        <div class="p-sub" id="p-sub"></div>
+      </div>
+      <button class="p-close" id="p-close" aria-label="Chiudi dettagli">×</button>
+    </div>
+    <div class="p-body" id="p-body"></div>
+  </aside>
+</div>
+</div>
+
+<script>
+/* ============================================================
+   DATI — ricostruiti dal codice in C:\Users\simolaa\PDE APP (24/11/2026)
+   ============================================================ */
+const COLS = [
+  {t:"Chi lo usa"},
+  {t:"Ingresso"},
+  {t:"App"},
+  {t:"Supabase"},
+  {t:"Motori · edge function & automazioni"},
+  {t:"Mondo esterno"}
+];
+
+const TYPES = {
+  accesso:  {label:"Accesso utenti",      c:"var(--c-accesso)", on:true},
+  dati:     {label:"Lettura / scrittura DB", c:"var(--c-dati)", on:true},
+  funzione: {label:"Chiamata edge function", c:"var(--c-funzione)", on:true},
+  esterno:  {label:"Integrazione esterna", c:"var(--c-esterno)", on:true},
+  auto:     {label:"Automatico / pianificato", c:"var(--c-auto)", on:true},
+  auth:     {label:"Login e utenze",       c:"var(--c-auth)", on:true},
+  link:     {label:"Link dal Hub",         c:"var(--c-link)", on:false}
+};
+
+const AUD = {
+  gest:{label:"Gestori"}, team:{label:"Team PDE"}, agenti:{label:"Agenti"}, editori:{label:"Editori"}, librerie:{label:"Librerie"}
+};
+const ALL_INT = ["gest","team"];
+
+const N = [
+  // ---- col 0: destinatari
+  {id:"u_gest", col:0, g:"Persone", label:"Gestori PDE", sub:"Alberto · Elisa", aud:"gest",
+   desc:"Account con app_metadata.gestione_utenti = true. Vedono tutto, comprese le card con data-solo-per (Analisi, Publisher, Events; Festival solo Alberto) e la sezione Amministrazione."},
+  {id:"u_team", col:0, g:"Persone", label:"Team PDE", sub:"ruolo admin / altro", aud:"team",
+   desc:"Colleghi interni. Nel Hub vedono Tool interni, AppSelling & Utility, Comunicazione, Presenze e HR, tranne le card riservate ai gestori."},
+  {id:"u_agenti", col:0, g:"Persone", label:"Agenti", sub:"ruolo agente", aud:"agenti",
+   desc:"Le sezioni con classe role-hide-agente sono nascoste: nel Hub vedono BookUp e le piattaforme esterne (RPN, portale Messaggerie, template di upload). Il primo accesso lo fanno da soli con hub-primo-accesso, senza email."},
+  {id:"u_editori", col:0, g:"Persone", label:"Editori", sub:"clienti PDE", aud:"editori",
+   desc:"Entrano nella BookUp Publisher Edition con il proprio account: dati, giri, clienti, fatture, GfK, collane ed eventi."},
+  {id:"u_librerie", col:0, g:"Persone", label:"Librerie", sub:"punti vendita", aud:"librerie",
+   desc:"Usano il portale PDE Libra: richiesta di accesso, sezioni e titoli, ordini, storico e chat con PDE."},
+
+  // ---- col 1
+  {id:"hub", col:1, g:"Porta d'ingresso", label:"PDE Hub", sub:"albertospde.github.io/pde-hub", big:true, who:["gest","team","agenti"],
+   url:"https://albertospde.github.io/pde-hub/",
+   desc:"Home unica del team: login Supabase condiviso con tutte le app, card per sezione, ogni app si apre in una scheda interna (iframe) con la sua tab. Filtra le card per ruolo (admin / agente / altro) e per email (data-solo-per). Tema chiaro/scuro, cambio password, gestione utenti per i gestori.",
+   fn:["hub-utenti","hub-primo-accesso"], extra:"Hosting: GitHub Pages (account albertospde), una repo per app. Link esterni nel Hub: GfK, RPN, Messaggerie, Zucchetti, template di upload RPN e MELI dal bucket Template."},
+
+  // ---- col 2: app
+  {id:"giro", col:2, g:"Tool interni", label:"Giro Manager", sub:"React + Vite", who:ALL_INT, url:"https://albertospde.github.io/giro-manager/",
+   desc:"Giri vendita, cedole, Fine Giro (prenotato), lanci settimanali Messaggerie, anticipi lancio, verifica lanci Amazon, calendario giri, spalmatura, terne, ranking editori, pubblicazione cedole su RPN, modulo SFTP.",
+   tab:["titoli","prenotato","lanci_settimanali","novita_fuori_lancio","giri","calendario_giri","ranking_editori","spalmatura_obiettivo","fatturato_lanci_mensile"],
+   fn:["giro-lanci-sync","giro-prenotato-sync","rpn-cedola-sync","rpn-titoli-cedola","rpn-titoli-storico","rpn-terne-sync","rpn-obiettivi","sftp-messaggerie"]},
+  {id:"bookup", col:2, g:"Tool interni", label:"BookUp", sub:"prenotazioni RPN librerie", who:["gest","team","agenti"], url:"https://albertospde.github.io/prenota/",
+   desc:"Il cuore operativo per agenti e team: prenotazioni RPN, ordini urgenti e sospesi, ordini di rifornimento, upload diretto MELI, consultazione titoli e disponibilità, materiali PDF dei giri, autorizzazione rese, inevasi, condizioni librai, iscrizione titoli a lancio.",
+   tab:["ordini_urgenti","ordini_sospesi","anagrafiche_clienti","titoli","titoli_manuali","prenotazioni_manuali","materiali_pdf","trasm_titoli_log","rifornimento_trasmessi","titoli_novita"],
+   fn:["rpn-sync","rpn-trasmissione","ou-titoli","condizioni-librai","giro-prenotato-sync","rpn-clienti-sync"]},
+  {id:"analisi", col:2, g:"Tool interni", label:"PDE Analisi", sub:"dati Messaggerie", who:["gest"], url:"https://albertospde.github.io/pde-analisi/",
+   desc:"Fornito, reso e venduto per giorno, editore, titolo, cliente e canale dai file Messaggerie PPSVMAGG (giornalieri) e PPSVMAFR (mensili). Accesso solo UTENTI_AMMESSI / _is_admin_pde().",
+   tab:["msg_movimenti","msg_titoli","msg_importazioni","sftp_file","sftp_config","sftp_scelte","sftp_esecuzioni"], fn:["sftp-messaggerie"],
+   extra:"Attenzione: DB MICRO condiviso, mai lavori pesanti di giorno."},
+  {id:"publisher", col:2, g:"Tool interni", label:"BookUp Publisher Edition", sub:"portale editori", who:["gest","editori"], url:"https://albertospde.github.io/pde-hub/publisher/",
+   desc:"Lato editore: giri e dettaglio, clienti e mesi, copertura agenti, cerca librerie, fatture e pagamenti, GfK (mercato e ranking), collane, logo, delegazioni, proposte di eventi. Sviluppo in APP EDITORE, copia pubblicata in PDE HUB/publisher.",
+   tab:["ed_* (RPC)","ed_eventi"], fn:["ou-titoli","anagrafiche-titoli"]},
+  {id:"qdm", col:2, g:"Tool interni", label:"QDM", sub:"quote di mercato", who:ALL_INT, url:"https://albertospde.github.io/qdm_pde/",
+   desc:"Quote di mercato settimanali da GfK: recap, top, generi, trend, promozioni per editore. Il pulsante ⟳ Aggiorna da GfK chiama la RPC qdm_gfk_avvia, che avvia il workflow GitHub.",
+   tab:["qdm","qdm_settimane","qdm_recap","qdm_top","qdm_generi","qdm_trend","qdm_promozioni","editore_promozione","qdm_import_log"]},
+
+  {id:"festival", col:2, g:"AppSelling & Utility", label:"PDE Festival", sub:"festival e fiere", who:["gest"], url:"https://albertospde.github.io/pde-festival/",
+   desc:"Ricevi la mail Messaggerie (.msg/.eml) → pratica FF-AAAA-NNN con fasi → ordina con il motore di BookUp → comunica (bozza .eml per Outlook) → recupera gli inevasi.",
+   tab:["ff_pratiche","ff_fasi","ff_righe","ff_ordini","ff_eventi","rifornimento_ordini_inviati"], fn:["rpn-sync","rifornimento-order-id"]},
+  {id:"ndc", col:2, g:"AppSelling & Utility", label:"Note di Credito", sub:"NDC", who:ALL_INT, url:"https://albertospde.github.io/note-di-credito/",
+   desc:"Gestione delle note di credito per editore e cliente.", tab:["note_credito","editori","anagrafiche_clienti"]},
+  {id:"condizioni", col:2, g:"AppSelling & Utility", label:"Condizioni Commerciali", sub:"variazioni condizioni", who:ALL_INT, url:"https://albertospde.github.io/pde-condizioni-commerciali/",
+   desc:"Richieste di condizioni speciali di vendita per le librerie.", tab:["condizioni_richieste"], fn:["rpn-sync"]},
+  {id:"converti", col:2, g:"AppSelling & Utility", label:"Converti Upload", sub:"RPN → MELI", who:ALL_INT, url:"https://albertospde.github.io/converti_upload/",
+   desc:"Converte la pianificazione visite / upload RPN nel template ordine Messaggerie. Lavora nel browser, senza tabelle proprie."},
+  {id:"copertine", col:2, g:"AppSelling & Utility", label:"Ricerca Copertine", sub:"per EAN", who:ALL_INT, url:"https://albertospde.github.io/pde_ricercacopertine/",
+   desc:"Cerca la copertina di un libro dall'EAN su più fonti, passando dal proxy per le immagini protette.", fn:["proxy-copertine"]},
+  {id:"libra", col:2, g:"AppSelling & Utility", label:"PDE Libra", sub:"portale librerie", who:["gest","team","librerie"], url:"https://albertospde.github.io/libra/",
+   desc:"Portale delle librerie: richieste di accesso, sezioni e titoli, ordini, storico, chat. Il team lo apre dal Hub come amministrazione. Usa ancora anche il vecchio progetto Supabase ORDINI LIBRAI.",
+   tab:["librerie","ordini","ordini_dettaglio","titoli","chat_conversazioni","chat_messaggi","materiali_sezione"], fn:["rpn-sync","recupera-credenziali"]},
+  {id:"snellino", col:2, g:"AppSelling & Utility", label:"Snellino", sub:"compressore PDF", who:ALL_INT, url:"https://albertospde.github.io/snellino/",
+   desc:"Comprime e modifica i PDF degli editori nel browser (Ghostscript WebAssembly, i file non escono dal PC) prima di caricarli in BookUp → Materiali PDF. Regola: oltre 250 dpi → 200 dpi, JPEG q85."},
+
+  {id:"events", col:2, g:"Comunicazione", label:"BookUp Events", sub:"regia eventi", who:["gest"], url:"https://albertospde.github.io/pde-hub/events/",
+   desc:"Calendario unico di eventi editori, saloni e bookclub. Le proposte degli editori (ed_eventi) arrivano dalla Publisher Edition: qui si confermano, modificano o annullano e l'editore vede subito l'esito.",
+   tab:["ed_eventi","ev_eventi","ev_saloni","ev_bookclub"]},
+  {id:"indie", col:2, g:"Comunicazione", label:"Indie Libri", sub:"librerie indipendenti", who:ALL_INT, url:"https://albertospde.github.io/indie-libri/",
+   desc:"La rivista delle librerie indipendenti: numeri, anagrafiche, invio agli agenti.", tab:["indie_rivista_* (RPC)","indie_agenti_lista"]},
+  {id:"newsweek", col:2, g:"Comunicazione", label:"PDE Newsweek", sub:"novità della settimana", who:ALL_INT, url:"https://albertospde.github.io/newsweek/",
+   desc:"Le novità in vendita nella settimana con copertine, ranking editori, prenotato e calendario lanci.",
+   tab:["titoli","lanci_settimanali","prenotato","ranking_editori","editori_new_entry","calendario_lanci"], fn:["proxy-copertine"]},
+
+  {id:"planning", col:2, g:"Presenze e HR", label:"PDE Planning", sub:"presenze e trasferte", who:ALL_INT, url:"https://albertospde.github.io/pde-planning/",
+   desc:"Pianificazione presenze, trasferte e incontri editori del team."},
+  {id:"parking", col:2, g:"Presenze e HR", label:"PDE Parking", sub:"calendario parcheggio", who:ALL_INT, url:"https://albertospde.github.io/pde-hub/parking/",
+   desc:"Calendario delle prenotazioni dei 4 colleghi (14 posti al piano −2, max 2 a settimana), stato dei flussi e pulsanti Prenota ora.",
+   tab:["parking_calendario","parking_config"]},
+
+  {id:"utenti", col:2, g:"Amministrazione", label:"Gestione utenti", sub:"pannello admin del Hub", who:["gest"],
+   desc:"Elenco utenti, password, ruolo, creazione account, flag gestore, primo accesso, sezioni BookUp visibili. Il ruolo vive in app_metadata.role e il trigger trg_sync_ruolo_utente lo copia in user_metadata.", fn:["hub-utenti"]},
+
+  {id:"ticketup", col:2, g:"In arrivo", label:"TicketUp", sub:"ticket tra uffici", st:"arriva", who:ALL_INT, url:"https://albertospde.github.io/pde-hub/ticketup/",
+   desc:"Ticket tra uffici: da gestire, per ufficio, comunicazioni, rubrica uffici. Notifiche via mail. Nella cartella del Hub, ancora senza card in home.",
+   tab:["tu_ticket","tu_messaggi","tu_uffici","tu_utenti_abilitati"], fn:["ticketup-mail"]},
+  {id:"settimana", col:2, g:"In arrivo", label:"PDE Settimana", sub:"sfondo settimana", st:"arriva", who:ALL_INT, url:"https://albertospde.github.io/pde-hub/sfondo/",
+   desc:"Sfondo / schermata settimanale con le uscite del lancio. Nella cartella del Hub, ancora senza card in home.", fn:["sfondo-feed"]},
+
+  // ---- col 3: supabase
+  {id:"sb_auth", col:3, g:"Progetto presenze", label:"Auth", sub:"login condiviso", who:[],
+   desc:"Un solo account per persona, valido in tutte le app PDE. Ruolo in app_metadata.role (admin / agente / altro), flag gestione_utenti."},
+  {id:"sb_db", col:3, g:"Progetto presenze", label:"Database Postgres", sub:"tdflwenlylhctxssatax", big2:true, who:[],
+   desc:"Database unico condiviso da Hub, Giro Manager, BookUp, Analisi e tutte le altre app. Istanza MICRO (1 GB): timeout authenticated 8 s, service_role 120 s. RLS su tutte le tabelle, RPC per le operazioni (_is_admin_pde, ev_*, ed_*, qdm_*, indie_*).",
+   extra:"Regione eu-west-3. Snapshot di schema in PDE HUB/supabase/schema."},
+  {id:"sb_storage", col:3, g:"Progetto presenze", label:"Storage", sub:"bucket", who:[],
+   desc:"Template (upload RPN e MELI scaricabili dal Hub), materiali PDF dei giri, msg-parquet (archivio movimenti di PDE Analisi)."},
+  {id:"sb_cron", col:3, g:"Progetto presenze", label:"pg_cron", sub:"job notturni", who:[],
+   desc:"anagrafiche_clienti_sync_notturno alle 01:30 e rpn-cedola-retry-mancanti alle 01:17 (via net.http_post verso le edge function)."},
+  {id:"sb_legacy", col:3, g:"Legacy", label:"ORDINI LIBRAI", sub:"pvsoijmopdqozvutgtdm", st:"legacy", who:[],
+   desc:"Vecchio progetto Supabase di PDE Libra. Bucket giro-pdf dismesso (backup dell'8/10/2026 in LIBRA/supabase-backup). Ancora referenziato da Libra e BookUp."},
+
+  // ---- col 4: motori
+  {id:"f_rpnsync", col:4, g:"Ponte RPN", label:"rpn-sync", sub:"v97 · funzione madre", who:[],
+   desc:"La funzione più usata: autenticazione RPN, prenotazioni, ordini di rifornimento con instradamento automatico per editore sulle utenze PDE / PDE Service, verifica ordini righe e dettaglio sul portale Messaggerie. Workaround TLS per la catena Sectigo incompleta di RPN."},
+  {id:"f_rpntrasm", col:4, g:"Ponte RPN", label:"rpn-trasmissione", sub:"trasmissione titoli", who:[],
+   desc:"Trasmissione dei titoli/prenotazioni da BookUp verso RPN, con log ed esclusioni (trasm_titoli_log, trasm_titoli_esclusi)."},
+  {id:"f_cedola", col:4, g:"Ponte RPN", label:"rpn-cedola-sync", sub:"+ titoli-cedola · titoli-storico", who:[],
+   desc:"Pubblica una cedola di Giro Manager su RPN (preview → apply → activate). rpn-titoli-cedola e rpn-titoli-storico leggono l'elenco completo dei titoli di una cedola, anche chiusa."},
+  {id:"f_terne", col:4, g:"Ponte RPN", label:"rpn-terne-sync", sub:"+ clienti-sync · obiettivi", who:[],
+   desc:"Terne Agente/Editore/Libreria tra il pannello admin Django di RPN e Supabase (test, export, upload che sovrascrive). rpn-clienti-sync allinea le anagrafiche clienti, rpn-obiettivi gli obiettivi di fatturato."},
+  {id:"f_ou", col:4, g:"Ponte Messaggerie", label:"ou-titoli", sub:"+ anagrafiche-titoli", who:[],
+   desc:"Ricerca titoli Messaggerie per titolo/autore/EAN con le utenze condivise pde / pde_service: anagrafica, disponibilità (magazzini 11+21), stato articolo e vendita, risposta editore. Funziona anche per gli agenti."},
+  {id:"f_cond", col:4, g:"Ponte Messaggerie", label:"condizioni-librai", sub:"cache 7 giorni", who:[],
+   desc:"Per ogni editore del ranking sceglie un titolo in stato 1-1 sul suo codice fornitore e ne legge le condizioni librai, con cache di 7 giorni."},
+  {id:"f_rifid", col:4, g:"Ponte Messaggerie", label:"rifornimento-order-id", sub:"N° ordine interno", who:[],
+   desc:"Dal BatchID restituito da /ordini/order recupera il numero d'ordine interno Messaggerie (ReservationApi/GetOrderId, con header anti-forgery)."},
+  {id:"f_sftp", col:4, g:"Ponte Messaggerie", label:"sftp-messaggerie", sub:"+ msg-import-automatico", who:[],
+   desc:"Scarica ogni mattina i file dall'SFTP di Messaggerie e li importa (PPSVMAGG, PPSVMAFR). Sorgente in GIRO MANAGER/supabase/functions."},
+  {id:"f_giro", col:4, g:"Giro", label:"giro-prenotato-sync", sub:"+ giro-lanci-sync", who:[],
+   desc:"Scarica il prenotato da RPN per il Fine Giro e sincronizza i lanci settimanali. Chiamata da Giro Manager, da BookUp e dal workflow notturno."},
+  {id:"f_hubut", col:4, g:"Servizi", label:"hub-utenti", sub:"+ hub-primo-accesso", who:[],
+   desc:"hub-utenti: list, set-password, set-role, create-user, set-gestore, set-primo-accesso, set-bookup-sezioni (solo gestori). hub-primo-accesso: un agente mai entrato si imposta la password da solo, con la chiave anon. Le password non vengono mai lette."},
+  {id:"f_cop", col:4, g:"Servizi", label:"proxy-copertine", sub:"immagini per EAN", who:[],
+   desc:"Proxy per scaricare le copertine dai siti che non permettono il caricamento diretto dal browser."},
+  {id:"f_sfondo", col:4, g:"Servizi", label:"sfondo-feed", sub:"feed settimana", st:"arriva", who:[],
+   desc:"Prepara il feed del lancio della settimana per PDE Settimana."},
+  {id:"f_tumail", col:4, g:"Servizi", label:"ticketup-mail", sub:"notifiche ticket", st:"arriva", who:[],
+   desc:"Manda le mail di TicketUp (chiave Resend tra i segreti del progetto)."},
+  {id:"f_recup", col:4, g:"Servizi", label:"recupera-credenziali", sub:"progetto legacy", st:"legacy", who:[],
+   desc:"Funzione di PDE Libra sul vecchio progetto ORDINI LIBRAI."},
+
+  {id:"a_prenot", col:4, g:"Automazioni", label:"Prenotato notturno", sub:"GitHub Actions", who:[],
+   desc:"Workflow prenotato-notturno.yml di Giro Manager: aggiorna il Fine Giro di notte chiamando giro-prenotato-sync (scripts/prenotato-notturno.mjs)."},
+  {id:"a_ppsv", col:4, g:"Automazioni", label:"Import PPSVMAGG", sub:"GitHub Actions · mattino", who:[],
+   desc:"importa-ppsvmagg.yml di PDE Analisi: import automatico dei giornalieri e archivio dei movimenti in Parquet (bucket msg-parquet)."},
+  {id:"a_gfk", col:4, g:"Automazioni", label:"Import GfK", sub:"GitHub Actions · giovedì", who:[],
+   desc:"gfk-import.yml di QDM: ogni giovedì dalle 8 scarica con Playwright i 6 report della settimana da GfK Book Insights, li elabora con qdm-core.js e li scrive in QDM. Riprova ogni ora finché GfK non pubblica."},
+  {id:"a_storico", col:4, g:"Automazioni", label:"Storico serale", sub:"attività Windows", who:[],
+   desc:"storico_serale.ps1 sul PC di Alberto: un mese di storico Messaggerie per sera in PDE Analisi."},
+  {id:"a_pa", col:4, g:"Automazioni", label:"Power Automate", sub:"4 flussi · 00:30", who:[],
+   desc:"Un flusso per persona, lun–ven alle 00:30, prenota il posto a 14 giorni nei giorni scelti e manda la mail con l'esito. Funziona anche a PC spento."},
+  {id:"a_parking", col:4, g:"Automazioni", label:"Parking4US sync", sub:"sync_calendario.py", who:[],
+   desc:"Dal PC di Alberto copia le prenotazioni dei 4 colleghi nel calendario di PDE Parking (a mano o ogni 15 minuti)."},
+  {id:"a_agent", col:4, g:"Automazioni", label:"Agent AI", sub:"previsioni conto economico", st:"arriva", who:[],
+   desc:"Assistente PDE che legge in sola lettura lanci e fatturati per stimare fatturato lordo, rese, ricavo PDE e utile."},
+
+  // ---- col 5: esterni
+  {id:"x_rpn", col:5, g:"Feltrinelli", label:"RPN", sub:"rpn.feltrinelli.it", ext:true, url:"https://rpn.feltrinelli.it/",
+   desc:"Raccolta Prenotazioni Novità: cedole, prenotazioni, terne, clienti, pannello admin Django. Gli agenti ci entrano anche direttamente dal Hub."},
+  {id:"x_spark", col:5, g:"Feltrinelli", label:"Parking Reservation", sub:"app + SharePoint", ext:true,
+   desc:"App di prenotazione parcheggio Feltrinelli: la nuova data si apre a mezzanotte, 14 giorni prima. Elenco prenotazioni su SharePoint."},
+  {id:"x_zuc", col:5, g:"Feltrinelli", label:"Zucchetti HR", sub:"cartellino e cedolini", ext:true, url:"https://saas.hrzucchetti.it/hrpfeltrinelli/jsp/login.jsp",
+   desc:"Portale HR, solo link dal Hub."},
+  {id:"x_meli", col:5, g:"Messaggerie Libri", label:"Portale Messaggerie", sub:"messaggerielibri.it", ext:true, url:"https://www.messaggerielibri.it",
+   desc:"Ordini, disponibilità, anagrafiche titoli, numeri d'ordine, evasione. Utenze pde e pde_service."},
+  {id:"x_sftp", col:5, g:"Messaggerie Libri", label:"SFTP Messaggerie", sub:"PPSVMAGG · PPSVMAFR", ext:true,
+   desc:"File a lunghezza fissa (813 caratteri) di fornito, reso e venduto."},
+  {id:"x_gfk", col:5, g:"Mercato", label:"GfK Book Insights", sub:"bi.gfk-e.com", ext:true, url:"https://bi.gfk-e.com/signin/",
+   desc:"Dati di mercato e ranking vendite libri."},
+  {id:"x_cover", col:5, g:"Mercato", label:"Siti copertine", sub:"IBS · laFeltrinelli · Mondadori · OpenLibrary · Google Books", ext:true,
+   desc:"Fonti delle copertine per EAN usate da Ricerca Copertine e Newsweek."},
+  {id:"x_resend", col:5, g:"Posta", label:"Resend", sub:"email transazionali", ext:true, desc:"Servizio di invio email usato dalle edge function."},
+  {id:"x_outlook", col:5, g:"Posta", label:"Outlook", sub:"bozze .eml", ext:true, desc:"PDE Festival prepara la risposta a Messaggerie come .eml che Outlook apre pronta da inviare; le mail di Messaggerie entrano trascinando .msg/.eml."}
+];
+
+// [da, a, tipo, etichetta, opzioni]
+const E = [
+  ["u_gest","hub","accesso","login"],["u_team","hub","accesso","login"],["u_agenti","hub","accesso","login"],
+  ["u_editori","publisher","accesso","accesso diretto"],["u_librerie","libra","accesso","accesso diretto"],
+  ["hub","sb_auth","auth","sessione condivisa"],["hub","f_hubut","auth","primo accesso"],
+
+  ...["giro","bookup","analisi","publisher","qdm","festival","ndc","condizioni","converti","copertine","libra","snellino","events","indie","newsweek","planning","parking","utenti"]
+    .map(a=>["hub",a,"accesso","scheda interna"]),
+  ["hub","ticketup","accesso","in arrivo",{dashed:true}],["hub","settimana","accesso","in arrivo",{dashed:true}],
+  ["hub","x_rpn","link","link esterno"],["hub","x_meli","link","link esterno"],["hub","x_gfk","link","link esterno"],["hub","x_zuc","link","link esterno"],
+  ["hub","sb_storage","link","template upload"],
+
+  // app → DB
+  ...["giro","bookup","analisi","publisher","qdm","festival","ndc","condizioni","libra","events","indie","newsweek","parking","ticketup"]
+    .map(a=>[a,"sb_db","dati","tabelle / RPC"]),
+  ["bookup","sb_storage","dati","materiali PDF"],["publisher","sb_auth","auth","account editori"],
+  ["libra","sb_legacy","auth","librerie (legacy)",{dashed:true}],["planning","sb_auth","auth","login"],
+
+  // app → edge function
+  ["bookup","f_rpnsync","funzione"],["bookup","f_rpntrasm","funzione"],["bookup","f_ou","funzione","ordini urgenti"],["bookup","f_cond","funzione"],
+  ["bookup","f_giro","funzione"],["bookup","f_terne","funzione","clienti"],
+  ["giro","f_giro","funzione"],["giro","f_cedola","funzione","pubblica cedola"],["giro","f_terne","funzione","terne"],["giro","f_sftp","funzione","modulo SFTP"],
+  ["analisi","f_sftp","funzione","file del mattino"],
+  ["publisher","f_ou","funzione","consultazione titoli"],
+  ["condizioni","f_rpnsync","funzione"],["festival","f_rpnsync","funzione","ordini"],["festival","f_rifid","funzione","n° ordine"],
+  ["libra","f_rpnsync","funzione"],["libra","f_recup","funzione","",{dashed:true}],
+  ["copertine","f_cop","funzione"],["newsweek","f_cop","funzione"],
+  ["settimana","f_sfondo","funzione","",{dashed:true}],["ticketup","f_tumail","funzione","",{dashed:true}],
+  ["utenti","f_hubut","funzione","gestione utenti"],
+  ["qdm","a_gfk","auto","⟳ Aggiorna da GfK"],
+  ["festival","x_outlook","esterno","bozza .eml"],
+
+  // motori → DB / auth
+  ...["f_rpnsync","f_rpntrasm","f_cedola","f_terne","f_cond","f_sftp","f_giro","f_sfondo"].map(f=>[f,"sb_db","dati","scrive"]),
+  ["f_hubut","sb_auth","auth","utenti e ruoli"],
+  ["f_recup","sb_legacy","dati","",{dashed:true}],
+  ["sb_cron","f_terne","auto","01:30 clienti"],["sb_cron","f_cedola","auto","01:17 retry"],
+
+  // motori → esterni
+  ["f_rpnsync","x_rpn","esterno"],["f_rpnsync","x_meli","esterno","ordini e verifica"],
+  ["f_rpntrasm","x_rpn","esterno"],["f_cedola","x_rpn","esterno","cedole"],["f_terne","x_rpn","esterno","terne · clienti"],
+  ["f_giro","x_rpn","esterno","prenotato"],["f_giro","x_meli","esterno","lanci"],
+  ["f_ou","x_meli","esterno","titoli · disponibilità"],["f_cond","x_meli","esterno"],["f_rifid","x_meli","esterno"],
+  ["f_sftp","x_sftp","esterno","download"],["f_cop","x_cover","esterno"],["f_tumail","x_resend","esterno","",{dashed:true}],
+
+  // automazioni
+  ["a_prenot","f_giro","auto","ogni notte"],
+  ["a_ppsv","x_sftp","auto","giornalieri"],["a_ppsv","sb_db","auto","msg_movimenti"],["a_ppsv","sb_storage","auto","parquet"],
+  ["a_gfk","x_gfk","auto","6 report"],["a_gfk","sb_db","auto","tabelle qdm"],
+  ["a_storico","sb_db","auto","mensili"],
+  ["a_pa","x_spark","auto","prenota a 14 gg"],["a_parking","x_spark","esterno","legge"],["a_parking","sb_db","auto","parking_calendario"],
+  ["a_agent","sb_db","dati","sola lettura",{dashed:true}]
+];
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+const COLX = [0, 300, 600, 920, 1220, 1540];
+const NW = 220, NH = 48, GAP = 10, GHEAD = 30, GGAP = 18, TOP = 70;
+const byId = {}; N.forEach(n=>byId[n.id]=n);
+
+function layout(){
+  const heights = [];
+  COLS.forEach((c,ci)=>{
+    const ns = N.filter(n=>n.col===ci);
+    let y=0, lastG=null; c.groups=[];
+    ns.forEach(n=>{
+      if(n.g!==lastG){ if(lastG!==null) y+=GGAP; c.groups.push({g:n.g,y}); y+=GHEAD-8; lastG=n.g; }
+      n.w = NW; n.h = n.big?150:(n.big2?72:NH);
+      n.x = COLX[ci]; n.y = y; y += n.h + GAP;
+    });
+    c.h = y; heights.push(y);
+  });
+  const H = Math.max(...heights);
+  COLS.forEach((c,ci)=>{
+    const off = TOP + (H - c.h)/2;
+    c.off = off;
+    N.filter(n=>n.col===ci).forEach(n=>n.y+=off);
+    c.groups.forEach(g=>g.y+=off);
+  });
+  return {W: COLX[5]+NW, H: H+TOP+40};
+}
+const SIZE = layout();
+
+/* ports: distribuisce gli attacchi lungo il lato del nodo, ordinati per posizione dell'altro capo */
+const edges = E.map((e,i)=>{
+  const [a,b,t,l,o] = e; const A=byId[a], B=byId[b];
+  if(!A||!B) console.warn("edge",e);
+  const L = A.col<=B.col?A:B, R = L===A?B:A;
+  return {i,a,b,t,l:l||"",o:o||{},L,R,rev:L!==A};
+});
+N.forEach(n=>{ n.outP=[]; n.inP=[]; });
+edges.forEach(e=>{ e.L.outP.push(e); e.R.inP.push(e); });
+function cy(n){return n.y+n.h/2}
+N.forEach(n=>{
+  const assign=(arr,key,other)=>{
+    arr.sort((p,q)=>cy(p[other])-cy(q[other]));
+    const k=arr.length, span=Math.min(n.h-14, k*7);
+    arr.forEach((e,j)=>{ e[key] = cy(n) + (k===1?0:(-span/2 + span*j/(k-1))); });
+  };
+  assign(n.outP,"y1","R"); assign(n.inP,"y2","L");
+});
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+const svgNS="http://www.w3.org/2000/svg";
+const $=s=>document.querySelector(s);
+function el(tag,attrs,parent){const e=document.createElementNS(svgNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);parent&&parent.appendChild(e);return e;}
+
+const gB=$("#bands"), gP=$("#pipes"), gN=$("#nodes");
+COLS.forEach((c,ci)=>{
+  const x=COLX[ci];
+  el("rect",{x:x-18,y:20,width:NW+36,height:SIZE.H-30,rx:18,class:"colband"},gB);
+  el("text",{x:x,y:44,class:"colhead"},gB).textContent=c.t;
+  c.groups.forEach(g=>{ if(COLS[ci].groups.length>1 || ci===2 || ci===4) el("text",{x:x+2,y:g.y+12,class:"grouphead"},gB).textContent=g.g; });
+});
+
+edges.forEach(e=>{
+  const x1=e.L.x+e.L.w, x2=e.R.x, y1=e.y1, y2=e.y2;
+  let d;
+  if(e.R.col-e.L.col===0){ d=`M${x1} ${y1} C${x1+60} ${y1} ${x1+60} ${y2} ${x1} ${y2}`; }
+  else{ const dx=Math.max(70,(x2-x1)*0.5); d=`M${x1} ${y1} C${x1+dx} ${y1} ${x2-dx} ${y2} ${x2} ${y2}`; }
+  const g=el("g",{class:`pipe t-${e.t}${e.rev?" rev":""}${e.o.dashed?" dashed":""}`},gP);
+  const col=TYPES[e.t].c;
+  el("path",{d,class:"tube"},g);
+  el("path",{d,class:"core",stroke:col},g);
+  const f=el("path",{d,class:"flow",stroke:col},g);
+  f.style.animationDelay = (-(e.i*0.37)%1.6)+"s";
+  e.g=g;
+});
+
+N.forEach(n=>{
+  const st = n.st || (n.ext?"ext":"live");
+  const g=el("g",{class:"node"+(n.big?" big":""),transform:`translate(${n.x},${n.y})`,tabindex:0,role:"button","aria-label":n.label},gN);
+  const accent = n.col===0?"var(--c-accesso)": n.col===3?"var(--c-dati)": n.ext?"var(--c-esterno)": n.col===4&&n.id.startsWith("a_")?"var(--c-auto)": n.col===4?"var(--c-funzione)":"var(--c-accesso)";
+  n.accent=accent;
+  if(n.big||n.big2){ el("rect",{x:-6,y:-6,width:n.w+12,height:n.h+12,rx:20,fill:accent,opacity:.16,filter:"url(#nodeglow)"},g); }
+  el("rect",{x:-3,y:-3,width:n.w+6,height:n.h+6,rx:n.big?19:13,class:"halo",stroke:accent},g);
+  el("rect",{width:n.w,height:n.h,rx:n.big?16:10,class:"box"},g);
+  el("rect",{x:0,y:n.h/2-(n.big?20:9),width:3,height:n.big?40:18,rx:1.5,fill:accent},g);
+  if(n.big){
+    el("text",{x:18,y:52,class:"lbl"},g).textContent=n.label;
+    el("text",{x:18,y:74,class:"sub"},g).textContent=n.sub;
+    const sub2=el("text",{x:18,y:104,class:"sub"},g); sub2.textContent="login · ruoli · schede interne";
+    const sub3=el("text",{x:18,y:122,class:"sub"},g); sub3.textContent="18 app · 4 link esterni";
+  }else{
+    el("text",{x:14,y:n.big2?30:21,class:"lbl"},g).textContent=n.label;
+    const s=el("text",{x:14,y:n.big2?50:37,class:"sub"},g); s.textContent=n.sub.length>34?n.sub.slice(0,33)+"…":n.sub;
+  }
+  if(st==="arriva"||st==="legacy"){
+    const tx = st==="arriva"?"IN ARRIVO":"LEGACY";
+    const c = st==="arriva"?"var(--arriva)":"var(--legacy)";
+    const w = tx.length*6.2+12;
+    el("rect",{x:n.w-w-8,y:7,width:w,height:15,rx:7.5,fill:"none",stroke:c,"stroke-opacity":.7},g);
+    el("text",{x:n.w-w/2-8,y:17.5,"text-anchor":"middle",class:"tag",fill:c},g).textContent=tx;
+  }else if(!n.ext && n.col===2){
+    el("circle",{cx:n.w-14,cy:14,r:4,fill:"var(--live)",class:"dot"},g);
+  }
+  n.g=g;
+  g.addEventListener("click",ev=>{ev.stopPropagation(); select(n.id);});
+  g.addEventListener("keydown",ev=>{ if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();select(n.id);} });
+});
+
+/* header: stats, filtri, legenda */
+const nApp=N.filter(n=>n.col===2).length, nFn=N.filter(n=>n.col===4&&n.id.startsWith("f_")).length,
+      nAut=N.filter(n=>n.id.startsWith("a_")).length, nExt=N.filter(n=>n.ext).length;
+$("#stats").innerHTML=`<span><b>${nApp}</b>app</span><span><b>${nFn}</b>gruppi di funzioni</span><span><b>${nAut}</b>automazioni</span><span><b>${nExt}</b>esterni</span><span><b>${edges.length}</b>tubi</span>`;
+
+const audBox=$("#aud");
+const mkChip=(txt,on,cb,color)=>{const b=document.createElement("button");b.className="chip";b.type="button";b.setAttribute("aria-pressed",on?"true":"false");
+  b.innerHTML=(color?`<i style="color:${color}"></i>`:"")+txt; b.addEventListener("click",cb); return b;};
+let audSel=null;
+const audChips={};
+[["all","Tutti"],...Object.entries(AUD).map(([k,v])=>[k,v.label])].forEach(([k,t])=>{
+  const b=mkChip(t,k==="all",()=>{ audSel = k==="all"?null:k; Object.entries(audChips).forEach(([kk,bb])=>bb.setAttribute("aria-pressed",(audSel?kk===audSel:kk==="all")?"true":"false")); if(audSel) select("u_"+audSel); else clearSel(); });
+  audChips[k]=b; audBox.appendChild(b);
+});
+const legBox=$("#legend");
+Object.entries(TYPES).forEach(([k,t])=>{
+  const b=mkChip(t.label,true,()=>{ t.on=!t.on; b.classList.toggle("off",!t.on); applyTypes(); },t.c);
+  b.classList.toggle("off",!t.on); b.setAttribute("aria-pressed","true");
+  b.addEventListener("click",()=>b.setAttribute("aria-pressed",t.on?"true":"false"));
+  b.setAttribute("aria-pressed",t.on?"true":"false");
+  legBox.appendChild(b);
+});
+function applyTypes(){ edges.forEach(e=>e.g.classList.toggle("hide",!TYPES[e.t].on)); }
+applyTypes();
+
+/* ============================================================
+   SELEZIONE / EVIDENZIAZIONE
+   ============================================================ */
+const world=$("#world");
+function neighbors(id){ return edges.filter(e=>(e.a===id||e.b===id)&&TYPES[e.t].on); }
+function downstream(startIds){
+  // segue i tubi verso destra (colonne crescenti) a partire dalle app
+  const seenN=new Set(startIds), seenE=new Set(), q=[...startIds];
+  while(q.length){
+    const id=q.shift(), n=byId[id];
+    if(n.col===3) continue; // Supabase è un punto d'arrivo: non riespandere verso tutte le automazioni
+    edges.forEach(e=>{
+      if(!TYPES[e.t].on) return;
+      let other=null;
+      if(e.a===id) other=e.b; else if(e.b===id) other=e.a; else return;
+      const o=byId[other];
+      if(o.col<=n.col && !(n.col===4 && o.col===3)) return; // solo verso valle (DB raggiungibile dai motori)
+      if(o.col<=1) return;
+      seenE.add(e);
+      if(!seenN.has(other)){ seenN.add(other); q.push(other); }
+    });
+  }
+  return {seenN,seenE};
+}
+function highlight(nodeSet,edgeSet,selId){
+  world.classList.add("dim");
+  N.forEach(n=>{ n.g.classList.toggle("on",nodeSet.has(n.id)); n.g.classList.toggle("sel",n.id===selId); n.g.classList.remove("hit"); });
+  edges.forEach(e=>e.g.classList.toggle("on",edgeSet.has(e)));
+}
+function clearSel(){
+  world.classList.remove("dim");
+  N.forEach(n=>n.g.classList.remove("on","sel","hit"));
+  edges.forEach(e=>e.g.classList.remove("on"));
+  $("#panel").hidden=true; current=null;
+}
+let current=null;
+function select(id){
+  const n=byId[id]; current=id;
+  let ns=new Set([id]), es=new Set();
+  if(n.col===0){
+    const aud=n.aud;
+    const apps=N.filter(x=>x.col===2 && (x.who||[]).includes(aud)).map(x=>x.id);
+    const d=downstream(apps); ns=d.seenN; es=d.seenE; ns.add(id);
+    edges.forEach(e=>{
+      if(!TYPES[e.t].on) return;
+      if(e.a===id){ es.add(e); ns.add(e.b); }
+      if(e.a==="hub" && apps.includes(e.b) && ["gest","team","agenti"].includes(aud)) { es.add(e); ns.add("hub"); }
+      if(aud==="agenti" && e.a==="hub" && e.t==="link" && ["x_rpn","x_meli"].includes(e.b)){ es.add(e); ns.add(e.b); }
+    });
+  }else{
+    neighbors(id).forEach(e=>{ es.add(e); ns.add(e.a); ns.add(e.b); });
+    if(n.col===2){ const d=downstream([id]); d.seenN.forEach(x=>ns.add(x)); d.seenE.forEach(x=>es.add(x)); }
+  }
+  highlight(ns,es,id);
+  showPanel(n,es);
+}
+
+/* ============================================================
+   PANNELLO
+   ============================================================ */
+const KICK = ["Destinatario","Ingresso","App","Supabase","Motore","Sistema esterno"];
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function showPanel(n,es){
+  const st = n.st||(n.ext?null:"live");
+  $("#p-kicker").textContent = (n.id.startsWith("a_")?"Automazione":KICK[n.col]) + (n.g?" · "+n.g:"");
+  $("#p-title").textContent = n.label;
+  $("#p-sub").textContent = n.sub||"";
+  let h="";
+  if(st && n.col>=1 && n.col!==3 || n.st) h+=`<span class="status ${st}">● ${st==="arriva"?"in arrivo":st}</span>`;
+  h+=`<p>${esc(n.desc||"")}</p>`;
+  if(n.who && n.who.length) h+=`<div class="p-sec"><h3>A chi è destinata</h3><div class="pills">${n.who.map(w=>`<span class="pill who">${AUD[w].label}</span>`).join("")}</div></div>`;
+  if(n.col===0){
+    const apps=N.filter(x=>x.col===2&&(x.who||[]).includes(n.aud));
+    h+=`<div class="p-sec"><h3>App che usa (${apps.length})</h3><div class="pills">${apps.map(a=>`<span class="pill who">${esc(a.label)}</span>`).join("")}</div></div>`;
+  }
+  if(n.tab) h+=`<div class="p-sec"><h3>Tabelle e RPC</h3><div class="pills">${n.tab.map(t=>`<span class="pill">${esc(t)}</span>`).join("")}</div></div>`;
+  if(n.fn) h+=`<div class="p-sec"><h3>Edge function</h3><div class="pills">${n.fn.map(t=>`<span class="pill">${esc(t)}</span>`).join("")}</div></div>`;
+  const direct=[...es].filter(e=>e.a===n.id||e.b===n.id);
+  if(direct.length){
+    h+=`<div class="p-sec"><h3>Si parla con (${direct.length})</h3><ul class="conn">`+direct.map(e=>{
+      const other=e.a===n.id?e.b:e.a, out=e.a===n.id;
+      return `<li data-go="${other}"><i style="background:${TYPES[e.t].c}"></i><span>${out?"→":"←"} ${esc(byId[other].label)}</span><em>${esc(e.l||TYPES[e.t].label)}</em></li>`;
+    }).join("")+`</ul></div>`;
+  }
+  if(n.extra) h+=`<div class="p-sec"><h3>Note</h3><p>${esc(n.extra)}</p></div>`;
+  if(n.url) h+=`<div class="p-sec"><h3>Indirizzo</h3><a class="url" href="${n.url}" target="_blank" rel="noopener">${esc(n.url)}</a></div>`;
+  $("#p-body").innerHTML=h;
+  $("#p-body").querySelectorAll("[data-go]").forEach(li=>li.addEventListener("click",()=>{ select(li.dataset.go); focusNode(byId[li.dataset.go]); }));
+  $("#panel").hidden=false;
+}
+$("#p-close").addEventListener("click",()=>{ clearSel(); Object.entries(audChips).forEach(([k,b])=>b.setAttribute("aria-pressed",k==="all"?"true":"false")); audSel=null; });
+
+/* ricerca */
+$("#q").addEventListener("input",ev=>{
+  const q=ev.target.value.trim().toLowerCase();
+  if(!q){ clearSel(); return; }
+  const hits=N.filter(n=>[n.label,n.sub,n.desc,(n.tab||[]).join(" "),(n.fn||[]).join(" "),n.g].join(" ").toLowerCase().includes(q));
+  $("#panel").hidden=true;
+  world.classList.add("dim");
+  const hs=new Set(hits.map(h=>h.id));
+  N.forEach(n=>{ n.g.classList.toggle("on",hs.has(n.id)); n.g.classList.toggle("hit",hs.has(n.id)); n.g.classList.remove("sel"); });
+  edges.forEach(e=>e.g.classList.toggle("on",hs.has(e.a)&&hs.has(e.b)));
+});
+$("#q").addEventListener("keydown",ev=>{ if(ev.key==="Enter"){ const h=N.find(n=>n.g.classList.contains("hit")); if(h){ select(h.id); focusNode(h);} }});
+
+/* ============================================================
+   PAN / ZOOM
+   ============================================================ */
+const svg=$("#map"), stage=$("#stage");
+let vb={x:0,y:0,w:SIZE.W,h:SIZE.H};
+function setVB(){ svg.setAttribute("viewBox",`${vb.x} ${vb.y} ${vb.w} ${vb.h}`); }
+function fit(){
+  const r=stage.getBoundingClientRect(), pad=40;
+  const W=SIZE.W+pad*2, H=SIZE.H+pad;
+  const ar=r.width/r.height;
+  if(W/H>ar){ vb.w=W; vb.h=W/ar; } else { vb.h=H; vb.w=H*ar; }
+  vb.x=-pad-(vb.w-W)/2; vb.y=-(vb.h-H)/2;
+  // su schermi stretti parti dal lato sinistro a una scala leggibile
+  if(r.width<760){ const s=r.width/700; vb.w=r.width/s; vb.h=r.height/s; vb.x=-20; vb.y=0; }
+  setVB();
+}
+function zoomAt(f,cx,cy){
+  const r=stage.getBoundingClientRect();
+  const px=vb.x+(cx-r.left)/r.width*vb.w, py=vb.y+(cy-r.top)/r.height*vb.h;
+  const nw=Math.min(Math.max(vb.w*f,300),SIZE.W*3); const k=nw/vb.w;
+  vb.x=px-(px-vb.x)*k; vb.y=py-(py-vb.y)*k; vb.w=nw; vb.h*=k; setVB();
+}
+function focusNode(n){
+  const r=stage.getBoundingClientRect();
+  const s=r.width/vb.w;
+  vb.x=n.x+n.w/2-(r.width<760?r.width/2:(r.width-400)/2)/s; vb.y=n.y+n.h/2-(r.width<760?r.height*0.22:r.height/2)/s; setVB();
+}
+stage.addEventListener("wheel",ev=>{ev.preventDefault(); zoomAt(ev.deltaY>0?1.12:1/1.12,ev.clientX,ev.clientY);},{passive:false});
+let drag=null, moved=false;
+const pts=new Map();
+stage.addEventListener("pointerdown",ev=>{
+  if(ev.target.closest("#panel,.zoom")) return;
+  pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+  drag={x:ev.clientX,y:ev.clientY,vx:vb.x,vy:vb.y}; moved=false;
+});
+stage.addEventListener("pointermove",ev=>{
+  if(!pts.has(ev.pointerId)) return;
+  const prev=pts.get(ev.pointerId); pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+  if(pts.size===2){
+    const [a,b]=[...pts.values()]; const pa=[...pts.entries()].find(([k])=>k!==ev.pointerId)[1];
+    const d1=Math.hypot(prev.x-pa.x,prev.y-pa.y), d2=Math.hypot(a.x-b.x,a.y-b.y);
+    if(d1>0) zoomAt(d1/d2,(a.x+b.x)/2,(a.y+b.y)/2); moved=true; return;
+  }
+  if(!drag) return;
+  const r=stage.getBoundingClientRect(), dx=ev.clientX-drag.x, dy=ev.clientY-drag.y;
+  if(Math.abs(dx)+Math.abs(dy)>4){ moved=true; stage.classList.add("dragging"); if(!stage.hasPointerCapture(ev.pointerId)) stage.setPointerCapture(ev.pointerId); }
+  vb.x=drag.vx-dx*vb.w/r.width; vb.y=drag.vy-dy*vb.h/r.height; setVB();
+});
+const endPtr=ev=>{ pts.delete(ev.pointerId); if(pts.size===0){ drag=null; stage.classList.remove("dragging"); } };
+stage.addEventListener("pointerup",endPtr); stage.addEventListener("pointercancel",endPtr);
+svg.addEventListener("click",ev=>{ if(moved){moved=false;return;} if(!ev.target.closest(".node")){ clearSel(); audSel=null; Object.entries(audChips).forEach(([k,b])=>b.setAttribute("aria-pressed",k==="all"?"true":"false")); } });
+$("#zin").onclick=()=>{const r=stage.getBoundingClientRect(); zoomAt(1/1.25,r.left+r.width/2,r.top+r.height/2);};
+$("#zout").onclick=()=>{const r=stage.getBoundingClientRect(); zoomAt(1.25,r.left+r.width/2,r.top+r.height/2);};
+$("#zfit").onclick=fit;
+window.addEventListener("resize",fit);
+document.addEventListener("keydown",ev=>{ if(ev.key==="Escape"){ clearSel(); } });
+fit();
+</script>
+</body>
+</html>
