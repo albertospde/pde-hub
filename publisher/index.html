@@ -250,6 +250,15 @@
   .ag-reg{display:flex;align-items:center;gap:12px;border:1px solid var(--border);background:var(--card);border-radius:12px;padding:10px 12px;cursor:pointer;font:inherit;color:inherit}
   .ag-reg:hover{background:var(--card-2)} .ag-reg.on{border-color:var(--cyan);background:var(--cyan-dim)}
   .ag-ini{width:36px;height:36px;border-radius:50%;background:var(--cyan);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
+  tr.rk-mio td{background:var(--cyan-dim);font-weight:800}
+  .schede{display:flex;gap:6px;margin:0 0 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .scheda{border:0;background:transparent;font:inherit;font-weight:700;font-size:14px;color:var(--text-dim);padding:10px 14px;border-bottom:3px solid transparent;margin-bottom:-1px;cursor:pointer}
+  .scheda:hover{color:var(--text)} .scheda.on{color:var(--cyan);border-bottom-color:var(--cyan)}
+  .gen-rate{margin-top:12px} .gen-rate summary{cursor:pointer;font-weight:700;font-size:13px;color:var(--cyan)}
+  .nota-pren{background:var(--cyan-dim);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:13.5px;margin:-4px 0 16px}
+  table.tbl thead th{cursor:pointer;user-select:none}
+  table.tbl thead th:hover{color:var(--cyan)}
+  table.tbl thead th[data-ord]::after{content:" ▼";font-size:10px;color:var(--cyan)} table.tbl thead th[data-ord=asc]::after{content:" ▲"}
   .leg{list-style:none;margin:6px 0 0;padding:0;font-size:13.5px}
   .leg li{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border)}
   .leg li:last-child{border-bottom:none} .leg li.tot{font-weight:700}
@@ -1207,6 +1216,8 @@ S.analisi = {
     const F = totP(V, false, fMF), Rr = totP(V, false, fMR), F1 = totP(V, true, fMF), R1 = totP(V, true, fMR);
     const cf = totP(V, false, v => v.cf), cr = totP(V, false, v => v.cr);
     const tot = totP(V, false, fM), nov = totP(V.filter(v => v.tipo === 'lancio'), false, fM);
+    const lfA = totP(V, false, v => v.lf), nfA = totP(V, false, v => v.nf), lfA1 = totP(V, true, v => v.lf), nfA1 = totP(V, true, v => v.nf);
+    const scA = lfA ? 1 - nfA / lfA : 0, scA1 = lfA1 ? 1 - nfA1 / lfA1 : 0;
     const ord = [...L].filter(t => t.cf || t.cr || t.cf1 || t.cr1).sort((a, b) => tM(b) - tM(a));
     this._d = { V, ord };
     return `
@@ -1215,6 +1226,7 @@ S.analisi = {
         ${kpi('Fornito', fmtM(F), `${delta(F, F1)} <span>${unitaM()}</span>`, '--s1')}
         ${kpi('Reso', fmtM(Rr), `${delta(Rr, R1, true)} <span>${pct(cf ? cr / cf : 0)} del fornito in copie</span>`, '--s2')}
         ${kpi('Venduto', fmtM(F - Rr), `${delta(F - Rr, F1 - R1)} <span>${unitaM()}</span>`, '--s3')}
+        ${kpi('Sconto medio', pct(scA), `${scA1 ? delta(scA, scA1, true) : ''} <span>era ${pct(scA1)} nel ${Y - 1}</span>`, '--s8')}
         ${kpi('Peso delle novità', pct(tot ? nov / tot : 0), '<span>lanci sul venduto</span>', '--s7')}
         ${kpi('Titoli movimentati', num(L.filter(t => t.cf > 0).length), '<span>con forniture nel periodo</span>', '--s4')}
       </div>
@@ -1256,7 +1268,7 @@ function righeTitoli(L, ordine){
   const pos = new Map(ordine.map((t, i) => [t.ean, i + 1]));
   return L.map(t => {
     const f = tM(t), f1 = tM1(t);
-    return `<tr><td class="muted">${pos.get(t.ean)}</td><td><div class="con-cop">${cop(t.ean)}<div><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">EAN ${esc(t.ean)}${t.collana ? ' · ' + esc(t.collana) : ''}${t.novita ? ' · <span class="pill info">Rifornimento da novità</span>' : ''}</div></div></div></td>
+    return `<tr><td class="muted">${pos.get(t.ean)}</td><td><div class="con-cop">${cop(t.ean)}<div><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">EAN ${esc(t.ean)}${t.collana ? ' · ' + esc(nomeCollana(t.collana)) : ''}${t.novita ? ' · <span class="pill info">Rifornimento da novità</span>' : ''}</div></div></div></td>
       <td class="small">${esc(genereDi(t.ean) || '—')}</td><td class="small">${t.uscita ? fData(pd(t.uscita)) : '—'}</td><td class="r">${num(t.cf - t.cr)}</td><td class="r">${eur(t.lf - t.lr)}</td>
       <td class="r">${f1 > 0 ? delta(f, f1) : '<span class="pill mut">nuovo</span>'}</td><td class="r">${t.cf ? pct(t.cr / t.cf) : '—'}</td></tr>`;
   }).join('');
@@ -1275,7 +1287,27 @@ function aggPer(chiave){
   righe.forEach(x => { x.quota = tot ? Math.max(0, x.f) / tot : 0; x.var = x.f1 > 0 ? varr(x.f, x.f1) : null; x.resa = x.cf ? x.cr / x.cf : 0; });
   return righe;
 }
-const collaneAgg = () => aggPer(t => t.collana || 'Senza collana');
+const collaneAgg = () => aggPer(t => nomeCollana(t.collana));
+// Collane per esteso: i nomi vengono da Messaggerie (li salva un admin la prima volta), altrimenti resta il codice
+const nomeCollana = c => !c ? 'Senza collana' : R.collane && R.collane[c] ? `${titleCase(R.collane[c])} (${c})` : c;
+async function nomiCollane(){
+  if (!R.collane) R.collane = await rpc('ed_collane_lista', { p_editore: ED.codice_editore }).catch(() => ({}));
+  const mancano = [...new Set(TF().map(t => t.collana).filter(c => c && !R.collane[c]))];
+  if (!ADMIN() || !mancano.length || R.collaneProvate) return;
+  R.collaneProvate = true;
+  const r0 = R;
+  (async () => {   // in sottofondo: legge le collane dell'editore su Messaggerie e le salva per tutti
+    try {
+      const d = await atCall({ azione: 'editori' });
+      const ut = (d.editori || []).filter(e => atCod(e.code) === atCod(ED.codice_editore)), serie = [];
+      for (const u of ut){ const o = await atOpzioni(u); (o.series || []).forEach(x => x.code && serie.push({ code: x.code, description: x.description || '' })); }
+      if (!serie.length || R !== r0) return;
+      await rpc('ed_collane_salva', { p_editore: ED.codice_editore, p: serie });
+      serie.forEach(x => { if (x.description) R.collane[x.code] = x.description; });
+      if (['settori', 'analisi'].includes(location.hash.slice(1))) render();
+    } catch (e) { console.warn('Nomi delle collane non letti:', e.message); }
+  })();
+}
 function generiAgg(){
   const rilevati = (R.meli.righe || []).some(m => m.genere);
   return { rilevati, righe: rilevati ? aggPer(t => genereDi(t.ean) || 'Genere non rilevato') : [] };
@@ -1299,35 +1331,24 @@ function confrontoMercato(){
              pesoSulGenere: (VAL() ? +g.valore : +g.copie) ? e / (VAL() ? +g.valore : +g.copie) : 0 };
   });
 }
-S.settori = {
-  titolo: 'Analisi per settore', sub: () => `Generi e collane, con il confronto col mercato GfK · ${PER.etichetta}`,
-  async prepara(){ if (!R.mercato) R.mercato = await rpc('ed_gfk_mercato', { p_editore: ED.codice_editore, p_week: R.gfk.settimana || null }); },
+const SEZ_SELLIN = {
   html(){
     const Y = PER.Y, gen = generiAgg(), col = collaneAgg();
     const princ = gen.rilevati ? gen.righe : col;
-    const cm = confrontoMercato();
-    this._d = { princ, cm };
+    this._d = { princ };
     return `
       <p class="lead">${gen.rilevati ? 'Il settore è il genere con cui Messaggerie classifica ogni titolo (lo stesso che vedi in BookUp, Consultazione titoli).' : 'Il genere dei titoli arriva da Messaggerie con l\'aggiornamento di <a href="#stock">Stock MeLi</a>: finché non c\'è, i settori sono le collane.'}
-      In fondo il confronto con il mercato secondo GfK.</p>
+      Il venduto qui è il sell-in (fornito meno rese); il sell-out in cassa è nelle schede GfK.</p>
       <div class="grid g-kpi">${princ.filter(x => x.f > 0).slice(0, 4).map((x, i) => kpi(esc(x.n), fmtM(x.f), `${x.f1 > 0 ? delta(x.f, x.f1) : ''} <span>quota ${pct(x.quota)}</span>`, '--s' + (i + 1))).join('')}</div>
       <div class="grid g2e">
         <div class="card"><h3>Venduto per ${gen.rilevati ? 'genere' : 'collana'}</h3><p class="h-sub">${PER.etichetta}, ${unitaM()}</p><div class="ch"><canvas id="c-sm"></canvas></div></div>
         <div class="card"><h3>Variazione rispetto al ${Y - 1}</h3><p class="h-sub">Venduto nello stesso periodo, ${gen.rilevati ? 'generi' : 'collane'} principali</p><div class="ch"><canvas id="c-sv"></canvas></div></div>
       </div>
-      ${cm.length ? `<div class="card" style="margin-bottom:16px"><div class="grid" style="margin:0;grid-template-columns:minmax(0,1fr)">
-        <div><h3>Confronto con il mercato (GfK)</h3><p class="h-sub">Generi GfK da inizio anno, ${VAL() ? 'valore' : 'copie'} in cassa. Per l'editore contano i titoli presenti nelle classifiche GfK.</p>
-          <div class="tw"><table class="tbl"><thead><tr><th>Genere GfK</th><th class="r">Peso nel mercato</th><th class="r">Mercato vs ${Y - 1}</th><th class="r">Peso nell'editore</th><th class="r">Sell-out editore</th><th class="r">Quota del genere</th></tr></thead>
-          <tbody>${cm.map(x => `<tr><td class="t-tit">${esc(x.n)}</td><td class="r">${pct(x.quotaM)}</td><td class="r"><span class="pill ${x.varM >= 0 ? 'ok' : 'ko'}">${pctS(x.varM)}</span></td>
-            <td class="r t-tit">${pct(x.quotaE)}</td><td class="r">${fmtMF(x.e)}<div class="t-sub">${num(x.titoli)} titoli</div></td><td class="r">${pct(x.pesoSulGenere, 2)}</td></tr>`).join('')}</tbody></table></div>
-          <p class="note">"Peso nell'editore" confrontato con "Peso nel mercato" dice in quali generi l'editore è più forte o più debole del mercato; "Quota del genere" è la parte del genere venduta dai titoli dell'editore in classifica.</p></div>
-        <div><h3>Editore e mercato a confronto</h3><p class="h-sub">Peso di ogni genere sul totale</p><div class="ch"><canvas id="c-cm"></canvas></div></div>
-      </div></div>` : ''}
       ${gen.rilevati ? `<div class="card" style="margin-bottom:16px"><h3>Generi</h3><p class="h-sub">Ordinati per venduto</p>${tabellaSettori(gen.righe, 'Genere', Y)}</div>` : ''}
       <div class="card"><h3>Collane</h3><p class="h-sub">Ordinate per venduto</p>${tabellaSettori(col, 'Collana', Y)}</div>`;
   },
   init(){
-    const { princ, cm } = this._d, s = SER(), Y = PER.Y;
+    const { princ } = this._d, s = SER(), Y = PER.Y;
     let top = princ.filter(x => x.f > 0).slice(0, 7);
     const altri = sum(princ.filter(x => x.f > 0).slice(7).map(x => x.f));
     if (altri > 0) top = [...top, { n: 'Altri', f: altri }];
@@ -1335,8 +1356,6 @@ S.settori = {
     const v = princ.filter(x => x.var != null && x.quota >= .01).slice(0, 12).sort((a, b) => b.var - a.var);
     mk('c-sv', { type: 'bar', data: { labels: v.map(x => x.n.length > 30 ? x.n.slice(0, 29) + '…' : x.n), datasets: [barre('Variazione', v.map(x => +(x.var * 100).toFixed(1)), v.map(x => x.var >= 0 ? s[0] : s[1]))] },
       options: { indexAxis: 'y', scales: { x: { ticks: { callback: x => (x > 0 ? '+' : '') + x + '%' } }, y: { grid: { display: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => v[i[0].dataIndex].n, label: c => ` ${c.parsed.x > 0 ? '+' : ''}${fDec.format(c.parsed.x)}% sul ${Y - 1}` } } } } });
-    if (cm.length) mk('c-cm', { type: 'bar', data: { labels: cm.map(x => x.n), datasets: [barre('Mercato', cm.map(x => +(x.quotaM * 100).toFixed(1)), css('--prev')), barre(ED.nome, cm.map(x => +(x.quotaE * 100).toFixed(1)), s[0])] },
-      options: { interaction: { mode: 'index', intersect: false }, scales: { y: { ticks: { callback: x => x + '%' } }, x: { grid: { display: false } } }, plugins: { legend: { position: 'top', align: 'end' }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fDec.format(c.parsed.y)}%` } } } } });
   },
 };
 
@@ -1346,8 +1365,7 @@ function settimaneGfk(k){
   return m ? { anno: +m[1], da: +m[2], a: +m[3] } : null;
 }
 const etiSettimana = k => { const w = settimaneGfk(k); return w ? (w.da === w.a ? `settimana ${w.a} del ${w.anno}` : `settimane ${w.da}–${w.a} del ${w.anno}`) : k; };
-S.gfk = {
-  titolo: 'GfK e sell-out', sub: () => `Classifiche GfK · ${etiSettimana(STATO.gfkWeek || R.gfk.settimana)}`,
+const SEZ_GFK = {
   html(){
     const tutte = R.gfk.righe || [];
     if (!tutte.length) return vuoto('Nessun titolo dell\'editore nelle classifiche GfK disponibili.');
@@ -1369,12 +1387,6 @@ S.gfk = {
         ${kpi('In classifica da inizio anno', num(T.length), `<span>miglior posizione ${T.length ? Math.min(...T.map(r => r.rank_pos)) + 'º' : '—'}</span>`, '--s4')}
         ${kpi('Sell-out da inizio anno', fmtM(sum(T.map(gM))), '<span>titoli in classifica</span>', '--s2')}
       </div>
-      <div class="card ranking" style="margin-bottom:16px"><div class="card-head" style="margin:0"><div><h3>Ranking e peso sul mercato</h3><p class="h-sub" style="margin:0">Da inizio anno · ${esc(etiSettimana(STATO.gfkWeek))}</p></div></div>
-        <div class="grid g3" style="margin:12px 0 0">
-          <div><div class="lab">Ranking editore</div><div class="val">—</div><div class="small muted">serve il dato GfK per editore: oggi l'import GfK salva solo i totali per promozione</div></div>
-          <div><div class="lab">Peso sul mercato in valore</div><div class="val">${pct(pesoV, 2)}</div><div class="small muted">somma dei titoli dell'editore in classifica</div></div>
-          <div><div class="lab">Peso sul mercato in copie</div><div class="val">${pct(pesoC, 2)}</div><div class="small muted">somma dei titoli dell'editore in classifica</div></div>
-        </div></div>
       <div class="grid g2">
         <div class="card"><h3>${VAL() ? 'Valore venduto' : 'Copie vendute'} da inizio anno</h3><p class="h-sub">I 15 titoli più alti in classifica</p><div class="ch lg"><canvas id="c-gt"></canvas></div></div>
         <div class="card"><h3>Sell-out per genere</h3><p class="h-sub">${VAL() ? 'Valore' : 'Copie'} da inizio anno, titoli in classifica</p><div class="ch lg"><canvas id="c-gg"></canvas></div></div>
@@ -1404,6 +1416,74 @@ S.gfk = {
   },
 };
 
+/* ---------- Mercato: peso dell'editore e confronto per genere con il mercato GfK ---------- */
+const SEZ_MERCATO = {
+  html(){
+    const Y = PER.Y, cm = confrontoMercato();
+    const T = (R.gfk.righe || []).filter(r => r.tipo === 'TOTALE' && r.week_key === R.gfk.settimana);
+    const W = (R.gfk.righe || []).filter(r => r.tipo === 'WEEK' && r.week_key === R.gfk.settimana);
+    const pesoV = sum(T.map(r => +r.value_pct || 0)), pesoC = sum(T.map(r => +r.units_pct || 0));
+    const pesoVW = sum(W.map(r => +r.value_pct || 0)), pesoCW = sum(W.map(r => +r.units_pct || 0));
+    const RK = (R.ranking || {}).tipi || {}, rT = RK.TOTALE, rW = RK.WEEK;
+    STATO.rkTipo ||= 'TOTALE';
+    const rS = RK[STATO.rkTipo];
+    this._d = { cm };
+    return `
+      <p class="lead">Quanto pesa ${esc(ED.nome)} sul mercato del libro secondo GfK e in quali generi è più forte o più debole del mercato.
+      Peso e ranking si calcolano sui primi ${rT ? num(rT.titoli_mercato) : '10.000'} titoli della classifica GfK (${esc(etiSettimana((R.ranking || {}).settimana || R.gfk.settimana))}).</p>
+      <div class="grid g-kpi">
+        ${kpi('Ranking editore', rT && rT.posizione ? `${rT.posizione}º` : '—', rT ? `<span>su ${num(rT.editori)} editori, da inizio anno</span>` : '<span>dato GfK non disponibile</span>', '--s4')}
+        ${kpi('Peso totale sul mercato', pct(rT ? +rT.peso_valore || 0 : pesoV, 2), `<span>in valore · ${pct(rT ? +rT.peso_copie || 0 : pesoC, 2)} in copie, da inizio anno</span>`, '--s1')}
+        ${kpi('Ranking ultima settimana', rW && rW.posizione ? `${rW.posizione}º` : '—', rW ? `<span>su ${num(rW.editori)} editori</span>` : '', '--s3')}
+        ${kpi('Peso ultima settimana', pct(rW ? +rW.peso_valore || 0 : pesoVW, 2), `<span>in valore · ${pct(rW ? +rW.peso_copie || 0 : pesoCW, 2)} in copie</span>`, '--s7')}
+      </div>
+      ${rS && (rS.top || []).length ? `<div class="card" style="margin-bottom:16px"><div class="card-head"><div><h3>Classifica degli editori</h3><p class="h-sub">Sell-out in valore ${STATO.rkTipo === 'WEEK' ? 'dell\'ultima settimana' : 'da inizio anno'} · i primi 15 e ${esc(ED.nome)}</p></div>
+          <div class="dx chips" id="ch-rk">${[['TOTALE', 'Da inizio anno'], ['WEEK', 'Ultima settimana']].map(([k, l]) => `<button class="chip ${STATO.rkTipo === k ? 'on' : ''}" data-k="${k}">${l}</button>`).join('')}</div></div>
+        <div class="tw"><table class="tbl"><thead><tr><th class="r">Pos.</th><th>Editore</th><th class="r">Sell-out</th><th>Peso sul mercato</th></tr></thead>
+        <tbody>${(() => { const top = rS.top, mx = Math.max(...top.map(x => +x.peso)) || 1; let prec = 0;
+          return top.map(x => { const salto = x.pos - prec > 1 && prec ? '<tr><td colspan="4" class="muted small" style="text-align:center">…</td></tr>' : ''; prec = x.pos;
+            return salto + `<tr class="${x.mio ? 'rk-mio' : ''}"><td class="r t-tit">${x.pos}º</td><td class="t-tit">${x.mio ? esc(ED.nome) : esc(titleCase(x.editore))}</td><td class="r">${eur(+x.valore)}</td>
+              <td style="min-width:180px"><div style="display:flex;align-items:center;gap:8px"><div class="bar-in" style="flex:1"><i style="width:${+x.peso / mx * 100}%"></i></div><span class="small num">${pct(+x.peso, 2)}</span></div></td></tr>`; }).join(''); })()}</tbody></table></div>
+        ${(R.ranking.nomi || []).length > 1 ? `<p class="note">Per ${esc(ED.nome)} sono sommati i nomi GfK: ${R.ranking.nomi.map(n => esc(titleCase(n))).join(', ')}.</p>` : ''}</div>` : ''}
+      ${cm.length ? `<div class="card" style="margin-bottom:16px"><div class="grid" style="margin:0;grid-template-columns:minmax(0,1fr)">
+        <div><h3>Confronto con il mercato (GfK)</h3><p class="h-sub">Generi GfK da inizio anno, ${VAL() ? 'valore' : 'copie'} in cassa. Per l'editore contano i titoli presenti nelle classifiche GfK.</p>
+          <div class="tw"><table class="tbl"><thead><tr><th>Genere GfK</th><th class="r">Peso nel mercato</th><th class="r">Mercato vs ${Y - 1}</th><th class="r">Peso nell'editore</th><th class="r">Sell-out editore</th><th class="r">Quota del genere</th></tr></thead>
+          <tbody>${cm.map(x => `<tr><td class="t-tit">${esc(x.n)}</td><td class="r">${pct(x.quotaM)}</td><td class="r"><span class="pill ${x.varM >= 0 ? 'ok' : 'ko'}">${pctS(x.varM)}</span></td>
+            <td class="r t-tit">${pct(x.quotaE)}</td><td class="r">${fmtMF(x.e)}<div class="t-sub">${num(x.titoli)} titoli</div></td><td class="r">${pct(x.pesoSulGenere, 2)}</td></tr>`).join('')}</tbody></table></div>
+          <p class="note">"Peso nell'editore" confrontato con "Peso nel mercato" dice in quali generi l'editore è più forte o più debole del mercato; "Quota del genere" è la parte del genere venduta dai titoli dell'editore in classifica.</p></div>
+        <div><h3>Editore e mercato a confronto</h3><p class="h-sub">Peso di ogni genere sul totale</p><div class="ch"><canvas id="c-cm"></canvas></div></div>
+      </div></div>` : ''}
+      ${cm.length ? '' : '<div class="card empty">Dati di mercato GfK non disponibili per questa settimana.</div>'}
+`;
+  },
+  init(){
+    const { cm } = this._d, s = SER();
+    document.querySelectorAll('#ch-rk .chip').forEach(b => b.addEventListener('click', () => { STATO.rkTipo = b.dataset.k; render(); }));
+    if (cm.length) mk('c-cm', { type: 'bar', data: { labels: cm.map(x => x.n), datasets: [barre('Mercato', cm.map(x => +(x.quotaM * 100).toFixed(1)), css('--prev')), barre(ED.nome, cm.map(x => +(x.quotaE * 100).toFixed(1)), s[0])] },
+      options: { interaction: { mode: 'index', intersect: false }, scales: { y: { ticks: { callback: x => x + '%' } }, x: { grid: { display: false } } }, plugins: { legend: { position: 'top', align: 'end' }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fDec.format(c.parsed.y)}%` } } } } });
+  },
+};
+
+/* ---------- Settori e sell-out: una sezione con tre schede ---------- */
+const SCHEDE_SET = [['sellin', 'Sell-in per settore', SEZ_SELLIN], ['gfk', 'Sell-out GfK', SEZ_GFK], ['mercato', 'Peso e confronto col mercato', SEZ_MERCATO]];
+S.settori = {
+  titolo: 'Settori e sell-out', sub: () => STATO.tabSet === 'gfk' ? `Classifiche GfK · ${etiSettimana(STATO.gfkWeek || R.gfk.settimana)}` : STATO.tabSet === 'mercato' ? `Mercato GfK · ${etiSettimana(R.gfk.settimana)}` : `Generi e collane · ${PER.etichetta}`,
+  async prepara(){
+    if (!R.mercato) R.mercato = await rpc('ed_gfk_mercato', { p_editore: ED.codice_editore, p_week: R.gfk.settimana || null }).catch(() => ({ generi: [] }));
+    if (!R.ranking) R.ranking = await rpc('ed_gfk_ranking', { p_editore: ED.codice_editore, p_week: null }).catch(() => ({}));
+    await nomiCollane();
+  },
+  html(){
+    if (!SCHEDE_SET.find(x => x[0] === STATO.tabSet)) STATO.tabSet = 'sellin';
+    const sch = SCHEDE_SET.find(x => x[0] === STATO.tabSet);
+    return `<div class="schede" role="tablist">${SCHEDE_SET.map(([k, l]) => `<button type="button" role="tab" class="scheda ${k === STATO.tabSet ? 'on' : ''}" data-tab="${k}" aria-selected="${k === STATO.tabSet}">${l}</button>`).join('')}</div>` + sch[2].html();
+  },
+  init(){
+    document.querySelectorAll('.scheda[data-tab]').forEach(b => b.addEventListener('click', () => { STATO.tabSet = b.dataset.tab; render(); }));
+    SCHEDE_SET.find(x => x[0] === STATO.tabSet)[2].init();
+  },
+};
+
 /* ---------- Giri vendita: unificati per numero, dal più recente; più giri si sommano ---------- */
 S.giri = {
   titolo: 'Giri vendita', sub: () => 'Giri PDE con i titoli dell\'editore: prenotato, obiettivi e distribuzione',
@@ -1412,7 +1492,8 @@ S.giri = {
     if (!G.length) { this._D = null; return; }
     STATO.giriSel = (STATO.giriSel || []).filter(k => G.find(g => g.chiave === k));
     if (!STATO.giriSel.length) STATO.giriSel = [(G.find(g => g.stato === 'in corso') || G[0]).chiave];
-    this._D = await dettaglioGiri(STATO.giriSel);
+    const [D] = await Promise.all([dettaglioGiri(STATO.giriSel), nomiAgenti(), aggPrenotato()]);
+    this._D = D;
   },
   html(){
     const G = R.giri;
@@ -1431,6 +1512,7 @@ S.giri = {
     return `
       <p class="lead">I giri sono unificati per numero (le cedole non si separano), dal più recente a sinistra al più vecchio a destra.
       Clicca un giro per vederlo, oppure spunta il quadratino in basso per sommarne più di uno.</p>
+      ${notaPrenotato()}
       <div class="card-head" style="margin-bottom:12px"><div class="chips" id="ch-anno">${['tutti', ...anni].map(a => `<button class="chip ${String(STATO.annoGiri) === String(a) ? 'on' : ''}" data-a="${a}">${a === 'tutti' ? 'Tutti gli anni' : a}</button>`).join('')}</div>
         <div class="dx small muted">${sel.length > 1 ? `<button class="btn" id="b-giri-uno">Solo il più recente</button>` : ''}</div></div>
       <div class="giri">${vis.map(x => { const on = STATO.giriSel.includes(x.chiave); return `<div class="giro ${on ? 'on' : ''}" data-g="${x.chiave}" role="button" tabindex="0">
@@ -1444,6 +1526,7 @@ S.giri = {
         ${kpi(sel.length > 1 ? 'Prenotato · somma' : 'Prenotato', num(P), `<span>copie${O ? ' su obiettivo ' + num(O) : ''}</span>`, '--s1')}
         ${kpi('Obiettivo raggiunto', O ? pct(P / O, 0) : '—', unico && unico.stato === 'in corso' && unico.inizio ? `<span>giorno ${diffGg(OGGI, unico.inizio) + 1} di ${diffGg(unico.fine, unico.inizio) + 1}</span>` : `<span>${unico ? unico.stato : sel.map(nomeGiro).join(', ')}</span>`, '--s3')}
         ${kpi('Punti vendita', num(D.clienti || 0), `<span>che hanno prenotato${sel.length > 1 ? ', contati una volta' : ''}</span>`, '--s7')}
+        ${kpi('Raggiunti dagli agenti', D.seguiti ? pct(D.seguiti_prenotanti / D.seguiti, 0) : '—', `<span>${num(D.seguiti_prenotanti || 0)} su ${num(D.seguiti || 0)} punti vendita seguiti · ${num((D.non_prenotanti || []).length)} non hanno prenotato</span>`, '--s2')}
         ${kpi('Titoli', num(tit.length), `<span>${unico && unico.consegna ? 'materiali entro il ' + fData(unico.consegna) : ''}</span>`, '--s4')}
       </div>
       <div class="grid g2">
@@ -1452,13 +1535,19 @@ S.giri = {
           <tbody>${tit.map(t => `<tr><td><div class="con-cop">${cop(t.ean)}<div><div class="t-tit">${esc(titleCase(t.titolo))}</div><div class="t-sub">${esc(titleCase(t.autore || ''))} · EAN ${esc(t.ean)}</div></div></div></td>${sel.length > 1 ? `<td class="small">${esc(t.giro)}</td>` : ''}
             <td class="small">${esc(titleCase(t.uscita || ''))}</td><td class="r">${t.prezzo ? eur(+t.prezzo).replace(',00', '') : '—'}</td><td class="r">${num(+t.obiettivo)}</td><td class="r t-tit">${num(+t.prenotato)}</td>
             <td class="r">${+t.obiettivo ? pillPerc(t.prenotato / t.obiettivo) : '—'}</td></tr>`).join('')}</tbody></table></div></div>
-        <div class="card"><h3>Prenotato per canale</h3><p class="h-sub">Copie · ${esc(nomeSel)}</p>${P ? '<div class="ch"><canvas id="c-gc"></canvas></div>' : '<div class="empty">Nessuna prenotazione</div>'}</div>
+        <div class="card"><h3>Prenotato per categoria cliente</h3><p class="h-sub">Catene, indipendenti, online, grossisti… · copie · ${esc(nomeSel)}</p>${P ? '<div class="ch"><canvas id="c-gc"></canvas></div>' : '<div class="empty">Nessuna prenotazione</div>'}</div>
       </div>
-      ${P ? `<div class="grid g2">
-        <div class="card"><h3>Prenotato per agente</h3><p class="h-sub">Copie raccolte dagli agenti PDE sul territorio${dir ? ` · i clienti direzionali hanno prenotato ${num(dir.copie)} copie in ${num(dir.clienti)} punti vendita` : ''}</p><div class="ch" style="height:${Math.max(260, (D.per_agente || []).length * 24 + 60)}px"><canvas id="c-ga"></canvas></div></div>
+      ${P ? `<div class="card" style="margin-bottom:16px"><h3>Prenotato per agente</h3><p class="h-sub">Copie raccolte dagli agenti PDE e punti vendita raggiunti sul totale di quelli che seguono${dir ? ` · i clienti direzionali hanno prenotato ${num(dir.copie)} copie in ${num(dir.clienti)} punti vendita` : ''}</p>
+          ${tabellaAgentiGiro(D, sel.length)}</div>
+      <div class="grid g2">
+      <div class="card"><div class="card-head"><div><h3>Punti vendita che non hanno prenotato</h3><p class="h-sub">Seguiti dagli agenti PDE per ${esc(ED.nome)} ma senza prenotazioni · ${esc(nomeSel)}</p></div>
+        <div class="dx" style="display:flex;gap:8px;flex-wrap:wrap"><select id="np-ag"><option value="">Tutti gli agenti</option>${[...new Set((D.non_prenotanti || []).map(c => c.agente))].map(a => [a, nomeAgente(a)]).sort((a, b) => a[1].localeCompare(b[1])).map(([a, n]) => `<option value="${esc(a)}">${esc(n)}</option>`).join('')}</select>
+          <input type="search" id="q-np" placeholder="Cerca punto vendita o città"></div></div>
+        <div class="tw scroll"><table class="tbl"><thead><tr><th>Punto vendita</th><th>Città</th><th>Categoria e canale</th><th>Agente</th></tr></thead><tbody id="tb-np"></tbody></table></div>
+        <p class="note" id="np-nota"></p></div>
         <div class="card"><h3>Prenotato per zona</h3><p class="h-sub">Dove si trovano i punti vendita</p><div class="ch"><canvas id="c-gz"></canvas></div></div>
       </div>
-      <div class="card"><div class="card-head"><div><h3>Media del prenotato</h3><p class="h-sub">Copie prenotate in media da ogni punto vendita${sel.length > 1 ? `, per giro (${sel.length} giri sommati)` : ''} · ${esc(nomeSel)}</p></div>
+      <div class="card"><div class="card-head"><div><h3>Media del prenotato</h3><p class="h-sub">Quante copie ha prenotato in media un punto vendita: copie prenotate ÷ punti vendita che hanno prenotato${sel.length > 1 ? `, divise anche per i ${sel.length} giri sommati` : ''} · ${esc(nomeSel)}</p></div>
         <div class="dx chips" id="ch-media">${[['gruppo', 'Per gruppo'], ['canale', 'Per canale'], ['cliente', 'Per cliente']].map(([k, l]) => `<button class="chip ${(STATO.mediaPren || 'gruppo') === k ? 'on' : ''}" data-k="${k}">${l}</button>`).join('')}</div></div>
         <div id="box-media"></div></div>` : ''}`;
   },
@@ -1479,16 +1568,83 @@ S.giri = {
     const gr = {}; (D.per_canale || []).forEach(c => gr[nomeGruppo(c.gruppo)] = (gr[nomeGruppo(c.gruppo)] || 0) + +c.copie);
     const ge = Object.entries(gr).sort((a, b) => b[1] - a[1]);
     torta('c-gc', ge.map(x => x[0]), ge.map(x => x[1]), { centroSub: 'copie' });
-    const pa = {}; (D.per_agente || []).filter(a => a.agente !== 'DIREZIONALE').forEach(a => { const n = nomeAgente(a.agente); pa[n] ||= { copie: 0, clienti: 0 }; pa[n].copie += +a.copie; pa[n].clienti += +a.clienti; });
-    const ag = Object.entries(pa).sort((a, b) => b[1].copie - a[1].copie);
-    mk('c-ga', { type: 'bar', data: { labels: ag.map(a => a[0]), datasets: [barre('Copie prenotate', ag.map(a => a[1].copie), s[0], { maxBarThickness: 16 })] },
-      options: { indexAxis: 'y', scales: { x: { ticks: tickNum }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${num(c.parsed.x)} copie · ${num(ag[c.dataIndex][1].clienti)} punti vendita` } } } } });
+    const np = D.non_prenotanti || [];
+    const disegnaNp = () => { const a = $('#np-ag').value, q = $('#q-np').value.toLowerCase().trim();
+      const L = np.filter(c => (!a || c.agente === a) && (!q || `${c.nome} ${c.citta || ''} ${c.cc}`.toLowerCase().includes(q))).sort((x, y) => String(x.nome).localeCompare(String(y.nome)));
+      $('#tb-np').innerHTML = L.slice(0, 400).map(c => `<tr><td><div class="t-tit">${esc(titleCase(c.nome || ''))}</div><div class="t-sub">cod. ${esc(c.cc)}</div></td><td class="small">${esc(titleCase(c.citta || ''))}${c.provincia ? ' (' + esc(c.provincia) + ')' : ''}</td>
+        <td class="small">${esc(c.gruppo || '—')}${c.canale ? `<div class="t-sub">${esc(c.canale)}</div>` : ''}</td><td class="small">${esc(nomeAgente(c.agente))}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">Nessun punto vendita</td></tr>';
+      $('#np-nota').textContent = L.length > 400 ? `Sono mostrati i primi 400 di ${num(L.length)}: usa la ricerca o il filtro per agente.` : `${num(L.length)} punti vendita.`; };
+    if ($('#tb-np')) { disegnaNp(); $('#np-ag').addEventListener('change', disegnaNp); $('#q-np').addEventListener('input', disegnaNp); }
     const z = {}; (D.per_zona || []).forEach(r => { const k = zonaDi(r.provincia, r.regione); z[k] = (z[k] || 0) + +r.copie; });
     const zl = ZONE_ND.filter(k => z[k]);
     torta('c-gz', zl, zl.map(k => z[k]), { centroSub: 'copie' });
     mediePrenotato(D, this._sel.length);
   },
 };
+
+/* ---- tutte le tabelle: clic sull'intestazione per riordinare (numeri, euro, percentuali, date o testo) ---- */
+function chiaveOrd(cell){
+  if (!cell) return null;
+  if (cell.dataset.v != null) { const n = +cell.dataset.v; return isNaN(n) ? cell.dataset.v.toLowerCase() : n; }
+  const t = (cell.innerText || '').trim().split('\n')[0].trim();
+  if (!t || t === '—' || t === '-') return null;
+  let m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(t);
+  if (m) return +m[3] * 10000 + +m[2] * 100 + +m[1];
+  m = /^[≥▲▼€+\-−\s]*([\d.]+(?:,\d+)?)\s*(mln|mila)?\s*(%|€|º|°|gg|giorni|copie|punti)?/i.exec(t.replace(/^€\s*/, ''));
+  if (m && /\d/.test(m[1])){
+    let n = +m[1].replace(/\./g, '').replace(',', '.');
+    if (/mln/i.test(m[2] || '')) n *= 1e6; else if (/mila/i.test(m[2] || '')) n *= 1e3;
+    if (/^[\s€▼]*[-−]/.test(t)) n = -n;
+    return n;
+  }
+  return t.toLowerCase();
+}
+document.addEventListener('click', e => {
+  const th = e.target.closest('table.tbl thead th');
+  if (!th || e.target.closest('input,select,button,a')) return;
+  const table = th.closest('table'), tb = table.tBodies[0]; if (!tb) return;
+  const nCol = th.parentNode.children.length, idx = [...th.parentNode.children].indexOf(th);
+  const dir = th.dataset.ord === 'desc' ? 'asc' : 'desc';
+  table.querySelectorAll('thead th[data-ord]').forEach(x => delete x.dataset.ord);
+  th.dataset.ord = dir;
+  const righe = [...tb.rows];
+  const fisse = righe.filter(r => r.cells.length !== nCol || r.querySelector('td.empty') || /^totale|^esposizione totale/i.test((r.cells[0]?.innerText || '').trim()));
+  const mob = righe.filter(r => !fisse.includes(r)).map(r => [r, chiaveOrd(r.cells[idx])]);
+  mob.sort((a, b) => {
+    const x = a[1], y = b[1];
+    if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+    const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'it', { numeric: true });
+    return dir === 'asc' ? c : -c;
+  });
+  tb.append(...mob.map(x => x[0]), ...fisse);
+});
+
+/* ---- giri: nomi degli agenti, aggiornamento del prenotato, tabella agenti ---- */
+async function nomiAgenti(){
+  if (R.nomiAgOk) return;
+  try { const C = R.copertura || (R.copertura = await rpc('ed_agenti_copertura', { p_editore: ED.codice_editore }));
+    (C || []).forEach(a => { if (!R.agenti[a.codice]) R.agenti[a.codice] = { nome: titleCase(a.nome), reale: true }; }); } catch (e) { console.warn('Nomi agenti:', e.message); }
+  R.nomiAgOk = true;
+}
+async function aggPrenotato(){ if (!R.pren) R.pren = await rpc('ed_pren_aggiornamento').catch(() => null); }
+function notaPrenotato(){
+  const a = R.pren && R.pren.al ? new Date(R.pren.al) : null; if (!a) return '';
+  const quando = `lunedì ${fData(a)} alle 13`;
+  return `<div class="nota-pren">🗓️ ${R.pren.tempo_reale ? `Tu vedi il prenotato <b>in tempo reale</b>; gli editori lo vedono aggiornato a <b>${quando}</b>.` : `Prenotato aggiornato a <b>${quando}</b>.`}
+    Il prenotato si aggiorna ogni lunedì: gli agenti inseriscono le prenotazioni entro la domenica.</div>`;
+}
+function tabellaAgentiGiro(D, nGiri){
+  const pa = {};
+  (D.per_agente || []).filter(a => a.agente !== 'DIREZIONALE').forEach(a => { const n = nomeAgente(a.agente); const x = pa[n] ||= { copie: 0, clienti: 0, seguiti: 0 };
+    x.copie += +a.copie; x.clienti += +a.clienti; x.seguiti += +a.seguiti || 0; });
+  const L = Object.entries(pa).sort((a, b) => b[1].copie - a[1].copie);
+  if (!L.length) return '<div class="empty">Nessun agente PDE assegnato ai punti vendita dell\'editore</div>';
+  return `<div class="tw scroll"><table class="tbl"><thead><tr><th>Agente</th><th class="r">Copie</th><th class="r">Punti vendita seguiti</th><th class="r">Hanno prenotato</th><th class="r">Non hanno prenotato</th><th>Raggiunti</th><th class="r">Copie per punto vendita</th></tr></thead>
+    <tbody>${L.map(([n, x]) => { const r = x.seguiti ? Math.min(1, x.clienti / x.seguiti) : 0;
+      return `<tr><td class="t-tit">${esc(n)}</td><td class="r t-tit">${num(x.copie)}</td><td class="r">${num(x.seguiti)}</td><td class="r">${num(x.clienti)}</td><td class="r">${num(Math.max(0, x.seguiti - x.clienti))}</td>
+        <td style="min-width:120px"><div style="display:flex;align-items:center;gap:8px"><div class="bar-in" style="flex:1"><i style="width:${r * 100}%"></i></div><span class="small num">${pct(r, 0)}</span></div></td>
+        <td class="r">${x.clienti ? fDec.format(x.copie / x.clienti / nGiri) : '—'}</td></tr>`; }).join('')}</tbody></table></div>`;
+}
 // Media del prenotato: copie / punti vendita che hanno prenotato, per gruppo, per canale o per singolo cliente
 const pillMedia = r => `<span class="pill ${r >= 1.1 ? 'ok' : r >= .9 ? 'mut' : 'ko'}">${r >= 1 ? '+' : ''}${pct(r - 1, 0)}</span>`;
 function mediePrenotato(D, nGiri){
@@ -1531,7 +1687,7 @@ function mediePrenotato(D, nGiri){
 const giroInLavorazione = () => R.giri.find(g => g.stato === 'in corso') || R.giri.find(g => g.stato === 'chiuso') || null;
 S.finegiri = {
   titolo: 'Fine giro', sub: () => { const g = giroInLavorazione(); return g ? `${nomeGiro(g)} · ${g.stato === 'in corso' ? 'in lavorazione' : 'ultimo giro lavorato, chiuso il ' + fData(g.fine)}` : 'Nessun giro in lavorazione'; },
-  async prepara(){ const g = giroInLavorazione(); this._g = g; this._D = g ? await dettaglioGiri([g.chiave]) : null; },
+  async prepara(){ const g = giroInLavorazione(); this._g = g; const [D] = await Promise.all([g ? dettaglioGiri([g.chiave]) : null, nomiAgenti(), aggPrenotato()]); this._D = D; },
   html(){
     const g = this._g, D = this._D;
     if (!g) return vuoto('Non c\'è un giro in lavorazione né un giro chiuso con titoli dell\'editore. <a href="#giri">Vedi tutti i giri</a>');
@@ -1548,6 +1704,7 @@ S.finegiri = {
     return `
       <p class="lead">${inCorso ? `Il giro su cui si sta lavorando: quanto è stato prenotato finora, a che ritmo e dove si arriva a fine giro se il ritmo resta questo.`
         : `Il giro è chiuso: qui resta l'ultimo giro lavorato, con il consuntivo Messaggerie, finché non parte il prossimo.`} <a href="#giri">Tutti i giri →</a></p>
+      ${notaPrenotato()}
       <div class="grid g-kpi">
         ${kpi('Prenotato', num(P), `<span>copie${O ? ' su obiettivo ' + num(O) : ''}</span>`, '--s1')}
         ${kpi('Obiettivo raggiunto', O ? pct(P / O, 0) : '—', `<span>${indietro ? num(indietro) + ' titoli sotto il 90%' : 'tutti i titoli almeno al 90%'}</span>`, '--s3')}
@@ -1565,7 +1722,7 @@ S.finegiri = {
           <td>${t.perc != null ? `<div style="display:flex;align-items:center;gap:8px"><div class="bar-in" style="flex:1"><i style="width:${Math.min(100, t.perc * 100)}%;background:${t.perc >= 1 ? 'var(--ok)' : t.perc >= .9 ? 'var(--warn)' : 'var(--cyan)'}"></i></div>${pillPerc(t.perc)}</div>` : '<span class="pill mut">senza obiettivo</span>'}</td>
           ${inCorso ? '' : `<td class="r">${num(+t.cf)}</td><td class="r t-tit">${num(t.cf - t.cr)}</td><td class="r">${+t.cf ? pct(t.cr / t.cf) : '—'}</td>`}</tr>`).join('')}</tbody></table></div></div>
       ${P ? `<div class="grid g2">
-        <div class="card"><h3>Agenti</h3><p class="h-sub">Copie raccolte da ogni agente PDE sul territorio${dir ? ` · clienti direzionali: ${num(dir.copie)} copie in ${num(dir.clienti)} punti vendita` : ''}</p><div class="ch" style="height:${Math.max(260, (D.per_agente || []).length * 24 + 60)}px"><canvas id="c-fga"></canvas></div></div>
+        <div class="card"><h3>Agenti</h3><p class="h-sub">Copie raccolte da ogni agente PDE sul territorio${dir ? ` · clienti direzionali: ${num(dir.copie)} copie in ${num(dir.clienti)} punti vendita` : ''}</p><div class="ch" style="height:${Math.max(260, (D.per_agente || []).filter(x => +x.copie > 0).length * 24 + 60)}px"><canvas id="c-fga"></canvas></div></div>
         <div><div class="card" style="margin-bottom:16px"><h3>Per canale</h3><p class="h-sub">Copie prenotate</p><div class="ch"><canvas id="c-fgc"></canvas></div></div>
           <div class="card"><h3>Per zona</h3><p class="h-sub">Copie prenotate</p><div class="ch"><canvas id="c-fgz"></canvas></div></div></div>
       </div>` : ''}`;
@@ -1573,7 +1730,7 @@ S.finegiri = {
   init(){
     if (!this._d || !this._d.g.prenotato) return;
     const { D } = this._d, s = SER();
-    const pa = {}; (D.per_agente || []).filter(a => a.agente !== 'DIREZIONALE').forEach(a => { const n = nomeAgente(a.agente); pa[n] ||= { copie: 0, clienti: 0 }; pa[n].copie += +a.copie; pa[n].clienti += +a.clienti; });
+    const pa = {}; (D.per_agente || []).filter(a => a.agente !== 'DIREZIONALE' && +a.copie > 0).forEach(a => { const n = nomeAgente(a.agente); pa[n] ||= { copie: 0, clienti: 0 }; pa[n].copie += +a.copie; pa[n].clienti += +a.clienti; });
     const ag = Object.entries(pa).sort((a, b) => b[1].copie - a[1].copie);
     mk('c-fga', { type: 'bar', data: { labels: ag.map(a => a[0]), datasets: [barre('Copie prenotate', ag.map(a => a[1].copie), s[0], { maxBarThickness: 16 })] },
       options: { indexAxis: 'y', scales: { x: { ticks: tickNum }, y: { grid: { display: false }, ticks: { autoSkip: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${num(c.parsed.x)} copie · ${num(ag[c.dataIndex][1].clienti)} punti vendita` } } } } });
@@ -1946,7 +2103,7 @@ S.invconf = {
   async prepara(){
     this._E = null;
     const I = R.inv.filter(i => CONFERMATI.includes(i.stato) && i.chi === 'Editore'), k = periodoEffetto();
-    if (!I.length || !k) return;
+    if (!I.length || !k || !ADMIN()) return;   // lo sconto per cliente lo vedono solo gli admin
     await anagrafica();
     this._E = { k, ...effettoInvestimenti(I, await clientiPer(k)) };
   },
@@ -1974,16 +2131,16 @@ S.invconf = {
     return `
       <p class="lead">Gli investimenti confermati sui clienti. Quando un'iniziativa è conclusa e se ne conoscono i risultati, segnala come rendicontata.</p>
       <div class="grid g-kpi">
-        ${kpi('Investimento editore', eurK(E), `<span>${E + P ? pct(E / (E + P), 0) : '—'} del totale</span>`, '--s1')}
-        ${kpi('Investimento PDE', eurK(P), `<span>${E + P ? pct(P / (E + P), 0) : '—'} del totale</span>`, '--s3')}
+        ${kpi('Investimento editore', eurK(E), ADMIN() ? `<span>${E + P ? pct(E / (E + P), 0) : '—'} del totale</span>` : '<span>investimenti della casa editrice</span>', '--s1')}
+        ${ADMIN() ? kpi('Investimento PDE', eurK(P), `<span>${E + P ? pct(P / (E + P), 0) : '—'} del totale</span>`, '--s3') : ''}
         ${kpi('Totale confermato', eurK(E + P), `<span>${num(I.length)} iniziative</span>`, '--s7')}
         ${kpi('Rendicontati', num(rend.length), `<span>${eurK(sum(rend.map(i => +i.importo)))} · ${num(I.length - rend.length)} in corso</span>`, '--s4')}
       </div>
       ${effetto}
-      <div class="grid g3">
-        <div class="card"><h3>Chi investe</h3><p class="h-sub">Editore e PDE</p><div class="ch sm"><canvas id="c-chi"></canvas></div></div>
-        <div class="card"><h3>Per tipologia</h3><p class="h-sub">Editore + PDE</p><div class="ch sm"><canvas id="c-tipo"></canvas></div></div>
-        <div class="card"><h3>Per mese di inizio</h3><p class="h-sub">Editore e PDE</p><div class="ch sm"><canvas id="c-imese"></canvas></div></div>
+      <div class="grid ${ADMIN() ? 'g3' : 'g2e'}">
+        ${ADMIN() ? '<div class="card"><h3>Chi investe</h3><p class="h-sub">Editore e PDE</p><div class="ch sm"><canvas id="c-chi"></canvas></div></div>' : ''}
+        <div class="card"><h3>Per tipologia</h3><p class="h-sub">${ADMIN() ? 'Editore + PDE' : 'Investimenti della casa editrice'}</p><div class="ch sm"><canvas id="c-tipo"></canvas></div></div>
+        <div class="card"><h3>Per mese di inizio</h3><p class="h-sub">${ADMIN() ? 'Editore e PDE' : 'Investimenti della casa editrice'}</p><div class="ch sm"><canvas id="c-imese"></canvas></div></div>
       </div>
       <div class="card"><h3>Elenco</h3><p class="h-sub">Dal più recente</p>
         ${tabellaInv(I, i => `${i.stato === 'Confermato' ? `<button class="btn pri" data-ist="${i.id}" data-st="Rendicontato">Rendicontato</button> ` : `<button class="btn" data-ist="${i.id}" data-st="Confermato">Riapri</button> `}<button class="btn" data-ie="${i.id}">Modifica</button>`)}</div>`;
@@ -1993,7 +2150,7 @@ S.invconf = {
     const I = this._I; if (!I || !I.length) return;
     const s = SER();
     const E = sum(I.filter(i => i.chi === 'Editore').map(i => +i.importo)), P = sum(I.filter(i => i.chi === 'PDE').map(i => +i.importo));
-    torta('c-chi', ['Editore', 'PDE'], [E, P], { eur: true, colori: [s[0], s[2]] });
+    if ($('#c-chi')) torta('c-chi', ['Editore', 'PDE'], [E, P], { eur: true, colori: [s[0], s[2]] });
     const tp = TIPI_INVEST.filter(t => I.some(i => i.tipologia === t));
     torta('c-tipo', tp, tp.map(t => sum(I.filter(i => i.tipologia === t).map(i => +i.importo))), { eur: true });
     const mesi = [...new Set(I.filter(i => i.dal).map(i => i.dal.slice(0, 7)))].sort();
@@ -2018,101 +2175,211 @@ function fatturatoSerie(){
 }
 const ultimoMeseChiuso = () => { const u = PER.ultimo; const fine = new Date(u.getFullYear(), u.getMonth() + 1, 0); return u.getDate() === fine.getDate() ? new Date(u.getFullYear(), u.getMonth(), 1) : new Date(u.getFullYear(), u.getMonth() - 1, 1); };
 S.fatturazione = {
-  titolo: 'Fatturazione PDE', sub: () => `Compenso PDE del ${pct(percPde(), 0)} sul venduto a prezzo di copertina, netto rese · ${PER.etichetta}`,
+  titolo: 'Fatturazione PDE', sub: () => `Compenso PDE, fatture, scadenze, esposizione e piano di rientro · solo amministratori`,
   html(){
-    const p = percPde(), Y = PER.Y;
+    if (!ADMIN()) return vuoto('Sezione riservata agli amministratori PDE.');
+    const p = percPde(), Y = PER.Y, oggi = iso(OGGI);
     const m0 = serieP(VF(), false, v => (v.lf - v.lr) * p), m1 = serieP(VF(), true, v => (v.lf - v.lr) * p);
     const fa = fatturatoSerie();
     const M = sum(m0), M1 = sum(m1), FA = sum(fa);
-    const F = R.fatt.fatture || [];
-    const daIncassare = sum(F.filter(f => f.stato === 'Emessa').map(f => +f.imponibile));
-    const scadute = F.filter(f => f.stato === 'Scaduta');
+    const F = R.fatt.fatture || [], RI = R.fatt.rientro || [], DE = R.fatt.delegazioni || [];
+    // esposizione: totale fattura (IVA compresa) meno quanto già pagato, per le fatture non annullate
+    const tot = f => +f.imponibile * (1 + (+f.iva_pct || 0) / 100);
+    const aperte = F.filter(f => f.stato !== 'Annullata' && f.stato !== 'Pagata').map(f => ({ ...f, res: Math.max(0, tot(f) - (+f.pagato || 0)), gg: f.scadenza ? diffGg(OGGI, pd(f.scadenza)) : null }))
+      .filter(f => f.res > 0.005);
+    const fasce = [['A scadere', f => f.gg == null || f.gg <= 0], ['Scaduto 1–30', f => f.gg > 0 && f.gg <= 30], ['Scaduto 31–60', f => f.gg > 30 && f.gg <= 60],
+      ['Scaduto 61–90', f => f.gg > 60 && f.gg <= 90], ['Scaduto oltre 90', f => f.gg > 90]].map(([n, t]) => ({ n, v: sum(aperte.filter(t).map(f => f.res)), k: aperte.filter(t).length }));
+    const ESP = sum(aperte.map(f => f.res)), SCAD = sum(fasce.slice(1).map(x => x.v));
+    // piano di rientro: rate (bonifici o altro) + delegazioni Messaggerie, mese per mese
+    const PIANO_RATE = RI.filter(r => r.stato !== 'Annullata'), incassato = sum(PIANO_RATE.filter(r => r.stato === 'Incassata').map(r => +r.importo));
+    const mesiProj = Array.from({ length: 12 }, (_, i) => iso(new Date(OGGI.getFullYear(), OGGI.getMonth() + i, 1)));
+    const delegMese = (d, m) => { if (d.stato !== 'Attiva' || m < d.dal.slice(0, 8) + '01' || (d.al && m > d.al.slice(0, 8) + '01')) return 0;
+      if (+d.importo_mensile) return +d.importo_mensile;
+      if (+d.importo_totale && d.al){ const n = (pd(d.al).getFullYear() - pd(d.dal).getFullYear()) * 12 + pd(d.al).getMonth() - pd(d.dal).getMonth() + 1; return +d.importo_totale / Math.max(1, n); }
+      return 0; };
+    const rateMese = m => sum(PIANO_RATE.filter(r => r.stato !== 'Incassata' && r.data.slice(0, 7) === m.slice(0, 7)).map(r => +r.importo));
+    let resid = ESP; const proj = mesiProj.map(m => { const r = rateMese(m), d = sum(DE.map(x => delegMese(x, m))); resid = Math.max(0, resid - r - d); return { m, r, d, resid }; });
+    const coperturaPiano = sum(PIANO_RATE.filter(r => r.stato !== 'Incassata').map(r => +r.importo)) + sum(proj.map(x => x.d));
     const ed = STATO.fattEdit ? F.find(f => f.id === STATO.fattEdit) : null;
-    const v = ed || STATO.fattBozza || { stato: 'Emessa', iva_pct: 22 };
+    const v = ed || STATO.fattBozza || { stato: 'Emessa', iva_pct: 22, mesi_scadenza: 3 };
     const opt = (L, sel) => L.map(x => `<option ${String(x) === String(sel ?? '') ? 'selected' : ''}>${esc(x)}</option>`).join('');
     const mm = d => d ? String(d).slice(0, 7) : '';
-    const etiChiave = (k, i) => PER.grana === 'mese' ? `${titleCase(MESI_L[pd(k).getMonth()])} ${k.slice(0, 4)}` : PER.grana === 'settimana' ? `Settimana dal ${fData(pd(k))}` : fData(pd(k));
-    this._d = { m0, m1, fa };
+    const meseL = d => d ? `${titleCase(MESI_L[pd(d).getMonth()])} ${pd(d).getFullYear()}` : '—';
+    const etiChiave = k => PER.grana === 'mese' ? `${titleCase(MESI_L[pd(k).getMonth()])} ${k.slice(0, 4)}` : PER.grana === 'settimana' ? `Settimana dal ${fData(pd(k))}` : fData(pd(k));
+    const rEd = STATO.rientroEdit ? RI.find(r => r.id === STATO.rientroEdit) : null, rv = rEd || { modalita: 'Bonifico', stato: 'Da incassare' };
+    const dEd = STATO.delegEdit ? DE.find(d => d.id === STATO.delegEdit) : null, dv = dEd || { tipo: 'Periodo', stato: 'Attiva' };
+    this._d = { m0, m1, fa, fasce, proj, ESP };
     return `
-      <p class="lead">Il compenso di PDE è il ${pct(p, 0)} del venduto a prezzo di copertina al netto delle rese (dati Messaggerie), nel periodo scelto in alto.
-      Accanto al maturato ci sono le fatture registrate: la differenza è quello che resta da fatturare.</p>
+      <p class="lead">Compenso PDE del ${pct(p, 0)} sul venduto a prezzo di copertina netto rese, fatture con scadenze e pagamenti, esposizione dell'editore verso PDE
+      e piano di rientro (bonifici e delegazioni Messaggerie). Sezione visibile solo agli amministratori PDE.</p>
       <div class="grid g-kpi">
         ${kpi('Compenso maturato', eurK(M), `${M1 ? delta(M, M1) : ''} <span>${esc(PER.nome)}</span>`, '--s1')}
-        ${kpi(`Media per ${PER.granaNome}`, eurK(M / Math.max(1, PER.chiavi.length)), `<span>${M1 ? 'era ' + eurK(M1 / Math.max(1, PER.chiavi.length)) + ' nel ' + (Y - 1) : 'nessun confronto'}</span>`, '--s3')}
-        ${kpi('Fatturato registrato', eurK(FA), `<span>${F.length ? 'quota di competenza del periodo' : 'nessuna fattura registrata'}</span>`, '--s7')}
-        ${kpi('Da fatturare', F.length ? eurK(Math.max(0, M - FA)) : '—', '<span>maturato meno fatturato</span>', '--s4')}
-        ${kpi('Da incassare', F.length ? eurK(daIncassare) : '—', scadute.length ? `<span class="pill ko">${scadute.length} scadute</span>` : '<span>fatture emesse non pagate</span>', '--s8')}
+        ${kpi('Da fatturare', eurK(Math.max(0, M - FA)), '<span>maturato meno fatturato nel periodo</span>', '--s4')}
+        ${kpi('Esposizione', eurK(ESP), `<span>${num(aperte.length)} fatture aperte, IVA compresa</span>`, '--s7')}
+        ${kpi('Scaduto', eurK(SCAD), SCAD ? `<span class="pill ko">${pct(ESP ? SCAD / ESP : 0, 0)} dell'esposizione</span>` : '<span>nessuna fattura scaduta</span>', '--s2')}
+        ${kpi('Piano di rientro', eurK(coperturaPiano), `<span>da incassare nei prossimi 12 mesi · incassato ${eurK(incassato)}</span>`, '--s3')}
       </div>
       <div class="grid g2">
-        <div class="card"><h3>Andamento del compenso</h3><p class="h-sub">Maturato per ${PER.granaNome}, a confronto con le stesse date del ${Y - 1}, e fatture registrate</p><div class="ch lg"><canvas id="c-fm"></canvas></div></div>
-        <div class="card"><h3>Dettaglio per ${PER.granaNome}</h3><p class="h-sub">${esc(PER.etichetta)}</p>
-          <div class="tw scroll"><table class="tbl"><thead><tr><th>${titleCase(PER.granaNome)}</th><th class="r">Venduto netto rese</th><th class="r">Compenso ${pct(p, 0)}</th><th class="r">Fatturato</th><th class="r">Differenza</th></tr></thead>
-          <tbody>${PER.chiavi.map((k, i) => { const dif = m0[i] - fa[i];
-            return `<tr><td class="t-tit">${etiChiave(k, i)}</td><td class="r">${eur(m0[i] / p)}</td><td class="r t-tit">${eur(m0[i])}</td><td class="r">${fa[i] ? eur(fa[i]) : '—'}</td>
-              <td class="r">${fa[i] ? `<span class="pill ${Math.abs(dif) < 1 ? 'ok' : dif > 0 ? 'warn' : 'info'}">${eur(dif)}</span>` : '<span class="pill mut">da fatturare</span>'}</td></tr>`; }).join('')}
-            <tr><td class="t-tit">Totale</td><td class="r t-tit">${eur(M / p)}</td><td class="r t-tit">${eur(M)}</td><td class="r t-tit">${eur(FA)}</td><td class="r t-tit">${eur(M - FA)}</td></tr></tbody></table></div></div>
+        <div class="card"><h3>Scadenzario</h3><p class="h-sub">Esposizione per fascia di scaduto, al ${fData(OGGI)}</p>
+          <div class="grid g2e" style="margin:0;align-items:center"><div class="ch sm"><canvas id="c-aging"></canvas></div>
+          <div class="tw"><table class="tbl"><thead><tr><th>Fascia</th><th class="r">Fatture</th><th class="r">Importo</th></tr></thead><tbody>
+            ${fasce.map((x, i) => `<tr><td><span class="pill ${i === 0 ? 'info' : i === 1 ? 'warn' : 'ko'}">${x.n}</span></td><td class="r">${num(x.k)}</td><td class="r t-tit">${eur(x.v)}</td></tr>`).join('')}
+            <tr><td class="t-tit">Esposizione totale</td><td class="r t-tit">${num(aperte.length)}</td><td class="r t-tit">${eur(ESP)}</td></tr></tbody></table></div></div></div>
+        <div class="card"><h3>Proiezione del rientro</h3><p class="h-sub">Esposizione residua nei prossimi 12 mesi con le rate del piano e le delegazioni Messaggerie attive</p><div class="ch"><canvas id="c-proj"></canvas></div></div>
       </div>
+      <div class="card" style="margin-bottom:16px"><h3>Fatture</h3><p class="h-sub">Dalla più recente · esposizione = totale meno pagato</p>
+        ${F.length ? `<div class="tw scroll"><table class="tbl"><thead><tr><th>Numero</th><th>Data fattura</th><th>Mese di riferimento</th><th>Scadenza</th><th>Mese pagamento</th><th class="r">Totale</th><th class="r">Pagato</th><th class="r">Esposizione</th><th>Stato</th><th></th></tr></thead>
+        <tbody>${F.map(f => { const a = pd(f.mese_dal), b = pd(f.mese_al || f.mese_dal); const comp = a.getTime() === b.getTime() ? meseL(f.mese_dal) : `${MESI_L[a.getMonth()]}–${MESI_L[b.getMonth()]} ${b.getFullYear()}`;
+          const res = f.stato === 'Annullata' || f.stato === 'Pagata' ? 0 : Math.max(0, tot(f) - (+f.pagato || 0)), gg = f.scadenza ? diffGg(OGGI, pd(f.scadenza)) : null;
+          return `<tr><td class="t-tit">${esc(f.numero)}</td><td>${fData(pd(f.data))}</td><td class="small">${comp}</td>
+            <td>${f.scadenza ? fData(pd(f.scadenza)) : '—'}${f.mesi_scadenza ? `<div class="t-sub">a ${f.mesi_scadenza} mesi</div>` : ''}</td><td class="small">${f.mese_pagamento ? meseL(f.mese_pagamento) : '—'}${f.data_pagamento ? `<div class="t-sub">pagata il ${fData(pd(f.data_pagamento))}</div>` : ''}</td>
+            <td class="r">${eur(tot(f))}</td><td class="r">${+f.pagato ? eur(+f.pagato) : '—'}</td><td class="r t-tit">${res ? eur(res) : '—'}</td>
+            <td><span class="pill ${f.stato === 'Pagata' ? 'ok' : f.stato === 'Annullata' ? 'mut' : res && gg > 0 ? 'ko' : 'warn'}">${res && gg > 0 ? `Scaduta da ${gg} gg` : esc(f.stato)}</span></td>
+            <td style="white-space:nowrap"><button class="btn" data-fe="${f.id}">Modifica</button> <button class="btn" data-fd="${f.id}">Elimina</button></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Nessuna fattura registrata.</div>'}</div>
       <div class="grid g2">
-        ${ADMIN() ? `<div class="card"><div class="card-head"><div><h3>${ed ? 'Modifica fattura' : 'Registra una fattura'}</h3><p class="h-sub">Competenza: i mesi a cui si riferisce</p></div>
+        <div class="card"><div class="card-head"><div><h3>${ed ? 'Modifica fattura' : 'Registra una fattura'}</h3><p class="h-sub">La scadenza si calcola a 3 o 4 mesi dalla data, oppure scegli una data</p></div>
           <div class="dx">${ed ? '' : '<button class="btn" type="button" id="b-fatt-es">Compila con un esempio</button>'}</div></div>
           <form class="form" id="f-fatt" style="grid-template-columns:repeat(2,minmax(0,1fr))">
             <label>Numero *<input type="text" name="numero" required value="${esc(v.numero || '')}"></label>
-            <label>Data *<input type="date" name="data" required value="${esc(v.data || '')}"></label>
-            <label>Competenza dal mese *<input type="month" name="mese_dal" required value="${esc(mm(v.mese_dal))}"></label>
+            <label>Data di fatturazione *<input type="date" name="data" required value="${esc(v.data || '')}"></label>
+            <label>Mese di riferimento dal *<input type="month" name="mese_dal" required value="${esc(mm(v.mese_dal))}"></label>
             <label>al mese<input type="month" name="mese_al" value="${esc(mm(v.mese_al))}"></label>
             <label>Imponibile € *<input type="number" name="imponibile" step="0.01" required value="${esc(v.imponibile ?? '')}"></label>
             <label>IVA %<input type="number" name="iva_pct" step="0.1" value="${esc(v.iva_pct ?? 22)}"></label>
-            <label>Scadenza<input type="date" name="scadenza" value="${esc(v.scadenza || '')}"></label>
+            <label>Scadenza<select name="mesi_scadenza" id="f-mesi"><option value="3" ${+v.mesi_scadenza === 3 ? 'selected' : ''}>3 mesi</option><option value="4" ${+v.mesi_scadenza === 4 ? 'selected' : ''}>4 mesi</option><option value="" ${!v.mesi_scadenza ? 'selected' : ''}>Altra data</option></select></label>
+            <label id="l-scad" ${v.mesi_scadenza ? 'hidden' : ''}>Data di scadenza<input type="date" name="scadenza" value="${esc(v.mesi_scadenza ? '' : v.scadenza || '')}"></label>
+            <label>Mese di pagamento<input type="month" name="mese_pagamento" value="${esc(mm(v.mese_pagamento))}"></label>
+            <label>Data di pagamento<input type="date" name="data_pagamento" value="${esc(v.data_pagamento || '')}"></label>
+            <label>Pagato €<input type="number" name="pagato" step="0.01" value="${esc(v.pagato ?? '')}"></label>
             <label>Stato<select name="stato">${opt(STATI_FATT, v.stato)}</select></label>
             <label style="grid-column:1/-1">Note<textarea name="note" rows="2">${esc(v.note || '')}</textarea></label>
             <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="b-fatt-calc">Imponibile = compenso maturato</button><button class="btn pri" type="submit">${ed ? 'Salva le modifiche' : 'Registra fattura'}</button>${ed || STATO.fattBozza ? '<button class="btn" type="button" id="b-fatt-annulla">Annulla</button>' : ''}</div>
-          </form></div>` : ''}
-        <div class="card" ${ADMIN() ? '' : 'style="grid-column:1/-1"'}><h3>Fatture registrate</h3><p class="h-sub">Tutte, dalla più recente</p>
-          ${F.length ? `<div class="tw scroll"><table class="tbl"><thead><tr><th>Numero</th><th>Data</th><th>Competenza</th><th class="r">Imponibile</th><th class="r">Totale</th><th>Stato</th>${ADMIN() ? '<th></th>' : ''}</tr></thead>
-          <tbody>${F.map(f => { const a = pd(f.mese_dal), b = pd(f.mese_al || f.mese_dal); const comp = a.getTime() === b.getTime() ? `${MESI_L[a.getMonth()]} ${a.getFullYear()}` : `${MESI_L[a.getMonth()]}–${MESI_L[b.getMonth()]} ${b.getFullYear()}`;
-            return `<tr><td class="t-tit">${esc(f.numero)}</td><td>${fData(pd(f.data))}</td><td class="small">${comp}</td><td class="r">${eur(+f.imponibile)}</td><td class="r">${eur(+f.imponibile * (1 + (+f.iva_pct || 0) / 100))}</td>
-              <td><span class="pill ${f.stato === 'Pagata' ? 'ok' : f.stato === 'Scaduta' ? 'ko' : f.stato === 'Annullata' ? 'mut' : f.stato === 'Emessa' ? 'warn' : 'info'}">${esc(f.stato)}</span>${f.scadenza ? `<div class="t-sub">scade il ${fData(pd(f.scadenza))}</div>` : ''}</td>
-              ${ADMIN() ? `<td style="white-space:nowrap"><button class="btn" data-fe="${f.id}">Modifica</button> <button class="btn" data-fd="${f.id}">Elimina</button></td>` : ''}</tr>`; }).join('')}</tbody></table></div>` : `<div class="empty">Nessuna fattura registrata.${ADMIN() ? ' Usa il modulo: "Compila con un esempio" mostra come si compila.' : ''}</div>`}</div>
+          </form></div>
+        <div class="card"><h3>Compenso per ${PER.granaNome}</h3><p class="h-sub">Maturato e fatturato · ${esc(PER.etichetta)}</p><div class="ch sm"><canvas id="c-fm"></canvas></div>
+          <div class="tw scroll" style="max-height:260px"><table class="tbl"><thead><tr><th>${titleCase(PER.granaNome)}</th><th class="r">Venduto netto rese</th><th class="r">Compenso ${pct(p, 0)}</th><th class="r">Fatturato</th></tr></thead>
+          <tbody>${PER.chiavi.map((k, i) => `<tr><td class="t-tit">${etiChiave(k)}</td><td class="r">${eur(m0[i] / p)}</td><td class="r t-tit">${eur(m0[i])}</td><td class="r">${fa[i] ? eur(fa[i]) : '—'}</td></tr>`).join('')}</tbody></table></div></div>
+      </div>
+      <div class="grid g2e">
+        <div class="card"><div class="card-head"><div><h3>Piano di rientro</h3><p class="h-sub">Rate concordate: bonifici, compensazioni o altro</p></div></div>
+          ${RI.length ? `<div class="tw scroll"><table class="tbl"><thead><tr><th>Data</th><th>Modalità</th><th class="r">Importo</th><th>Stato</th><th></th></tr></thead><tbody>
+            ${RI.map(r => `<tr><td>${fData(pd(r.data))}${r.note ? `<div class="t-sub">${esc(r.note)}</div>` : ''}</td><td class="small">${esc(r.modalita)}</td><td class="r t-tit">${eur(+r.importo)}</td>
+              <td><span class="pill ${r.stato === 'Incassata' ? 'ok' : r.stato === 'Annullata' ? 'mut' : r.data < oggi ? 'ko' : 'warn'}">${r.stato === 'Da incassare' && r.data < oggi ? 'Non incassata' : esc(r.stato)}</span></td>
+              <td style="white-space:nowrap">${r.stato === 'Da incassare' ? `<button class="btn pri" data-ri-ok="${r.id}">Incassata</button> ` : ''}<button class="btn" data-ri-e="${r.id}">Modifica</button> <button class="btn" data-ri-d="${r.id}">Elimina</button></td></tr>`).join('')}
+            <tr><td class="t-tit" colspan="2">Totale piano</td><td class="r t-tit">${eur(sum(PIANO_RATE.map(r => +r.importo)))}</td><td colspan="2" class="small">incassato ${eur(incassato)}</td></tr></tbody></table></div>` : '<div class="empty">Nessuna rata nel piano di rientro.</div>'}
+          <form class="form" id="f-ri" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px">
+            <label>Data *<input type="date" name="data" required value="${esc(rv.data || '')}"></label>
+            <label>Importo € *<input type="number" name="importo" step="0.01" required value="${esc(rv.importo ?? '')}"></label>
+            <label>Modalità<select name="modalita">${opt(['Bonifico', 'Delegazione Messaggerie', 'Compensazione', 'Altro'], rv.modalita)}</select></label>
+            <label>Stato<select name="stato">${opt(['Da incassare', 'Incassata', 'Annullata'], rv.stato)}</select></label>
+            <label style="grid-column:1/-1">Note<input type="text" name="note" value="${esc(rv.note || '')}"></label>
+            <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">${rEd ? 'Salva la rata' : 'Aggiungi rata'}</button>${rEd ? '<button class="btn" type="button" id="b-ri-annulla">Annulla</button>' : ''}</div>
+          </form>
+          <details class="gen-rate"><summary>Genera più rate uguali</summary>
+            <div class="form" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:10px">
+              <label>Totale €<input type="number" id="g-tot" step="0.01" placeholder="150000"></label><label>Numero di rate<input type="number" id="g-n" min="1" value="3"></label>
+              <label>Prima rata<input type="date" id="g-dal"></label><label>Modalità<select id="g-mod">${opt(['Bonifico', 'Compensazione', 'Altro'], 'Bonifico')}</select></label>
+              <div style="grid-column:1/-1"><button class="btn" type="button" id="b-gen">Crea le rate mensili</button></div></div></details></div>
+        <div class="card"><div class="card-head"><div><h3>Delegazioni Messaggerie</h3><p class="h-sub">Perpetua o per un periodo, secondo gli accordi tra Messaggerie, editore e PDE</p></div></div>
+          ${DE.length ? `<div class="tw scroll"><table class="tbl"><thead><tr><th>Tipo</th><th>Periodo</th><th class="r">Al mese</th><th class="r">Totale</th><th>Stato</th><th></th></tr></thead><tbody>
+            ${DE.map(d => `<tr><td class="t-tit">${esc(d.tipo)}${d.note ? `<div class="t-sub">${esc(d.note)}</div>` : ''}</td><td class="small">dal ${meseL(d.dal)}${d.al ? '<br>al ' + meseL(d.al) : d.tipo === 'Perpetua' ? '<br>senza scadenza' : ''}</td>
+              <td class="r">${+d.importo_mensile ? eur(+d.importo_mensile) : '—'}</td><td class="r t-tit">${+d.importo_totale ? eur(+d.importo_totale) : '—'}</td>
+              <td><span class="pill ${d.stato === 'Attiva' ? 'ok' : d.stato === 'Sospesa' ? 'warn' : 'mut'}">${esc(d.stato)}</span></td>
+              <td style="white-space:nowrap"><button class="btn" data-de-e="${d.id}">Modifica</button> <button class="btn" data-de-d="${d.id}">Elimina</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Nessuna delegazione Messaggerie.</div>'}
+          <form class="form" id="f-de" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px">
+            <label>Tipo<select name="tipo" id="de-tipo">${opt(['Periodo', 'Perpetua'], dv.tipo)}</select></label>
+            <label>Dal mese *<input type="month" name="dal" required value="${esc(mm(dv.dal))}"></label>
+            <label id="l-de-al" ${dv.tipo === 'Perpetua' ? 'hidden' : ''}>Al mese<input type="month" name="al" value="${esc(mm(dv.al))}"></label>
+            <label>Importo al mese €<input type="number" name="importo_mensile" step="0.01" value="${esc(dv.importo_mensile ?? '')}"></label>
+            <label>oppure importo totale €<input type="number" name="importo_totale" step="0.01" value="${esc(dv.importo_totale ?? '')}"></label>
+            <label>Stato<select name="stato">${opt(['Attiva', 'Sospesa', 'Chiusa'], dv.stato)}</select></label>
+            <label style="grid-column:1/-1">Accordo / note<input type="text" name="note" value="${esc(dv.note || '')}" placeholder="es. accordo del 15/01 con Messaggerie ed editore"></label>
+            <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="submit">${dEd ? 'Salva la delegazione' : 'Aggiungi delegazione'}</button>${dEd ? '<button class="btn" type="button" id="b-de-annulla">Annulla</button>' : ''}</div>
+          </form>
+          <p class="note">Esempio: bonifici per 150.000 € in tre rate mensili, poi delegazione Messaggerie da marzo per 400.000 €. Con l'importo totale e il periodo la quota mensile si calcola da sola.</p></div>
       </div>`;
   },
   init(){
-    const { m0, m1, fa } = this._d, s = SER();
+    if (!ADMIN() || !this._d) return;
+    const { m0, m1, fa, fasce, proj } = this._d, s = SER();
     mk('c-fm', { type: 'bar', data: { labels: PER.labels, datasets: [
       { type: 'line', ...linea(`Maturato ${PER.Y}`, m0, s[0], { pointRadius: 3 }), order: 0 },
       { type: 'line', ...linea(`Maturato ${PER.Y - 1}`, m1, css('--prev'), { borderDash: [5, 4] }), order: 1 },
       { ...barre('Fatturato registrato', fa.map(x => x || null), s[2] + '99'), order: 2 },
     ] }, options: lineOpts(tickEur, ttEur) });
-    const f = $('#f-fatt'); if (!f) return;
-    // il compenso dei mesi di competenza si calcola sui dati mensili, indipendenti dal periodo scelto
+    mk('c-aging', { type: 'bar', data: { labels: fasce.map(x => x.n.replace('Scaduto ', '')), datasets: [barre('Esposizione', fasce.map(x => x.v), fasce.map((x, i) => i === 0 ? s[0] : i === 1 ? s[3] : css('--ko')))] },
+      options: { scales: { y: { ticks: tickEur }, x: { grid: { display: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${eur(c.parsed.y)} · ${fasce[c.dataIndex].k} fatture` } } } } });
+    mk('c-proj', { type: 'bar', data: { labels: proj.map(x => MESI[pd(x.m).getMonth()] + ' ' + x.m.slice(2, 4)), datasets: [
+      { type: 'line', ...linea('Esposizione residua', proj.map(x => x.resid), css('--ko'), { pointRadius: 3 }), order: 0 },
+      { ...barre('Rate del piano', proj.map(x => x.r), s[0], { stack: 'r' }), order: 1 },
+      { ...barre('Delegazioni Messaggerie', proj.map(x => x.d), s[2], { stack: 'r' }), order: 2 },
+    ] }, options: { interaction: { mode: 'index', intersect: false }, scales: { y: { stacked: true, ticks: tickEur }, x: { stacked: true, grid: { display: false } } }, plugins: { tooltip: ttEur, legend: { position: 'top', align: 'end' } } } });
+    const ricaricaFatt = async () => { await ricarica('fatt', 'ed_fatture_lista'); render(); };
+    // fattura
+    const f = $('#f-fatt');
     const maturatoMesi = (a, b) => sum(R.mensili.filter(v => v.mese.slice(0, 7) >= a && v.mese.slice(0, 7) <= b).map(fVen)) * percPde();
+    $('#f-mesi').addEventListener('change', e => { $('#l-scad').hidden = !!e.target.value; });
     $('#b-fatt-es')?.addEventListener('click', () => {
       const c = ultimoMeseChiuso(), Y = c.getFullYear(), m = c.getMonth(), a = `${Y}-${String(m + 1).padStart(2, '0')}`;
       STATO.fattBozza = { numero: `PDE-${Y}/${String(m + 1).padStart(3, '0')}`, data: iso(new Date(Y, m + 1, 5)), mese_dal: a + '-01', mese_al: a + '-01',
-        imponibile: Math.round(maturatoMesi(a, a) * 100) / 100, iva_pct: 22, scadenza: iso(new Date(Y, m + 3, 0)), stato: 'Emessa', note: `Compenso ${pct(percPde(), 0)} su venduto ${MESI_L[m]} ${Y}` };
+        imponibile: Math.round(maturatoMesi(a, a) * 100) / 100, iva_pct: 22, mesi_scadenza: 3, stato: 'Emessa', note: `Compenso ${pct(percPde(), 0)} su venduto ${MESI_L[m]} ${Y}` };
       render();
     });
     $('#b-fatt-annulla')?.addEventListener('click', () => { STATO.fattEdit = null; STATO.fattBozza = null; render(); });
     $('#b-fatt-calc').addEventListener('click', () => {
       const a = f.mese_dal.value, b = f.mese_al.value || a;
-      if (!a) { alert('Indica prima i mesi di competenza'); return; }
+      if (!a) { alert('Indica prima il mese di riferimento'); return; }
       f.imponibile.value = (Math.round(maturatoMesi(a, b) * 100) / 100).toFixed(2);
     });
     f.addEventListener('submit', ev => {
       ev.preventDefault();
       const d = fdata(f);
       d.mese_dal = d.mese_dal + '-01'; d.mese_al = (d.mese_al || f.mese_dal.value) + '-01';
+      d.mese_pagamento = d.mese_pagamento ? d.mese_pagamento + '-01' : '';
+      if (d.mesi_scadenza) d.scadenza = '';
       if (STATO.fattEdit) d.id = STATO.fattEdit;
       salvaCon(ev.submitter || f.querySelector('[type=submit]'), async () => {
         await rpc('ed_fattura_salva', { p_editore: ED.codice_editore, p: d });
-        await ricarica('fatt', 'ed_fatture_lista');
-        STATO.fattEdit = null; STATO.fattBozza = null; render();
+        STATO.fattEdit = null; STATO.fattBozza = null; await ricaricaFatt();
       });
     });
-    document.querySelectorAll('[data-fe]').forEach(b => b.addEventListener('click', () => { STATO.fattEdit = b.dataset.fe; STATO.fattBozza = null; render(); }));
+    document.querySelectorAll('[data-fe]').forEach(b => b.addEventListener('click', () => { STATO.fattEdit = b.dataset.fe; STATO.fattBozza = null; render(); setTimeout(() => $('#f-fatt')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); }));
     document.querySelectorAll('[data-fd]').forEach(b => b.addEventListener('click', () => {
       if (!confirm('Eliminare questa fattura?')) return;
-      salvaCon(b, async () => { await rpc('ed_fattura_elimina', { p_editore: ED.codice_editore, p_id: b.dataset.fd }); await ricarica('fatt', 'ed_fatture_lista'); render(); });
+      salvaCon(b, async () => { await rpc('ed_fattura_elimina', { p_editore: ED.codice_editore, p_id: b.dataset.fd }); await ricaricaFatt(); });
     }));
+    // piano di rientro
+    const fr = $('#f-ri');
+    fr.addEventListener('submit', ev => { ev.preventDefault(); const d = fdata(fr); if (STATO.rientroEdit) d.id = STATO.rientroEdit;
+      salvaCon(ev.submitter, async () => { await rpc('ed_rientro_salva', { p_editore: ED.codice_editore, p: d }); STATO.rientroEdit = null; await ricaricaFatt(); }); });
+    $('#b-ri-annulla')?.addEventListener('click', () => { STATO.rientroEdit = null; render(); });
+    document.querySelectorAll('[data-ri-e]').forEach(b => b.addEventListener('click', () => { STATO.rientroEdit = b.dataset.riE; render(); }));
+    document.querySelectorAll('[data-ri-ok]').forEach(b => b.addEventListener('click', () => { const r = R.fatt.rientro.find(x => x.id === b.dataset.riOk);
+      salvaCon(b, async () => { await rpc('ed_rientro_salva', { p_editore: ED.codice_editore, p: { ...r, stato: 'Incassata' } }); await ricaricaFatt(); }); }));
+    document.querySelectorAll('[data-ri-d]').forEach(b => b.addEventListener('click', () => { if (!confirm('Eliminare questa rata?')) return;
+      salvaCon(b, async () => { await rpc('ed_rientro_elimina', { p_editore: ED.codice_editore, p_tipo: 'rata', p_id: b.dataset.riD }); await ricaricaFatt(); }); }));
+    $('#b-gen').addEventListener('click', e => {
+      const T = +$('#g-tot').value, n = Math.max(1, +$('#g-n').value || 1), d0 = $('#g-dal').value;
+      if (!T || !d0) { alert('Indica totale e data della prima rata'); return; }
+      const q = Math.round(T / n * 100) / 100;
+      salvaCon(e.currentTarget, async () => {
+        for (let i = 0; i < n; i++){ const d = pd(d0); d.setMonth(d.getMonth() + i);
+          await rpc('ed_rientro_salva', { p_editore: ED.codice_editore, p: { data: iso(d), importo: i === n - 1 ? Math.round((T - q * (n - 1)) * 100) / 100 : q, modalita: $('#g-mod').value, stato: 'Da incassare', note: `Rata ${i + 1} di ${n}` } }); }
+        await ricaricaFatt();
+      });
+    });
+    // delegazioni
+    const fd = $('#f-de');
+    $('#de-tipo').addEventListener('change', e => { $('#l-de-al').hidden = e.target.value === 'Perpetua'; });
+    fd.addEventListener('submit', ev => { ev.preventDefault(); const d = fdata(fd);
+      d.dal = d.dal + '-01'; d.al = d.tipo === 'Perpetua' || !d.al ? '' : d.al + '-01';
+      if (!+d.importo_mensile && !+d.importo_totale) { alert('Indica l\'importo al mese oppure il totale'); return; }
+      if (!+d.importo_mensile && !d.al) { alert('Con un importo totale serve anche il mese di fine, per calcolare la quota mensile. Per una delegazione perpetua indica l\'importo al mese.'); return; }
+      if (STATO.delegEdit) d.id = STATO.delegEdit;
+      salvaCon(ev.submitter, async () => { await rpc('ed_delegazione_salva', { p_editore: ED.codice_editore, p: d }); STATO.delegEdit = null; await ricaricaFatt(); }); });
+    $('#b-de-annulla')?.addEventListener('click', () => { STATO.delegEdit = null; render(); });
+    document.querySelectorAll('[data-de-e]').forEach(b => b.addEventListener('click', () => { STATO.delegEdit = b.dataset.deE; render(); }));
+    document.querySelectorAll('[data-de-d]').forEach(b => b.addEventListener('click', () => { if (!confirm('Eliminare questa delegazione?')) return;
+      salvaCon(b, async () => { await rpc('ed_rientro_elimina', { p_editore: ED.codice_editore, p_tipo: 'delegazione', p_id: b.dataset.deD }); await ricaricaFatt(); }); }));
   },
 };
 
@@ -2753,17 +3020,16 @@ const MENU = [
   { id: 'dashboard', l: 'Panoramica', ic: 'home', a: ['#6d72f6', '#4338ca'] },
   { g: 'Analisi' },
   { id: 'analisi', l: 'Analisi dati', ic: 'bar', a: ['#29a9e1', '#0072b5'] },
-  { id: 'settori', l: 'Analisi per settore', ic: 'pie', a: ['#22c1a4', '#0d8a74'] },
-  { id: 'gfk', l: 'GfK e sell-out', ic: 'eye', a: ['#a46cf0', '#6b3fc4'] },
+  { id: 'settori', l: 'Settori e sell-out', ic: 'pie', a: ['#22c1a4', '#0d8a74'] },
   { g: 'Vendite' },
   { id: 'giri', l: 'Giri vendita', ic: 'route', a: ['#f59e42', '#d9622b'] },
   { id: 'finegiri', l: 'Fine giro', ic: 'flag', a: ['#f2b53a', '#c98500'] },
   { id: 'agenti', l: 'Agenti e zone', ic: 'users', a: ['#3d8bfd', '#1f5fc8'] },
-  { id: 'sconti', l: 'Sconto per cliente', ic: 'perc', a: ['#ec6ca0', '#c23d74'] },
+  { id: 'sconti', l: 'Sconto per cliente', ic: 'perc', a: ['#ec6ca0', '#c23d74'], admin: true },
   { g: 'Economico' },
   { id: 'investimenti', l: 'Investimenti', ic: 'coins', a: ['#2bb673', '#127a48'] },
   { id: 'invconf', l: 'Investimenti confermati', ic: 'coins', a: ['#16a34a', '#0f6b33'] },
-  { id: 'fatturazione', l: 'Fatturazione PDE', ic: 'rec', a: ['#5b7cfa', '#3a4fc4'] },
+  { id: 'fatturazione', l: 'Fatturazione PDE', ic: 'rec', a: ['#5b7cfa', '#3a4fc4'], admin: true },
   { g: 'Catalogo e magazzino' },
   { id: 'anagrafiche', l: 'Anagrafiche titoli', ic: 'book', a: ['#6366f1', '#4338ca'], admin: true },
   { id: 'stock', l: 'Stock MeLi', ic: 'box', a: ['#8a94a6', '#56607a'] },
@@ -2781,11 +3047,14 @@ function disegnaMenu(attiva){
 const BANNER_DEMO = `<div class="banner-demo"><b>Sezione di esempio.</b> Questi numeri sono inventati e servono a mostrare come sarà la sezione: i dati veri arriveranno quando la fonte sarà collegata.</div>`;
 let TOKEN = 0;
 let ULTIMA_SEZ = null;
-const SEZ_MISURA = ['dashboard', 'analisi', 'settori', 'gfk'];
+const SEZ_MISURA = ['dashboard', 'analisi', 'settori'];
 async function render(){
   const t = ++TOKEN;
   const id = location.hash.slice(1) || 'dashboard';
-  const key = S[id] ? id : 'dashboard';
+  if (id === 'gfk') { STATO.tabSet = 'gfk'; history.replaceState(null, '', '#settori'); }   // GfK ora è una scheda di Settori e sell-out
+  const idOk = id === 'gfk' ? 'settori' : id;
+  const soloAdmin = (MENU.find(m => m.id === idOk) || {}).admin && !ADMIN();
+  const key = S[idOk] && !soloAdmin ? idOk : 'dashboard';
   const sez = S[key];
   if (key !== ULTIMA_SEZ){ MISURA = 'valore'; ULTIMA_SEZ = key; }   // ogni sezione si apre sul valore
   const segM = $('#seg-misura'); if (segM){ segM.hidden = !SEZ_MISURA.includes(key); disegnaMisura(); }
@@ -2891,6 +3160,7 @@ async function apriEditore(){
   try { await caricaEditore(ED.codice_editore); }
   catch (e) { $('#content').innerHTML = `<div class="card empty">Non è stato possibile caricare i dati: ${esc(e.message)}</div>`; return; }
   $('#ed-marchi').textContent = 'Codice editore ' + ED.codice_editore;
+  await nomiCollane().catch(() => {});
   render();
 }
 async function avvio(){
