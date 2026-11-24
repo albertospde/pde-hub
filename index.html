@@ -568,15 +568,15 @@ main.home-wide { max-width: 1680px; }
 .home-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; align-items: start; }
 .home-cal { display: none; }
 body.vede-calendario .home-cal { display: block; }
-body.vede-calendario .home-layout { grid-template-columns: 440px minmax(0, 1fr); }
-/* App compatte, due per riga, nella colonna di sinistra (solo per chi vede il calendario; gli altri hanno la home di sempre) */
+body.vede-calendario .home-layout { grid-template-columns: minmax(0, 1fr) clamp(500px, 40vw, 620px); }
+/* App compatte, tre per riga, nella colonna di sinistra (solo per chi vede il calendario; gli altri hanno la home di sempre) */
 body.vede-calendario .home-apps .grid,
 body.vede-calendario .home-apps .grid-ext { gap: 12px; margin-bottom: 30px; }
 body.vede-calendario .home-apps .section-header { margin-bottom: 14px; }
 body.vede-calendario .home-apps .card-app,
-body.vede-calendario .home-apps .card-ext { flex: 0 0 calc(50% - 6px); min-width: 0; }
+body.vede-calendario .home-apps .card-ext { flex: 0 0 calc((100% - 24px) / 3); min-width: 0; }
 body.vede-calendario .home-apps .card-app-icon { height: 72px; }
-body.vede-calendario .home-apps .pde-logo { font-size: 14px; }
+body.vede-calendario .home-apps .pde-logo { font-size: 12.5px; }
 body.vede-calendario .home-apps .card-app-icon img { width: 62%; height: 46%; }
 body.vede-calendario .home-apps .card-app-icon .bu-pe-logo { width: 62% !important; }
 body.vede-calendario .home-apps .card-app-icon .bu-pe-logo img { width: 100%; height: auto; }
@@ -584,8 +584,9 @@ body.vede-calendario .home-apps .card-app-footer { padding: 8px 10px 9px; }
 body.vede-calendario .home-apps .card-app-desc { font-size: 10.5px; }
 body.vede-calendario .home-apps .card-ext { min-height: 74px; padding: 12px 10px; gap: 6px; }
 body.vede-calendario .home-apps .card-ext-logo { max-width: 110px; max-height: 30px; }
-body.vede-calendario .home-apps .card-download { flex: 0 0 calc(50% - 6px); max-width: none; min-width: 0; height: auto; min-height: 74px; padding: 12px 10px; gap: 6px; }
-.home-cal { min-width: 0; }
+body.vede-calendario .home-apps .card-download { flex: 0 0 calc((100% - 24px) / 3); max-width: none; min-width: 0; height: auto; min-height: 74px; padding: 12px 10px; gap: 6px; }
+.home-cal { min-width: 0; --hc-line: rgba(168,180,255,.34); }
+html[data-theme="light"] .home-cal { --hc-line: rgba(26,45,107,.34); }
 .hc-head { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .hc-title { font-size: 15px; font-weight: 700; text-transform: capitalize; flex: 1; text-align: center; }
 .hc-btn {
@@ -602,17 +603,17 @@ body.vede-calendario .home-apps .card-download { flex: 0 0 calc(50% - 6px); max-
 .hc-chip i { width: 8px; height: 8px; border-radius: 3px; background: var(--hc); }
 .hc-chip.on { color: var(--text); border-color: var(--hc); }
 .hc-chip:not(.on) i { opacity: .3; }
-.hc-grid { display: grid; grid-template-columns: 44px repeat(7, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--blue-deep); }
-.hc-dow { padding: 5px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border-bottom: 1px solid var(--border); text-align: center; }
+.hc-grid { display: grid; grid-template-columns: 44px repeat(7, minmax(0, 1fr)); border: 1px solid var(--hc-line); border-radius: 10px; overflow: hidden; background: var(--blue-deep); }
+.hc-dow { padding: 5px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border-bottom: 1px solid var(--hc-line); text-align: center; }
 .hc-wk {
-  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--hc-line); border-bottom: 1px solid var(--hc-line);
   padding: 4px 2px; display: flex; flex-direction: column; align-items: center; gap: 3px;
   font: 500 10px var(--mono); color: var(--muted);
 }
 .hc-wk b { font: 700 10px var(--font); color: #fff; background: var(--accent); border-radius: 5px; padding: 1px 4px; white-space: nowrap; }
 .hc-day {
   min-height: 70px; min-width: 0; padding: 3px 3px 4px; cursor: pointer;
-  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--hc-line); border-bottom: 1px solid var(--hc-line);
   display: flex; flex-direction: column; gap: 2px;
 }
 .hc-day:nth-child(8n) { border-right: none; }
@@ -627,7 +628,8 @@ body.vede-calendario .home-apps .card-download { flex: 0 0 calc(50% - 6px); max-
   display: block; font-size: 9.5px; font-weight: 600; line-height: 1.25;
   padding: 1px 4px; border-radius: 4px; border-left: 3px solid var(--hc);
   background: color-mix(in srgb, var(--hc) 16%, transparent);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  overflow: hidden; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
 }
 .hc-piu { font-size: 9.5px; color: var(--muted); font-weight: 700; padding-left: 3px; }
 .hc-side { margin-top: 14px; }
@@ -2202,18 +2204,18 @@ async function hcCarica(){
     const titTxt = nt ? ` · ${nt} titoli` : '';
     const nota = l.note ? ` · ${l.note}` : '';
     const iscr = hcPd(l.data_iscrizione);
-    hcAggiungi(iscr, { cat: 'lanci', tit: `${nome} · iscrizione`, det: `Invio prenotazioni del lancio${titTxt}${nota}` });
+    hcAggiungi(iscr, { cat: 'lanci', tit: `${nome} · trasmissione`, det: `Trasmissione delle prenotazioni del lancio${titTxt}${nota}` });
     hcAggiungi(hcPd(l.consegna_mag_sopra2000), { cat: 'lanci', tit: `${nome} · consegna magazzino >2000`, det: 'Consegna a magazzino, sopra 2000' });
     hcAggiungi(hcPd(l.consegna_mag_sotto2000), { cat: 'lanci', tit: `${nome} · consegna magazzino <2000`, det: 'Consegna a magazzino, sotto 2000' });
     hcAggiungi(hcPd(l.consegna_lib_sopra2000), { cat: 'lanci', tit: `${nome} · consegna libreria >2000`, det: 'Consegna in libreria, sopra 2000' });
     hcAggiungi(hcPd(l.consegna_lib_sotto2000), { cat: 'lanci', tit: `${nome} · consegna libreria <2000`, det: 'Consegna in libreria, sotto 2000' });
-    // vendita: dal calendario, oppure (come NewsWeek) il lunedì della terza settimana dopo l'iscrizione
+    // vendita: dal calendario, oppure (come NewsWeek) il lunedì della terza settimana dopo la trasmissione
     const vSopra = hcPd(l.vendita_sopra2000), vSotto = hcPd(l.vendita_sotto2000);
     const stima = !vSopra && !vSotto && iscr ? hcAdd(hcLun(iscr), 21) : null;
     const fatt = l.fatturazione_sopra2000 ? ` · fatturazione ${l.fatturazione_sopra2000}` : '';
     hcAggiungi(vSopra, { cat: 'lanci', tit: `${nome} · in vendita >2000`, det: `Uscita titoli, sopra 2000${titTxt}${fatt}`, forte: true });
     hcAggiungi(vSotto, { cat: 'lanci', tit: `${nome} · in vendita <2000`, det: `Uscita titoli, sotto 2000${titTxt}`, forte: true });
-    hcAggiungi(stima, { cat: 'lanci', tit: `${nome} · in vendita`, det: `Uscita titoli (data stimata: 3 settimane dopo l'iscrizione)${titTxt}`, forte: true });
+    hcAggiungi(stima, { cat: 'lanci', tit: `${nome} · in vendita`, det: `Uscita titoli (data stimata: 3 settimane dopo la trasmissione)${titTxt}`, forte: true });
     // settimana di uscita del lancio (colonna a sinistra del calendario)
     const uscita = vSopra || vSotto || stima;
     if (uscita) {
@@ -2241,7 +2243,8 @@ function hcBreve(t){
     .replace(/^Giro (\d+) \d\d(\d\d) · /, 'G$1/$2 ')
     .replace(/^Note di credito MeLi · export del (\d+)/, 'NdC MeLi $1')
     .replace('consegna magazzino', 'mag.').replace('consegna libreria', 'libreria')
-    .replace('consegna materiali', 'materiali').replace('dati agli editori', 'dati editori');
+    .replace('consegna materiali', 'materiali').replace('dati agli editori', 'dati ed.')
+    .replace('in vendita', 'vendita').replace('trasmissione', 'trasm.').replace('inizio giro', 'inizio').replace('fine giro', 'fine');
 }
 
 function hcVociGiorno(d){
