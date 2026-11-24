@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>PDE Life</title>
+<link rel="icon" type="image/png" href="assets/favicon-64.png">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -31,6 +32,7 @@ header{
 }
 .brand{display:flex;flex-direction:column;gap:2px;min-width:0}
 .brand h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:20px;letter-spacing:.01em;text-wrap:balance}
+.brand h1 .logo{display:block;height:48px;width:auto;margin:-4px 0 -2px -6px}
 .brand h1 b{color:var(--c-accesso);font-weight:700}
 .brand small{color:var(--fg-3);font-family:var(--f-mono);font-size:11px}
 .stats{display:flex;gap:16px;font-family:var(--f-mono);font-size:12px;color:var(--fg-2);font-variant-numeric:tabular-nums}
@@ -156,7 +158,7 @@ a.url{color:var(--c-accesso);font:12px var(--f-mono);word-break:break-all}
 <div class="app">
 <header>
   <div class="brand">
-    <h1>PDE <b>Life</b></h1>
+    <h1><img class="logo" src="assets/pde-life-logo-scuro.png" alt="PDE Life" width="132" height="48"></h1>
     <small>chi usa cosa · con chi parla · dove vanno i dati</small>
   </div>
   <div class="stats" id="stats"></div>
