@@ -850,6 +850,69 @@ html[data-theme="light"] .role-select,
 html[data-theme="light"] .btn-sm:not(.primary) { background: #ffffff; }
 html[data-theme="light"] .users-toast { background: #ffffff; box-shadow: 0 10px 30px rgba(26,45,107,.18); }
 html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border-color: rgba(168,120,26,.3); }
+
+/* ── BARRA UNICA IN ALTO (nov 2026): schede a sinistra, data/ora e menu utente a destra ── */
+:root { --header-h: 0px; --topbar-h: 50px; }
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 14px;
+  height: var(--topbar-h); padding: 0 16px 0 20px;
+  background: rgba(8,13,32,.94); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+.topbar .app-tabbar {
+  position: static; display: flex; align-items: center; gap: 6px;
+  flex: 1; min-width: 0; height: 100%;
+  padding: 0; background: none; border: 0; backdrop-filter: none;
+  overflow-x: auto; scrollbar-width: thin;
+}
+.topbar .app-tab {
+  margin: 0; padding: 6px 12px; border-radius: 999px;
+  border: 1px solid rgba(0,180,232,.35); background: rgba(0,180,232,.10);
+  color: var(--text); font-size: 13px; font-weight: 500;
+}
+.topbar .app-tab:hover { background: rgba(0,180,232,.20); border-color: rgba(0,180,232,.6); }
+.topbar .app-tab-home { background: transparent; border-color: var(--border); color: var(--muted); }
+.topbar .app-tab.active {
+  background: linear-gradient(135deg, #1f6fe5 0%, #00b4e8 100%); border-color: transparent;
+  color: #fff; font-weight: 600; box-shadow: 0 2px 10px rgba(0,120,220,.35);
+}
+.topbar .app-tab.active .app-tab-close,
+.topbar .app-tab.active .app-tab-reload { color: rgba(255,255,255,.9); }
+.topbar .app-tab.active .app-tab-close:hover,
+.topbar .app-tab.active .app-tab-reload:hover { color: #fff; background: rgba(255,255,255,.22); }
+.topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.topbar-time { font-family: var(--mono); font-size: 13px; color: var(--muted); white-space: nowrap; }
+.topbar-time .tt-data { text-transform: capitalize; }
+.topbar-time .tt-ora { color: var(--text); font-weight: 500; }
+.app-iframe, .app-tabbar.visible ~ .iframe-container .app-iframe { height: calc(100vh - var(--topbar-h)); }
+/* menu utente */
+.dropdown { min-width: 260px; }
+.dd-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.dd-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.dropdown .theme-opt { font-size: 12px; gap: 6px; padding: 5px 10px; }
+.dd-row-social { flex-direction: column; align-items: flex-start; gap: 6px; border-bottom: 1px solid var(--border); }
+.dd-social { display: flex; gap: 4px; }
+/* benvenuto con il logo */
+.home-welcome {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: #fff; border: 1px solid var(--border); border-radius: 16px;
+  padding: 14px 20px 16px; margin-bottom: 16px;
+}
+.home-welcome .hw-txt { font-family: Montserrat, var(--font); font-size: 13px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; color: #1f6fe5; }
+.home-welcome .hub-logo { --logo-w: 250px; }
+.home-welcome-solo { max-width: 360px; margin: 0 auto 26px; }
+body.vede-calendario .home-welcome-solo { display: none; }
+@media (max-width: 720px) {
+  .topbar { padding: 0 10px; gap: 8px; }
+  .topbar-time .tt-data { display: none; }
+  #user-email-short { display: none; }
+}
+html[data-theme="light"] .topbar { background: rgba(255,255,255,.94); }
+html[data-theme="light"] .topbar .app-tab { background: rgba(31,111,229,.07); border-color: rgba(31,111,229,.28); }
+html[data-theme="light"] .topbar .app-tab:hover { background: rgba(31,111,229,.14); }
+html[data-theme="light"] .topbar .app-tab-home { background: transparent; border-color: var(--border); }
+html[data-theme="light"] .topbar .app-tab.active { background: linear-gradient(135deg, #1f6fe5 0%, #00b4e8 100%); border-color: transparent; color: #fff; }
 </style>
 <script>
 (function () {
@@ -958,12 +1021,42 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
 
 <!-- ── APP ── -->
 <div id="app">
-  <header>
-    <div class="header-logo-wrap">
-      <div class="hub-logo" role="img" aria-label="PDE Hub — Connetti. Accedi. Evolvi."></div>
+  <div class="topbar" id="topbar">
+    <div class="app-tabbar visible" id="app-tabbar">
+      <div class="app-tab app-tab-home active" id="tab-home" onclick="goHome()">
+      <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+      Home
     </div>
-    <div class="header-right">
-      <div class="social-links">
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-time" id="clock"></span>
+      <div class="user-menu-wrap">
+        <button class="user-btn" onclick="toggleDropdown()">
+          <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+          <span id="user-email-short">Account</span>
+          <svg viewBox="0 0 24 24" style="width:10px;height:10px"><path d="M7 10l5 5 5-5z"/></svg>
+        </button>
+        <div class="dropdown" id="dropdown">
+          <div class="dropdown-email" id="dropdown-email"></div>
+          <div class="dd-row"><span class="dd-label">Tema</span><div class="theme-switch" role="group" aria-label="Tema">
+        <button class="theme-opt" data-set="light" onclick="setTheme('light')" title="Versione chiara">
+          <svg viewBox="0 0 24 24"><path d="M12 7a5 5 0 100 10 5 5 0 000-10zM11 1h2v3h-2zm0 19h2v3h-2zM1 11h3v2H1zm19 0h3v2h-3zM4.22 5.64l1.42-1.42 2.12 2.12-1.42 1.42zm12.02 12.02l1.42-1.42 2.12 2.12-1.42 1.42zM4.22 18.36l2.12-2.12 1.42 1.42-2.12 2.12zM16.24 6.34l2.12-2.12 1.42 1.42-2.12 2.12z"/></svg>
+          Chiaro
+        </button>
+        <button class="theme-opt" data-set="dark" onclick="setTheme('dark')" title="Versione scura">
+          <svg viewBox="0 0 24 24"><path d="M12.3 22A10 10 0 019.6 2.4a8 8 0 0010 10A10 10 0 0112.3 22z"/></svg>
+          Scuro
+        </button>
+      </div></div>
+          <button class="dropdown-item" onclick="openMyPwdModal(); closeDropdown()">
+            <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+            Cambia password
+          </button>
+          <button class="dropdown-item admin-only" onclick="openUsersPanel(); closeDropdown()">
+            <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+            Gestione utenti
+          </button>
+          <div class="dd-row dd-row-social"><span class="dd-label">PDE sui social</span><div class="dd-social">
         <a class="social-link" href="https://www.pde.it/" target="_blank" rel="noopener" title="Sito PDE">
           <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
         </a>
@@ -979,39 +1072,7 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
         <a class="social-link" href="https://www.tiktok.com/@indielibripde" target="_blank" rel="noopener" title="TikTok">
           <svg viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
         </a>
-      </div>
-      <div class="header-divider"></div>
-      <span class="header-time" id="clock"></span>
-      <div class="header-divider"></div>
-      <button class="user-btn" onclick="openMyPwdModal()" title="Cambia la tua password">🔑<span class="hdr-lbl"> Cambia password</span></button>
-      <div class="header-divider"></div>
-      <div class="theme-switch" role="group" aria-label="Tema">
-        <button class="theme-opt" data-set="light" onclick="setTheme('light')" title="Versione chiara">
-          <svg viewBox="0 0 24 24"><path d="M12 7a5 5 0 100 10 5 5 0 000-10zM11 1h2v3h-2zm0 19h2v3h-2zM1 11h3v2H1zm19 0h3v2h-3zM4.22 5.64l1.42-1.42 2.12 2.12-1.42 1.42zm12.02 12.02l1.42-1.42 2.12 2.12-1.42 1.42zM4.22 18.36l2.12-2.12 1.42 1.42-2.12 2.12zM16.24 6.34l2.12-2.12 1.42 1.42-2.12 2.12z"/></svg>
-          Chiaro
-        </button>
-        <button class="theme-opt" data-set="dark" onclick="setTheme('dark')" title="Versione scura">
-          <svg viewBox="0 0 24 24"><path d="M12.3 22A10 10 0 019.6 2.4a8 8 0 0010 10A10 10 0 0112.3 22z"/></svg>
-          Scuro
-        </button>
-      </div>
-      <div class="header-divider"></div>
-      <div class="user-menu-wrap">
-        <button class="user-btn" onclick="toggleDropdown()">
-          <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
-          <span id="user-email-short">Account</span>
-          <svg viewBox="0 0 24 24" style="width:10px;height:10px"><path d="M7 10l5 5 5-5z"/></svg>
-        </button>
-        <div class="dropdown" id="dropdown">
-          <div class="dropdown-email" id="dropdown-email"></div>
-          <button class="dropdown-item" onclick="openMyPwdModal(); closeDropdown()">
-            <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-            Cambia password
-          </button>
-          <button class="dropdown-item admin-only" onclick="openUsersPanel(); closeDropdown()">
-            <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-            Gestione utenti
-          </button>
+      </div></div>
           <button class="dropdown-item danger" onclick="doLogout()">
             <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
             Esci
@@ -1019,16 +1080,10 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
         </div>
       </div>
     </div>
-  </header>
-
-  <div class="app-tabbar" id="app-tabbar">
-    <div class="app-tab app-tab-home active" id="tab-home" onclick="goHome()">
-      <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-      Home
-    </div>
   </div>
 
   <main class="home-wide">
+   <div class="home-welcome home-welcome-solo"><span class="hw-txt">Benvenuto in</span><div class="hub-logo" role="img" aria-label="PDE Hub — Connetti. Accedi. Evolvi."></div></div>
    <div class="home-layout">
    <div class="home-apps">
     <!-- SEZIONE 1: TOOL INTERNI -->
@@ -1262,6 +1317,7 @@ html[data-theme="light"] .role-agente { background: rgba(168,120,26,.10); border
 
    <!-- CALENDARIO PDE: date operative (lanci, giri, note di credito, festività) + chi è dove -->
    <aside class="home-cal role-hide-agente" id="home-cal" aria-label="Calendario PDE">
+     <div class="home-welcome"><span class="hw-txt">Benvenuto in</span><div class="hub-logo" role="img" aria-label="PDE Hub — Connetti. Accedi. Evolvi."></div></div>
      <div class="hc-head">
        <button class="hc-btn" type="button" data-hc-m="-1" aria-label="Mese precedente">‹</button>
        <div class="hc-title" id="hc-title"></div>
@@ -1548,10 +1604,12 @@ function setLoading(btnId, loading) {
 }
 
 function updateClock() {
-  document.getElementById('clock').textContent =
-    new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  const d = new Date();
+  const data = d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+  const ora = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('clock').innerHTML = `<span class="tt-data">${data}</span> <span class="tt-ora">${ora}</span>`;
 }
-updateClock(); setInterval(updateClock, 60000);
+updateClock(); setInterval(updateClock, 30000);
 
 // ── Login ──
 async function doLogin() {
