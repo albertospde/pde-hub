@@ -55,7 +55,8 @@ input#q{
 input#q:focus,.chip:focus-visible,button:focus-visible{outline:2px solid var(--c-accesso);outline-offset:2px}
 .legend-row{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:12px;color:var(--fg-3)}
 .legend-row .lbl{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
-.stage{position:relative;overflow:hidden;cursor:grab;touch-action:none}
+.stage{position:relative;overflow:hidden;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+.stage aside#panel{-webkit-user-select:text;user-select:text}
 .stage.dragging{cursor:grabbing}
 .stage::before{
   content:"";position:absolute;inset:0;pointer-events:none;
@@ -721,6 +722,7 @@ let drag=null, moved=false;
 const pts=new Map();
 stage.addEventListener("pointerdown",ev=>{
   if(ev.target.closest("#panel,.zoom")) return;
+  if(ev.pointerType==="mouse") ev.preventDefault(); // niente selezione del testo mentre si trascina
   pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
   drag={x:ev.clientX,y:ev.clientY,vx:vb.x,vy:vb.y}; moved=false;
 });
