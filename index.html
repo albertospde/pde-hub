@@ -657,6 +657,45 @@ html[data-theme="light"] .home-cal { --hc-line: rgba(26,45,107,.34); }
 .hc-frase blockquote::after { content: "”"; color: var(--accent); }
 .hc-frase figcaption { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--muted); font-weight: 600; }
 .hc-frase figcaption span::before { content: "— "; }
+/* PDE Agent AI: tra il benvenuto e il calendario, solo per chi è in data-solo-per */
+.home-agent { margin-bottom: 16px; padding: 12px 14px 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.ha-head { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+.ha-title { font-family: Montserrat, var(--font); font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+.ha-tag { font: 700 9.5px var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--accent2); border: 1px solid var(--accent2); border-radius: 999px; padding: 1px 7px; }
+.ha-nuova { margin-left: auto; }
+.ha-form { display: flex; gap: 8px; }
+.ha-form input {
+  flex: 1; min-width: 0; background: var(--blue-deep); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; font: 500 13px var(--font);
+}
+.ha-form input:focus { outline: none; border-color: var(--accent); }
+.ha-form button {
+  border: none; border-radius: 10px; padding: 0 16px; cursor: pointer; color: #fff;
+  font: 700 12.5px var(--font); background: linear-gradient(135deg, var(--blue) 0%, var(--accent) 100%);
+}
+.ha-form button:disabled { opacity: .55; cursor: wait; }
+.ha-chat { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; max-height: 460px; overflow-y: auto; padding-right: 2px; }
+.ha-msg { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.ha-msg.utente { align-self: flex-end; max-width: 85%; background: color-mix(in srgb, var(--accent) 16%, transparent); border-radius: 12px 12px 2px 12px; padding: 7px 11px; }
+.ha-msg.agente { border-left: 3px solid var(--accent); padding: 2px 0 2px 11px; }
+.ha-msg.errore { border-left-color: var(--danger); color: var(--danger); }
+.ha-msg p { margin: 0 0 6px; }
+.ha-msg p:last-child { margin-bottom: 0; }
+.ha-msg ul, .ha-msg ol { margin: 0 0 6px 18px; }
+.ha-msg code { font: 12px var(--mono); background: rgba(120,128,176,.15); border-radius: 4px; padding: 0 4px; }
+.ha-tab { overflow-x: auto; margin: 4px 0 8px; }
+.ha-msg table { border-collapse: collapse; font-size: 12px; width: 100%; }
+.ha-msg th { text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 4px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.ha-msg td { padding: 4px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.ha-msg td.num, .ha-msg th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ha-msg em { color: var(--muted); }
+.ha-attesa { color: var(--muted); font-style: italic; }
+.ha-attesa::after { content: "…"; animation: ha-punti 1.2s steps(4) infinite; display: inline-block; width: 1.2em; overflow: hidden; vertical-align: bottom; }
+@keyframes ha-punti { from { width: 0; } to { width: 1.2em; } }
+.ha-query { margin-top: 6px; font-size: 11.5px; color: var(--muted); }
+.ha-query summary { cursor: pointer; font-weight: 600; }
+.ha-query li { margin: 6px 0 0 16px; }
+.ha-query pre { font: 11px var(--mono); white-space: pre-wrap; background: var(--blue-deep); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; margin-top: 3px; color: var(--text); }
 /* Sempre 3 app per riga con il calendario a destra; solo sui telefoni il calendario va sotto */
 @media (max-width: 700px) {
   body.vede-calendario .home-layout { grid-template-columns: minmax(0, 1fr); }
@@ -1318,6 +1357,18 @@ html[data-theme="light"] .topbar .app-tab.active { background: linear-gradient(1
    <!-- CALENDARIO PDE: date operative (lanci, giri, note di credito, festività) + chi è dove -->
    <aside class="home-cal role-hide-agente" id="home-cal" aria-label="Calendario PDE">
      <div class="home-welcome"><span class="hw-txt">Benvenuto in</span><div class="hub-logo" role="img" aria-label="PDE Hub — Connetti. Accedi. Evolvi."></div></div>
+     <!-- PDE AGENT AI: domande su numeri e app PDE (edge function agente-ai); per ora solo Alberto -->
+     <section class="home-agent" id="home-agent" data-solo-per="alberto.simola@pde.it" style="display:none" aria-label="PDE Agent AI">
+       <div class="ha-head">
+         <span class="ha-title">PDE Agent AI</span><span class="ha-tag">beta</span>
+         <button class="hc-btn ha-nuova" type="button" id="ha-nuova" hidden>Nuova conversazione</button>
+       </div>
+       <form class="ha-form" id="ha-form" autocomplete="off">
+         <input id="ha-q" type="search" maxlength="2000" placeholder="Chiedi su lanci, vendite, editori, app PDE…" aria-label="Domanda per PDE Agent AI">
+         <button type="submit" id="ha-invia">Chiedi</button>
+       </form>
+       <div class="ha-chat" id="ha-chat" aria-live="polite" hidden></div>
+     </section>
      <div class="hc-head">
        <button class="hc-btn" type="button" data-hc-m="-1" aria-label="Mese precedente">‹</button>
        <div class="hc-title" id="hc-title"></div>
@@ -1782,6 +1833,7 @@ MY_PWD_IDS.forEach(id => document.getElementById(id).addEventListener('keydown',
 async function doLogout() {
   if (openTabs[USERS_TAB_KEY]) closeTab({ stopPropagation(){} }, USERS_TAB_KEY);
   usersCache = [];
+  haAzzera();
   document.body.classList.remove('is-gestore', 'ruolo-interno', 'vede-calendario');
   try { sessionStorage.removeItem(TABS_STORAGE_KEY); } catch (e) {}
   await sb.auth.signOut({ scope: 'local' });
@@ -2406,6 +2458,114 @@ async function hcDisegnaGiorno(){
     if (el) el.innerHTML = `<div class="hc-vuoto">Presenze non disponibili: ${hcEsc(e.message || e)}</div>`;
   }
 }
+
+// ── PDE Agent AI della home (visibile solo a chi è in data-solo-per della sezione: per ora Alberto) ──
+// Manda la conversazione all'edge function agente-ai, che risponde leggendo il database in sola lettura.
+let haStoria = [];   // [{ ruolo: 'utente' | 'agente', testo }]
+let haInCorso = false;
+
+function haEsc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function haInline(s) {
+  return haEsc(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
+}
+// Markdown semplice delle risposte: paragrafi, elenchi, tabelle, grassetto, corsivo, codice (testo sempre escapato)
+const HA_VOCE = /^\s*([-*•]|\d+[.)])\s+/;
+function haMarkdown(md) {
+  const righe = String(md || '').replace(/\r/g, '').split('\n');
+  const out = [];
+  const celle = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+  const num = c => /^[-+−]?[\d.,]+\s*(%|M€|K€|€|pp)?$/.test(c.replace(/\*\*/g, ''));
+  for (let i = 0; i < righe.length;) {
+    const r = righe[i];
+    if (!r.trim()) { i++; continue; }
+    if (/^\s*\|/.test(r)) {
+      const blocco = [];
+      while (i < righe.length && /^\s*\|/.test(righe[i])) blocco.push(righe[i++]);
+      const sep = blocco.length > 1 && /^[\s|:-]+$/.test(blocco[1]);
+      const testa = sep ? celle(blocco[0]) : null;
+      const corpo = blocco.slice(sep ? 2 : 0).map(celle);
+      const colNum = k => corpo.length > 0 && corpo.every(rr => num(rr[k] || ''));
+      out.push('<div class="ha-tab"><table>' +
+        (testa ? '<thead><tr>' + testa.map((c, k) => `<th${colNum(k) ? ' class="num"' : ''}>${haInline(c)}</th>`).join('') + '</tr></thead>' : '') +
+        '<tbody>' + corpo.map(rr => '<tr>' + rr.map(c => `<td${num(c) ? ' class="num"' : ''}>${haInline(c)}</td>`).join('') + '</tr>').join('') +
+        '</tbody></table></div>');
+      continue;
+    }
+    if (HA_VOCE.test(r)) {
+      const ord = /^\s*\d/.test(r);
+      const voci = [];
+      while (i < righe.length && HA_VOCE.test(righe[i])) voci.push(righe[i++].replace(HA_VOCE, ''));
+      out.push(`<${ord ? 'ol' : 'ul'}>${voci.map(v => `<li>${haInline(v)}</li>`).join('')}</${ord ? 'ol' : 'ul'}>`);
+      continue;
+    }
+    const par = [];
+    while (i < righe.length && righe[i].trim() && !/^\s*\|/.test(righe[i]) && !HA_VOCE.test(righe[i])) par.push(righe[i++].replace(/^#+\s*/, ''));
+    out.push('<p>' + par.map(haInline).join('<br>') + '</p>');
+  }
+  return out.join('');
+}
+
+function haAggiungi(cls, html) {
+  const chat = document.getElementById('ha-chat');
+  chat.hidden = false;
+  const d = document.createElement('div');
+  d.className = 'ha-msg ' + cls;
+  d.innerHTML = html;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  return d;
+}
+
+async function haChiedi(ev) {
+  ev.preventDefault();
+  const input = document.getElementById('ha-q');
+  const domanda = input.value.trim();
+  if (!domanda || haInCorso) return;
+  haInCorso = true;
+  document.getElementById('ha-invia').disabled = true;
+  document.getElementById('ha-nuova').hidden = false;
+  input.value = '';
+  haAggiungi('utente', haEsc(domanda));
+  haStoria.push({ ruolo: 'utente', testo: domanda });
+  const box = haAggiungi('agente', '<span class="ha-attesa">Sto cercando nei dati</span>');
+  try {
+    const { data, error } = await sb.functions.invoke('agente-ai', { body: { messaggi: haStoria } });
+    if (error) {
+      let msg = error.message;
+      try { const j = await error.context?.json?.(); if (j?.errore) msg = j.errore; } catch (e) {}
+      throw new Error(msg);
+    }
+    if (data?.errore) throw new Error(data.errore);
+    haStoria.push({ ruolo: 'agente', testo: data.risposta });
+    const q = data.query || [];
+    box.innerHTML = haMarkdown(data.risposta) +
+      (data.nota ? `<p><em>${haEsc(data.nota)}</em></p>` : '') +
+      (q.length ? `<details class="ha-query"><summary>Query usate (${q.length})</summary><ol>${q.map(x =>
+        `<li>${haEsc(x.motivo || 'query')} — ${x.errore ? 'errore: ' + haEsc(x.errore) : (x.righe ?? 0) + ' righe'}<pre>${haEsc(x.query)}</pre></li>`
+      ).join('')}</ol></details>` : '');
+  } catch (e) {
+    haStoria.pop();   // la domanda senza risposta non resta nella conversazione
+    box.classList.add('errore');
+    box.textContent = 'PDE Agent AI non ha risposto: ' + (e.message || e);
+  } finally {
+    haInCorso = false;
+    document.getElementById('ha-invia').disabled = false;
+    input.focus();
+  }
+}
+
+function haAzzera() {
+  haStoria = [];
+  const chat = document.getElementById('ha-chat');
+  chat.innerHTML = '';
+  chat.hidden = true;
+  document.getElementById('ha-nuova').hidden = true;
+}
+document.getElementById('ha-form').addEventListener('submit', haChiedi);
+document.getElementById('ha-nuova').addEventListener('click', () => { haAzzera(); document.getElementById('ha-q').focus(); });
 
 // Frase del giorno sotto il calendario (frasi simpatiche scritte per PDE Hub), con il pulsante ↻ per cambiarla
 const HC_FRASI = [
