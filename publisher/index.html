@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bree+Serif&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>try { const t = localStorage.getItem('pde-editori-tema'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}</script>
 <style>
   :root{
     --bg:#f4f7fb; --card:#ffffff; --card-2:#eef4fa; --cyan:#0090c8; --cyan-dim:#e3f3fb;
@@ -73,10 +74,44 @@
 
   /* ---------- testata ---------- */
   .main{min-width:0}
-  .top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:16px 28px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
-  .top h1{margin:0;font-family:'Bree Serif',serif;font-weight:400;font-size:26px;line-height:1.1}
-  .top .sub{color:var(--text-dim);font-size:14px;margin-top:3px}
-  .top .dx{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  /* barra unica in alto (nov 2026, come nel PDE Hub): titolo della sezione a sinistra, menu utente a destra */
+  .topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;height:50px;padding:0 20px 0 28px;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+  .tb-tit{flex:1;min-width:0;display:flex;align-items:baseline;gap:12px;white-space:nowrap;overflow:hidden}
+  .tb-tit h1{margin:0;font-family:'Bree Serif',serif;font-weight:400;font-size:20px;line-height:1.2;flex:none}
+  .tb-tit .sub{color:var(--text-dim);font-size:13px;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .topbar-right{display:flex;align-items:center;gap:12px;flex:none}
+  .user-wrap{position:relative}
+  .user-btn{display:flex;align-items:center;gap:7px;background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;max-width:220px}
+  .user-btn:hover,.user-btn[aria-expanded="true"]{color:var(--text);border-color:var(--cyan)}
+  .user-btn svg{width:14px;height:14px;fill:currentColor;flex:none}
+  .user-btn #utente-breve{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dropdown{position:absolute;top:calc(100% + 8px);right:0;z-index:40;min-width:270px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 40px rgba(20,45,90,.22);overflow:hidden;animation:dropIn .18s ease}
+  @keyframes dropIn{from{transform:translateY(-6px);opacity:0}to{transform:none;opacity:1}}
+  .dropdown-email{padding:12px 16px;font-size:12px;color:var(--text-dim);border-bottom:1px solid var(--border);word-break:break-all}
+  .dd-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)}
+  .dd-row.dd-col{flex-direction:column;align-items:stretch;gap:6px}
+  .dd-row select{width:100%}
+  .dd-label{font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em}
+  .dropdown .seg button{font-size:12.5px;padding:5px 10px}
+  .dropdown-item{display:flex;align-items:center;gap:10px;width:100%;padding:11px 16px;border:0;background:none;font-size:13.5px;font-weight:600;color:var(--text);text-align:left;cursor:pointer}
+  .dropdown-item:hover{background:var(--card-2)}
+  .dropdown-item.danger{color:var(--ko)} .dropdown-item.danger:hover{background:var(--ko-bg)}
+  .dropdown-item svg{width:15px;height:15px;fill:currentColor;flex:none}
+  /* periodo, valore/copie e data dei dati: in cima alla pagina, non nella barra */
+  .filtri{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:18px 28px 0;max-width:1480px}
+  .filtri .periodo-wrap{min-width:0;max-width:100%} .filtri .per-btn{max-width:min(420px,100%)}
+  /* benvenuto con il logo in cima alla home */
+  .home-welcome{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:380px;margin:0 auto 20px;padding:14px 20px 16px;background:#fff;border:1px solid var(--border);border-radius:16px}
+  .home-welcome .hw-txt{font-family:Montserrat,'Segoe UI',sans-serif;font-size:13px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:#1f6fe5}
+  .home-welcome .bu-logo{width:300px;max-width:100%}
+  dialog.dlg{border:1px solid var(--border);border-radius:16px;background:var(--card);color:var(--text);padding:0;width:min(380px,calc(100vw - 32px));box-shadow:var(--shadow)}
+  dialog.dlg::backdrop{background:rgba(10,20,40,.45)}
+  dialog.dlg form{display:flex;flex-direction:column;gap:12px;padding:22px}
+  dialog.dlg h3{margin:0;font-size:17px}
+  dialog.dlg label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:700;color:var(--text-dim)}
+  dialog.dlg input{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 11px;font-size:15px}
+  dialog.dlg .az{display:flex;justify-content:flex-end;gap:8px}
+  dialog.dlg .msg{margin:0;font-size:13px;min-height:1em}
   .sel{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim);font-weight:600}
   select,input[type=text],input[type=search],input[type=date],textarea{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:7px 10px;font-size:14px}
   select:focus,input:focus,textarea:focus{outline:2px solid var(--cyan);outline-offset:0}
@@ -281,7 +316,7 @@
   .pp-griglia label.pp-on{background:var(--cyan-dim);color:var(--info)}
   .pp-piede{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px}
   .pp-piede span{margin-right:auto}
-  @media (max-width:700px){ .pp-griglia{grid-template-columns:minmax(0,1fr)} .pan-per{position:fixed;left:8px;right:8px;top:70px;width:auto} }
+  @media (max-width:700px){ .pp-griglia{grid-template-columns:minmax(0,1fr)} .pan-per{position:fixed;left:8px;right:8px;top:70px;width:auto} .user-btn{max-width:150px} }
   .tag-demo{margin-left:auto;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:6px;background:var(--warn-bg);color:var(--warn)}
   .nav a.active .tag-demo{background:rgba(255,255,255,.25);color:#fff}
   .banner-demo{margin:0 0 16px;padding:12px 16px;border-radius:14px;background:var(--warn-bg);color:var(--warn);font-size:14px;line-height:1.45;border:1px solid color-mix(in srgb,var(--warn) 30%,transparent)}
@@ -302,7 +337,9 @@
     .side > .nav{display:flex;gap:6px;overflow-x:auto;overflow-y:visible;margin:0;padding:0 0 6px}
     .nav-g{display:none}
     .nav a{flex-shrink:0;white-space:nowrap;border:1px solid var(--border)}
-    .top{position:static;padding:14px 16px}
+    .topbar{padding:0 12px 0 16px;gap:8px}
+    .tb-tit .sub{display:none}
+    .filtri{padding:12px 16px 0}
     .content{padding:16px 16px 40px}
     .ev{grid-template-columns:56px minmax(0,1fr)} .ev > :last-child{grid-column:2}
     .alert-card{grid-template-columns:auto minmax(0,1fr)} .alert-card > .pill{grid-column:2;justify-self:start}
@@ -323,9 +360,6 @@
 </div>
 <div class="app" id="app" hidden>
   <aside class="side">
-    <div class="brand">
-      <div class="bu-logo" role="img" aria-label="BookUp Publisher Edition"><img src="assets/bookup-logo.jpg" alt=""><div class="bu-ed" aria-hidden="true"><b>P</b><b>U</b><b>B</b><b>L</b><b>I</b><b>S</b><b>H</b><b>E</b><b>R</b><s></s><i>E</i><i>D</i><i>I</i><i>T</i><i>I</i><i>O</i><i>N</i></div></div>
-    </div>
     <div class="editore-box">
       <div class="ed-logo" id="ed-logo" hidden></div>
       <div class="lab">Area riservata editore</div>
@@ -336,25 +370,49 @@
     <nav class="nav" id="nav"></nav>
   </aside>
   <div class="main">
-    <header class="top">
-      <div>
-        <h1 id="tit"></h1>
-        <div class="sub" id="sub"></div>
-      </div>
-      <div class="dx">
-        <div class="periodo-wrap"><button class="btn per-btn" type="button" id="b-periodo" title="Cambia il periodo">📅 <span id="per-lab"></span> ▾</button>
-          <div class="pan-per card" id="pan-per" hidden></div></div>
-        <label class="sel" id="sel-editore" hidden>Editore
-          <select id="f-editore"></select>
-        </label>
-        <div class="seg" id="seg-misura" role="group" aria-label="Valore o copie"><button type="button" data-m="valore" class="on">€ Valore</button><button type="button" data-m="copie">Copie</button></div>
-        <span class="dati-al" id="dati-al"></span>
-        <span class="utente"><span id="utente"></span><button class="btn" type="button" id="b-esci">Esci</button></span>
+    <header class="topbar">
+      <div class="tb-tit"><h1 id="tit"></h1><span class="sub" id="sub"></span></div>
+      <div class="topbar-right">
+        <div class="user-wrap">
+          <button class="user-btn" type="button" id="b-utente" aria-haspopup="true" aria-expanded="false">
+            <svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+            <span id="utente-breve">Account</span>
+            <svg viewBox="0 0 24 24" style="width:10px;height:10px"><path d="M7 10l5 5 5-5z"/></svg>
+          </button>
+          <div class="dropdown" id="dropdown" hidden>
+            <div class="dropdown-email" id="utente"></div>
+            <div class="dd-row dd-col" id="sel-editore" hidden><span class="dd-label">Editore</span><select id="f-editore" aria-label="Editore"></select></div>
+            <div class="dd-row"><span class="dd-label">Tema</span><div class="seg" id="seg-tema" role="group" aria-label="Tema"><button type="button" data-t="light">☀ Chiaro</button><button type="button" data-t="dark">☾ Scuro</button></div></div>
+            <button class="dropdown-item" type="button" id="b-pwd">
+              <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+              Cambia password
+            </button>
+            <button class="dropdown-item danger" type="button" id="b-esci">
+              <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+              Esci
+            </button>
+          </div>
+        </div>
       </div>
     </header>
+    <div class="filtri">
+      <div class="periodo-wrap"><button class="btn per-btn" type="button" id="b-periodo" title="Cambia il periodo">📅 <span id="per-lab"></span> ▾</button>
+        <div class="pan-per card" id="pan-per" hidden></div></div>
+      <div class="seg" id="seg-misura" role="group" aria-label="Valore o copie"><button type="button" data-m="valore" class="on">€ Valore</button><button type="button" data-m="copie">Copie</button></div>
+      <span class="dati-al" id="dati-al"></span>
+    </div>
     <div class="content" id="content"></div>
   </div>
 </div>
+<dialog class="dlg" id="dlg-pwd">
+  <form id="f-pwd" method="dialog">
+    <h3>Cambia password</h3>
+    <label>Nuova password<input type="password" name="p1" required minlength="8" autocomplete="new-password"></label>
+    <label>Ripeti la nuova password<input type="password" name="p2" required minlength="8" autocomplete="new-password"></label>
+    <p class="msg" id="pwd-msg"></p>
+    <div class="az"><button class="btn" type="button" id="pwd-annulla">Annulla</button><button class="btn pri" type="submit">Salva</button></div>
+  </form>
+</dialog>
 
 <script>
 /* =====================================================================
@@ -3139,6 +3197,8 @@ function disegnaMenu(attiva){
   nav.innerHTML = MENU.filter(m => !m.admin || ADMIN()).map(m => m.g ? `<span class="nav-g">${m.g}</span>` : `<a href="#${m.id}" class="${m.id === attiva ? 'active' : ''}" style="--a1:${m.a[0]};--a2:${m.a[1]}">
     <span class="ic"><svg viewBox="0 0 24 24">${IC[m.ic]}</svg></span><span>${m.l}</span>${S[m.id]?.demo ? '<span class="tag-demo">esempio</span>' : ''}</a>`).join('');
 }
+const LOGO_BU = '<div class="bu-logo" role="img" aria-label="BookUp Publisher Edition"><img src="assets/bookup-logo.jpg" alt=""><div class="bu-ed" aria-hidden="true"><b>P</b><b>U</b><b>B</b><b>L</b><b>I</b><b>S</b><b>H</b><b>E</b><b>R</b><s></s><i>E</i><i>D</i><i>I</i><i>T</i><i>I</i><i>O</i><i>N</i></div></div>';
+const BENVENUTO = `<div class="home-welcome"><span class="hw-txt">Benvenuto in</span>${LOGO_BU}</div>`;
 const BANNER_DEMO = `<div class="banner-demo"><b>Sezione di esempio.</b> Questi numeri sono inventati e servono a mostrare come sarà la sezione: i dati veri arriveranno quando la fonte sarà collegata.</div>`;
 let TOKEN = 0;
 let ULTIMA_SEZ = null;
@@ -3167,7 +3227,7 @@ async function render(){
       if (t !== TOKEN) return;
     }
     $('#sub').textContent = sez.sub();
-    $('#content').innerHTML = (sez.demo ? BANNER_DEMO : '') + sez.html();
+    $('#content').innerHTML = (key === 'dashboard' ? BENVENUTO : '') + (sez.demo ? BANNER_DEMO : '') + sez.html();
     sez.init && sez.init();
   } catch (e) {
     if (t !== TOKEN) return;
@@ -3182,9 +3242,44 @@ function mostraLogin(msg){
 }
 function bloccato(msg){
   $('#app').hidden = true; $('#login').hidden = false;
-  $('#f-login').innerHTML = `<div class="login-logo">${$('.brand').innerHTML}</div><h2>Accesso non autorizzato</h2>
+  $('#f-login').innerHTML = `<div class="login-logo">${LOGO_BU}</div><h2>Accesso non autorizzato</h2>
     <p class="muted">${esc(msg)}</p><button class="btn pri" type="button" id="b-esci2">Esci</button>`;
   $('#b-esci2').addEventListener('click', esci);
+}
+// nome breve per il pulsante utente: la parte dell'email prima di "@" (e del primo punto)
+function nomeBreve(email){
+  const n = String(email || '').split('@')[0].split('.')[0];
+  return n ? n.charAt(0).toUpperCase() + n.slice(1) : 'Account';
+}
+function apriMenuUtente(apri){
+  const d = $('#dropdown'), b = $('#b-utente');
+  d.hidden = !apri; b.setAttribute('aria-expanded', apri ? 'true' : 'false');
+  if (apri) disegnaTema();
+}
+const temaAttuale = () => document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+function disegnaTema(){ document.querySelectorAll('#seg-tema button').forEach(b => b.classList.toggle('on', b.dataset.t === temaAttuale())); }
+function setTema(t){
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('pde-editori-tema', t); } catch {}
+  disegnaTema(); render();   // i grafici prendono i colori del tema
+}
+function apriCambioPassword(){
+  apriMenuUtente(false);
+  const f = $('#f-pwd'); f.reset(); $('#pwd-msg').textContent = ''; $('#pwd-msg').style.color = '';
+  $('#dlg-pwd').showModal();
+}
+async function salvaPassword(ev){
+  ev.preventDefault();
+  const f = ev.target, d = Object.fromEntries(new FormData(f)), m = $('#pwd-msg');
+  m.style.color = 'var(--ko)';
+  if (d.p1.length < 8) { m.textContent = 'Almeno 8 caratteri.'; return; }
+  if (d.p1 !== d.p2) { m.textContent = 'Le due password non coincidono.'; return; }
+  const b = f.querySelector('[type=submit]'); b.disabled = true; m.style.color = ''; m.textContent = 'Salvataggio…';
+  const { error } = await sb.auth.updateUser({ password: d.p1 });
+  b.disabled = false;
+  if (error) { m.style.color = 'var(--ko)'; m.textContent = 'Password non cambiata: ' + error.message; return; }
+  m.style.color = 'var(--ok)'; m.textContent = 'Password cambiata.';
+  setTimeout(() => $('#dlg-pwd').close(), 1200);
 }
 async function esci(){ await sb.auth.signOut(); location.hash = ''; location.reload(); }
 async function entra(){
@@ -3195,6 +3290,7 @@ async function entra(){
   PER = periodi();
   disegnaPeriodo();
   $('#utente').textContent = SESS.email || '';
+  $('#utente-breve').textContent = nomeBreve(SESS.email);
   $('#dati-al').textContent = 'Dati al ' + fData(PER.ultimo);
   const ammesso = UTENTI_AMMESSI.includes(String(SESS.email || '').toLowerCase());
   if (SESS.admin && ammesso){
@@ -3270,6 +3366,13 @@ async function avvio(){
     entra();
   });
   $('#b-esci').addEventListener('click', esci);
+  $('#b-utente').addEventListener('click', () => apriMenuUtente($('#dropdown').hidden));
+  document.addEventListener('click', e => { if (!$('#dropdown').hidden && e.target.isConnected && !e.target.closest('.user-wrap')) apriMenuUtente(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#dropdown').hidden) apriMenuUtente(false); });
+  document.querySelectorAll('#seg-tema button').forEach(b => b.addEventListener('click', () => setTema(b.dataset.t)));
+  $('#b-pwd').addEventListener('click', apriCambioPassword);
+  $('#pwd-annulla').addEventListener('click', () => $('#dlg-pwd').close());
+  $('#f-pwd').addEventListener('submit', salvaPassword);
   $('#b-periodo').addEventListener('click', apriPannelloPeriodo);
   document.querySelectorAll('#seg-misura button').forEach(b => b.addEventListener('click', () => { MISURA = b.dataset.m; disegnaMisura(); render(); }));
   document.addEventListener('click', e => { const i = e.target.closest('[data-cop]'); if (i) { e.stopPropagation(); apriCopertina(i.dataset.cop); } }, true);
@@ -3278,6 +3381,7 @@ async function avvio(){
   $('#f-editore').addEventListener('change', e => {
     ED = (SESS.editori || []).find(x => x.codice_editore === e.target.value);
     try { localStorage.setItem('pde-editori-scelto', ED.codice_editore); } catch {}
+    apriMenuUtente(false);
     apriEditore();
   });
   window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
