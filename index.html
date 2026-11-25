@@ -386,12 +386,12 @@ main {
 .card-app:hover .card-app-icon img,
 .card-app:hover .card-app-icon svg { transform: scale(1.04); }
 /* ── Logo delle app PDE: stesso stampo di Giro Manager (nome in due pesi + motto + ala PDE) ── */
-.pde-logo { display: flex; align-items: center; gap: .16em; font-size: 17px; transition: transform .35s; }
+.pde-logo { display: flex; flex-direction: row-reverse; align-items: center; gap: .32em; font-size: 17px; transition: transform .35s; }
 .card-app:hover .card-app-icon .pde-logo { transform: scale(1.04); }
 /* BookUp Publisher Edition: logo BookUp + dicitura, si ingrandisce tutto insieme */
 .card-app-icon .bu-pe-logo img { transform: none !important; }
 .card-app:hover .card-app-icon .bu-pe-logo { transform: scale(1.04); }
-.pl-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.pl-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; border-left: .11em solid #1f6fe5; padding-left: .38em; }  /* stile BookUp: ala | nome */
 .pl-name { font-family: Montserrat, "Segoe UI", sans-serif; font-size: 1.3em; line-height: 1; letter-spacing: -.015em; white-space: nowrap; color: #0f1c4d; }
 .pl-name b { font-weight: 700; }
 .pl-name span { font-weight: 400; color: #1f6fe5; margin-left: .16em; }
@@ -1354,7 +1354,7 @@ html[data-theme="light"] .topbar .app-tab.active { background: linear-gradient(1
     </div><!-- /role-hide-agente Presenze e Amministrazione -->
    </div><!-- /home-apps -->
 
-   <!-- CALENDARIO PDE: date operative (lanci, giri, note di credito, festività) + chi è dove -->
+   <!-- CALENDARIO PDE: date operative (lanci, giri, note di credito, festività) + organizzazione del team -->
    <aside class="home-cal role-hide-agente" id="home-cal" aria-label="Calendario PDE">
      <div class="home-welcome"><span class="hw-txt">Benvenuto in</span><div class="hub-logo" role="img" aria-label="PDE Hub — Connetti. Accedi. Evolvi."></div></div>
      <!-- PDE AGENT AI: domande su numeri e app PDE (edge function agente-ai); per ora solo Alberto -->
@@ -2219,7 +2219,7 @@ async function showAppForUser() {
 // ── Calendario PDE della home (solo admin e responsabili) ──
 // Date operative lette dal database: lanci (calendario_lanci + titoli in lanci_settimanali),
 // giri (calendario_giri), note di credito MeLi (export del 12 e del 22) e festività nazionali.
-// Sotto, per il giorno scelto: le voci del giorno e "chi è dove" (presenze e trasferte di PDE Planning, sola lettura).
+// Sotto, per il giorno scelto: le voci del giorno e "Organizzazione del team" (presenze e trasferte di PDE Planning, sola lettura).
 const HC_CAT = {
   lanci: { nome: 'Lanci',            col: '#00b4e8' },
   giri:  { nome: 'Giri',             col: '#e8a838' },
@@ -2422,7 +2422,7 @@ async function hcDisegnaGiorno(){
     ? v.map(x => `<div class="hc-riga" style="--hc:${HC_CAT[x.cat].col}"><i></i><div><b>${hcEsc(x.tit)}</b>${x.det ? `<br><small>${hcEsc(x.det)}</small>` : ''}</div></div>`).join('')
     : '<div class="hc-vuoto">Nessuna scadenza in questo giorno.</div>';
   const err = (hc.errori || []).length ? `<div class="hc-vuoto">Non caricato: ${hcEsc(hc.errori.join(' · '))}</div>` : '';
-  side.innerHTML = `${err}<h4>${hcEsc(titolo)}</h4>${voci}<h5>Chi è dove</h5><div id="hc-pres"><div class="hc-vuoto">Caricamento…</div></div>`;
+  side.innerHTML = `${err}<h4>${hcEsc(titolo)}</h4>${voci}<h5>Organizzazione del team</h5><div id="hc-pres"><div class="hc-vuoto">Caricamento…</div></div>`;
 
   const chiave = hcIso(d);
   const dayIdx = (d.getDay() + 6) % 7;
@@ -2450,7 +2450,7 @@ async function hcDisegnaGiorno(){
     const cognome = n => { const p = n.split(/\s+/); return `${p[p.length - 1]} ${p.slice(0, -1).join(' ')}`; };
     const persone = [...perPersona.keys()].filter(Boolean).sort((a, b) => cognome(a).localeCompare(cognome(b), 'it', { sensitivity: 'base' }));
     el.innerHTML = persone.length
-      ? `<table class="hc-pres"><thead><tr><th>Persona</th><th>Dove</th></tr></thead><tbody>${persone.map(p =>
+      ? `<table class="hc-pres"><thead><tr><th>Persona</th><th>Modalità di lavoro</th></tr></thead><tbody>${persone.map(p =>
           `<tr><td>${hcEsc(cognome(p))}</td><td>${perPersona.get(p).join('<br>')}</td></tr>`).join('')}</tbody></table>`
       : `<div class="hc-vuoto">${dayIdx > 4 ? 'Fine settimana.' : 'Nessuna presenza inserita in PDE Planning per questo giorno.'}</div>`;
   } catch (e) {
